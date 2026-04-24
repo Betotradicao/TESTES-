@@ -85,6 +85,7 @@ import RhVagas from './pages/RhVagas';
 import RhTreinamentos from './pages/RhTreinamentos';
 import RhIndicadores from './pages/RhIndicadores';
 import RhMetodoDisc from './pages/RhMetodoDisc';
+import RhMetodoDiscResultados from './pages/RhMetodoDiscResultados';
 import RhPlaceholder from './pages/RhPlaceholder';
 import AcougueDesmembramento from './pages/AcougueDesmembramento';
 import AcougueCadastroRendimento from './pages/AcougueCadastroRendimento';
@@ -112,9 +113,13 @@ import MargensCategoria from './pages/MargensCategoria';
 import ModeloCurriculo from './pages/rh/ModeloCurriculo';
 import BancoCurriculos from './pages/rh/BancoCurriculos';
 import CurriculoPublico from './pages/CurriculoPublico';
+import DiscPublico from './pages/DiscPublico';
 import RhDocumentacao from './pages/RhDocumentacao';
 import RhDepartamentoPessoal from './pages/RhDepartamentoPessoal';
 import RhLancamentos from './pages/RhLancamentos';
+import RhEscala from './pages/RhEscala';
+import RhEscalaTemplate from './pages/RhEscalaTemplate';
+import RhEscalaEventos from './pages/RhEscalaEventos';
 
 function App() {
   return (
@@ -131,6 +136,7 @@ function App() {
             <Route path="/cotacao/:token" element={<CotacaoPublica />} />
             <Route path="/alerta/:token" element={<AlertaResolucao />} />
             <Route path="/curriculo" element={<CurriculoPublico />} />
+            <Route path="/disc" element={<DiscPublico />} />
 
             {/* Protected Routes */}
             <Route
@@ -653,6 +659,7 @@ function App() {
             <Route path="/rh/desligamentos" element={<ProtectedRoute><RhDesligamentos /></ProtectedRoute>} />
             <Route path="/rh/vagas" element={<ProtectedRoute><RhVagas /></ProtectedRoute>} />
             <Route path="/rh/metodo-disc" element={<ProtectedRoute><RhMetodoDisc /></ProtectedRoute>} />
+            <Route path="/rh/metodo-disc/resultados" element={<ProtectedRoute><RhMetodoDiscResultados /></ProtectedRoute>} />
             {/* Prevenção Açougue */}
             <Route path="/acougue/desmembramento" element={<ProtectedRoute><AcougueDesmembramento /></ProtectedRoute>} />
             <Route path="/acougue/cadastro-rendimento" element={<ProtectedRoute><AcougueCadastroRendimento /></ProtectedRoute>} />
@@ -673,6 +680,9 @@ function App() {
             <Route path="/rh/presenca" element={<ProtectedRoute><RhPlaceholder title="Controle de Presenca" subtitle="Presenca em treinamentos" features={['Lista de presenca', 'Frequencia por colaborador', 'Certificados automaticos']} /></ProtectedRoute>} />
             <Route path="/rh/certificados" element={<ProtectedRoute><RhPlaceholder title="Certificados" subtitle="Gestao de certificados de treinamento" features={['Emissao de certificados', 'Historico', 'Validade', 'Download PDF']} /></ProtectedRoute>} />
             <Route path="/rh/lancamentos" element={<ProtectedRoute><RhLancamentos /></ProtectedRoute>} />
+            <Route path="/rh/escala" element={<ProtectedRoute><RhEscala /></ProtectedRoute>} />
+            <Route path="/rh/escala/template/:colaboradorId" element={<ProtectedRoute><RhEscalaTemplate /></ProtectedRoute>} />
+            <Route path="/rh/escala/eventos" element={<ProtectedRoute><RhEscalaEventos /></ProtectedRoute>} />
             <Route path="/rh/folha" element={<ProtectedRoute><RhPlaceholder title="Folha de Pagamento" subtitle="Gestao da folha de pagamento" features={['Salarios', 'Beneficios', 'Descontos', 'Resumo mensal']} /></ProtectedRoute>} />
             <Route path="/rh/beneficios" element={<ProtectedRoute><RhPlaceholder title="Beneficios" subtitle="Gestao de beneficios dos colaboradores" features={['Vale transporte', 'Vale refeicao', 'Plano de saude', 'Outros beneficios']} /></ProtectedRoute>} />
             <Route path="/rh/rotatividade" element={<ProtectedRoute><RhPlaceholder title="Rotatividade (Turnover)" subtitle="Indicadores de rotatividade" features={['Taxa de turnover', 'Evolucao mensal', 'Por departamento', 'Motivos de saida']} /></ProtectedRoute>} />

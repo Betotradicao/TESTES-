@@ -6,6 +6,7 @@ import { RhAsoController } from '../controllers/rh-aso.controller';
 import { RhDpController } from '../controllers/rh-dp.controller';
 import { RhApontamentosController } from '../controllers/rh-apontamentos.controller';
 import { RhEmpresasController } from '../controllers/rh-empresas.controller';
+import { RhEscalaController } from '../controllers/rh-escala.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
@@ -164,6 +165,9 @@ router.put('/historico-alteracoes/:id', authenticateToken, RhController.atualiza
 router.delete('/historico-alteracoes/:id', authenticateToken, RhController.deletarHistoricoAlteracao);
 
 // DISC
+// Endpoint PUBLICO do DISC (sem auth) — candidato/colaborador preenche via link direto
+router.post('/disc-publico/submit', RhController.salvarDiscResultadoPublico);
+
 router.get('/disc-results', authenticateToken, RhController.listarDiscResultados);
 router.get('/disc-results/:id', authenticateToken, RhController.getDiscResultado);
 router.post('/disc-results', authenticateToken, RhController.salvarDiscResultado);
@@ -183,6 +187,7 @@ router.delete('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoContr
 
 // Apontamentos (Lancamentos Financeiros)
 router.get('/apontamentos', authenticateToken, RhApontamentosController.listar);
+router.get('/apontamentos/periodos', authenticateToken, RhApontamentosController.listarPeriodos);
 router.post('/apontamentos/batch', authenticateToken, RhApontamentosController.salvarLote);
 router.get('/apontamentos/pdf', authenticateToken, RhApontamentosController.exportarPdf);
 router.get('/apontamentos/excel', authenticateToken, RhApontamentosController.exportarExcel);
@@ -224,5 +229,38 @@ router.delete('/asos/:id', authenticateToken, RhAsoController.deletar);
 router.get('/documentacao/documentos', authenticateToken, RhDocumentacaoController.listarDocumentos);
 router.post('/documentacao/documentos', authenticateToken, uploadDoc.single('arquivo'), RhDocumentacaoController.uploadDocumento);
 router.delete('/documentacao/documentos/:id', authenticateToken, RhDocumentacaoController.deletarDocumento);
+
+// ============ Escala de Trabalho ============
+// Catalogo de turnos
+router.get('/escala/turnos', authenticateToken, RhEscalaController.listarTurnos);
+router.post('/escala/turnos', authenticateToken, RhEscalaController.criarTurno);
+router.put('/escala/turnos/:id', authenticateToken, RhEscalaController.atualizarTurno);
+router.delete('/escala/turnos/:id', authenticateToken, RhEscalaController.deletarTurno);
+
+// Cobertura minima
+router.get('/escala/cobertura', authenticateToken, RhEscalaController.listarCobertura);
+router.post('/escala/cobertura', authenticateToken, RhEscalaController.salvarCobertura);
+
+// Templates por colaborador
+router.get('/escala/templates/:colaboradorId', authenticateToken, RhEscalaController.obterTemplate);
+router.put('/escala/templates/:colaboradorId', authenticateToken, RhEscalaController.salvarTemplate);
+
+// Grid mensal
+router.get('/escala/grid', authenticateToken, RhEscalaController.obterGrid);
+router.post('/escala/celula', authenticateToken, RhEscalaController.salvarCelulaManual);
+router.delete('/escala/celula', authenticateToken, RhEscalaController.limparCelulaManual);
+
+// Eventos
+router.get('/escala/ferias', authenticateToken, RhEscalaController.listarFerias);
+router.post('/escala/ferias', authenticateToken, RhEscalaController.criarFerias);
+router.delete('/escala/ferias/:id', authenticateToken, RhEscalaController.deletarFerias);
+
+router.get('/escala/licencas', authenticateToken, RhEscalaController.listarLicencas);
+router.post('/escala/licencas', authenticateToken, RhEscalaController.criarLicenca);
+router.delete('/escala/licencas/:id', authenticateToken, RhEscalaController.deletarLicenca);
+
+router.get('/escala/excessoes', authenticateToken, RhEscalaController.listarExcessoes);
+router.post('/escala/excessoes', authenticateToken, RhEscalaController.criarExcessao);
+router.delete('/escala/excessoes/:id', authenticateToken, RhEscalaController.deletarExcessao);
 
 export default router;

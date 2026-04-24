@@ -8,6 +8,7 @@ import RadarLoading from '../components/RadarLoading';
 
 const TABS = [
   { key: 'empresas', label: 'Empresas', custom: true },
+  { key: 'turnos', label: 'Turnos', custom: true },
   { key: 'cargos', label: 'Cargos', endpoint: '/rh/configuracoes/cargos', fields: ['nome', 'descricao'] },
   { key: 'jornadas', label: 'Jornadas', endpoint: '/rh/configuracoes/jornadas', fields: ['nome', 'carga_horaria', 'descricao'] },
   { key: 'escolaridades', label: 'Escolaridades', endpoint: '/rh/configuracoes/escolaridades', fields: ['nome'] },
@@ -202,6 +203,8 @@ export default function RhConfiguracoes() {
             <FeriadosTab />
           ) : currentTab?.custom && activeTab === 'empresas' ? (
             <EmpresasTab />
+          ) : currentTab?.custom && activeTab === 'turnos' ? (
+            <TurnosTab />
           ) : (
           <div className="bg-white rounded-lg shadow">
             {/* Toolbar */}
@@ -954,6 +957,276 @@ function EmpresasTab() {
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold">Cancelar</button>
               <button onClick={salvar} disabled={salvando}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ Tab customizado: Turnos (catalogo da Escala) ============
+function TurnosTab() {
+  const [turnos, setTurnos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const TIPOS = [
+    { value: 'turno', label: '🕐 Turno de trabalho', cor: '#FEF3C7' },
+    { value: 'folga', label: '🏖️ Folga', cor: '#D1FAE5' },
+    { value: 'ferias', label: '🌴 Férias', cor: '#E9D5FF' },
+    { value: 'feriado', label: '🎉 Feriado', cor: '#FECACA' },
+    { value: 'licenca', label: '🏥 Licença/Atestado', cor: '#E5E7EB' },
+  ];
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/rh/escala/turnos');
+      setTurnos(Array.isArray(r.data) ? r.data : []);
+    } catch { toast.error('Erro ao carregar turnos'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { carregar(); }, []);
+
+  // pausa em minutos <-> "HH:MM"
+  const minutosParaHHMM = (min) => {
+    if (!min || min <= 0) return '00:00';
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+  const hhmmParaMinutos = (str) => {
+    if (!str) return 0;
+    const [h, m] = str.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  const abrirNovo = () => setModal({
+    codigo: '', nome: '', horaInicio: '', horaFim: '', totalHoras: '',
+    pausaHHMM: '00:00',
+    tipo: 'turno', cor: '#FEF3C7',
+  });
+  const abrirEdicao = (t) => setModal({
+    id: t.id, codigo: t.codigo, nome: t.nome,
+    horaInicio: t.horaInicio ? t.horaInicio.slice(0,5) : '',
+    horaFim: t.horaFim ? t.horaFim.slice(0,5) : '',
+    totalHoras: t.totalHoras != null ? String(t.totalHoras) : '',
+    pausaHHMM: minutosParaHHMM(t.pausaMinutos || 0),
+    tipo: t.tipo || 'turno',
+    cor: t.cor || '#FEF3C7',
+  });
+
+  // Calcula horas liquidas: (fim - inicio) - pausa, resultado em horas decimais
+  const calcularHoras = (ini, fim, pausaHHMM) => {
+    if (!ini || !fim) return '';
+    const [h1, m1] = ini.split(':').map(Number);
+    const [h2, m2] = fim.split(':').map(Number);
+    let min = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (min < 0) min += 24 * 60; // atravessa meia-noite
+    min -= hhmmParaMinutos(pausaHHMM || '00:00');
+    if (min < 0) min = 0;
+    return (min / 60).toFixed(2);
+  };
+
+  const salvar = async () => {
+    if (!modal.codigo?.trim() || !modal.nome?.trim()) { toast.error('Código e nome obrigatórios'); return; }
+    setSalvando(true);
+    try {
+      const payload = {
+        codigo: modal.codigo.trim().toUpperCase(),
+        nome: modal.nome.trim(),
+        horaInicio: modal.horaInicio || null,
+        horaFim: modal.horaFim || null,
+        totalHoras: modal.totalHoras ? Number(modal.totalHoras) : null,
+        pausaMinutos: hhmmParaMinutos(modal.pausaHHMM || '00:00'),
+        tipo: modal.tipo,
+        cor: modal.cor,
+      };
+      if (modal.id) await api.put(`/rh/escala/turnos/${modal.id}`, payload);
+      else await api.post('/rh/escala/turnos', payload);
+      toast.success('Turno salvo');
+      setModal(null);
+      await carregar();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Erro ao salvar');
+    } finally { setSalvando(false); }
+  };
+
+  const excluir = async (t) => {
+    if (!window.confirm(`Desativar "${t.codigo}"?`)) return;
+    try {
+      await api.delete(`/rh/escala/turnos/${t.id}`);
+      toast.success('Turno desativado');
+      await carregar();
+    } catch { toast.error('Erro ao excluir'); }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-700">Turnos da Escala</h2>
+          <p className="text-xs text-gray-500">Catálogo de códigos usados na Escala de Trabalho (TM 7:15, TT 13:00, FG, FE, etc)</p>
+        </div>
+        <button onClick={abrirNovo} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium">+ Novo Turno</button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>
+      ) : turnos.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">Nenhum turno cadastrado</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-600 text-white">
+                <th className="text-left px-4 py-3 text-sm font-medium">Preview</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Código</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Nome</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Horário</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Pausa</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Horas líq.</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Tipo</th>
+                <th className="text-right px-4 py-3 text-sm font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {turnos.map(t => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">
+                    <span className="inline-block px-3 py-1 rounded text-xs font-bold" style={{ backgroundColor: t.cor || '#E5E7EB' }}>
+                      {t.codigo}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-sm font-semibold text-gray-800">{t.codigo}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{t.nome}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600">
+                    {t.horaInicio && t.horaFim ? `${t.horaInicio.slice(0,5)} – ${t.horaFim.slice(0,5)}` : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-600">
+                    {t.pausaMinutos > 0 ? minutosParaHHMM(t.pausaMinutos) : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-700 font-semibold">{t.totalHoras ? `${t.totalHoras}h` : '—'}</td>
+                  <td className="px-4 py-2 text-xs">
+                    {TIPOS.find(x => x.value === t.tipo)?.label || t.tipo}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button onClick={() => abrirEdicao(t)} className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3">Editar</button>
+                    <button onClick={() => excluir(t)} className="text-red-600 hover:text-red-800 text-sm font-medium">Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <h3 className="font-bold text-gray-800">{modal.id ? 'Editar' : 'Novo'} Turno</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs uppercase text-gray-500 font-semibold">Código *</label>
+                  <input type="text" value={modal.codigo} onChange={e => setModal(m => ({ ...m, codigo: e.target.value.toUpperCase() }))}
+                    placeholder="TM 7:15"
+                    style={{ textTransform: 'uppercase' }}
+                    className="w-full border rounded px-3 py-2 text-sm font-semibold" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs uppercase text-gray-500 font-semibold">Nome *</label>
+                  <input type="text" value={modal.nome} onChange={e => setModal(m => ({ ...m, nome: e.target.value }))}
+                    placeholder="Turno Manhã 07:15"
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Tipo</label>
+                <select value={modal.tipo}
+                  onChange={e => {
+                    const novoTipo = e.target.value;
+                    const corPadrao = TIPOS.find(x => x.value === novoTipo)?.cor || modal.cor;
+                    setModal(m => ({ ...m, tipo: novoTipo, cor: corPadrao }));
+                  }}
+                  className="w-full border rounded px-3 py-2 text-sm">
+                  {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              {modal.tipo === 'turno' && (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs uppercase text-gray-500 font-semibold">Hora início</label>
+                      <input type="time" value={modal.horaInicio}
+                        onChange={e => {
+                          const ini = e.target.value;
+                          const horas = calcularHoras(ini, modal.horaFim, modal.pausaHHMM);
+                          setModal(m => ({ ...m, horaInicio: ini, totalHoras: horas }));
+                        }}
+                        className="w-full border rounded px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase text-gray-500 font-semibold">Hora fim</label>
+                      <input type="time" value={modal.horaFim}
+                        onChange={e => {
+                          const fim = e.target.value;
+                          const horas = calcularHoras(modal.horaInicio, fim, modal.pausaHHMM);
+                          setModal(m => ({ ...m, horaFim: fim, totalHoras: horas }));
+                        }}
+                        className="w-full border rounded px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase text-gray-500 font-semibold">Pausa obrigatória</label>
+                      <input type="time" value={modal.pausaHHMM}
+                        onChange={e => {
+                          const p = e.target.value;
+                          const horas = calcularHoras(modal.horaInicio, modal.horaFim, p);
+                          setModal(m => ({ ...m, pausaHHMM: p, totalHoras: horas }));
+                        }}
+                        className="w-full border rounded px-3 py-2 text-sm" />
+                      <p className="text-[10px] text-gray-500 mt-1">CLT: &gt;6h = 1:00 · 4-6h = 0:15</p>
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-700 font-medium">Horas líquidas (descontada a pausa):</span>
+                      <span className="font-bold text-orange-700 text-lg">{modal.totalHoras || '0.00'}h</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      Você pode editar manualmente abaixo se precisar:
+                    </p>
+                    <input type="text" inputMode="decimal" value={modal.totalHoras}
+                      onChange={e => setModal(m => ({ ...m, totalHoras: e.target.value }))}
+                      placeholder="7.33"
+                      className="mt-1 w-full border rounded px-3 py-1.5 text-sm" />
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Cor (preview abaixo)</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={modal.cor} onChange={e => setModal(m => ({ ...m, cor: e.target.value }))}
+                    className="w-12 h-9 border rounded cursor-pointer" />
+                  <input type="text" value={modal.cor} onChange={e => setModal(m => ({ ...m, cor: e.target.value }))}
+                    className="flex-1 border rounded px-3 py-2 text-sm font-mono" />
+                  <span className="inline-block px-3 py-2 rounded text-xs font-bold" style={{ backgroundColor: modal.cor }}>
+                    {modal.codigo || 'Preview'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => setModal(null)}
+                className="px-4 py-2 bg-gray-100 rounded text-sm">Cancelar</button>
+              <button onClick={salvar} disabled={salvando}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-semibold disabled:opacity-50">
                 {salvando ? 'Salvando...' : 'Salvar'}
               </button>
             </div>

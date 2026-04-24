@@ -118,6 +118,33 @@ export class RhApontamentosController {
     }
   }
 
+  /** Lista os periodos salvos (1 linha por combinacao data_inicio/data_fim/company_id) */
+  static async listarPeriodos(_req: AuthRequest, res: Response) {
+    try {
+      const rows = await AppDataSource.query(`
+        SELECT
+          a.data_inicio,
+          a.data_fim,
+          a.company_id,
+          e.apelido AS empresa_apelido,
+          e.nome_fantasia AS empresa_nome,
+          COUNT(*) AS total_colaboradores,
+          MAX(a.updated_at) AS ultima_alteracao,
+          MIN(a.created_at) AS criado_em,
+          SUM(COALESCE(c.salario, 0)) AS total_salario_bruto
+        FROM rh_apontamentos a
+        JOIN rh_colaboradores c ON c.id = a.colaborador_id
+        LEFT JOIN rh_empresas e ON e.id = a.company_id
+        GROUP BY a.data_inicio, a.data_fim, a.company_id, e.apelido, e.nome_fantasia
+        ORDER BY a.data_inicio DESC, a.data_fim DESC
+      `);
+      return res.json(rows);
+    } catch (err: any) {
+      console.error('[APONTAMENTOS] listarPeriodos:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   /** Salva/atualiza em lote os apontamentos de varios colaboradores */
   static async salvarLote(req: AuthRequest, res: Response) {
     try {

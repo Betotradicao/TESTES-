@@ -4,7 +4,7 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 
-const DISC_GROUPS = [
+export const DISC_GROUPS = [
   { id: 1, options: [
     { text: 'Determinado', profile: 'D' },
     { text: 'Entusiasmado', profile: 'I' },
@@ -349,6 +349,29 @@ export default function RhMetodoDisc() {
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Metodo DISC - Perfil Comportamental</h2>
           <p className="text-gray-500 text-sm">Avaliacao baseada na metodologia DISC de William Marston</p>
+
+          {/* Link publico para candidato responder */}
+          <div className="mt-5 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-left">
+                <div className="text-xs uppercase font-bold text-purple-700 mb-0.5">🔗 Link público pro candidato</div>
+                <div className="text-sm text-gray-700">Envie esse link por WhatsApp pra ele responder sozinho (não precisa login):</div>
+                <div className="font-mono text-xs text-purple-900 bg-white px-2 py-1 rounded border mt-1 inline-block select-all">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/disc` : '/disc'}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/disc`;
+                  navigator.clipboard.writeText(url)
+                    .then(() => toast.success('Link copiado! Cole no WhatsApp do candidato.'))
+                    .catch(() => toast.error('Não foi possível copiar — selecione e copie manualmente.'));
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold shadow">
+                📋 Copiar Link
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="bg-gray-50 rounded-lg p-6 mb-8">

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Escala de Trabalho</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .cell { font-size: 10.5px; font-weight: 600; padding: 4px 2px; text-align: center; border: 1px solid #e5e7eb; white-space: nowrap; min-width: 52px; }
+  .tm { background: #FEF3C7; color: #92400E; }
+  .tt { background: #DBEAFE; color: #1E3A8A; }
+  .tmd { background: #FCE7F3; color: #9D174D; }
+  .ttd { background: #FED7AA; color: #9A3412; }
+  .fg { background: #D1FAE5; color: #065F46; }
+  .fe { background: #E9D5FF; color: #5B21B6; }
+  .fr { background: #FECACA; color: #991B1B; }
+  .li { background: #E5E7EB; color: #374151; }
+  .tray { background: #FAFAFA; }
+  .day-sun { background: #FEF2F2; color: #991B1B; }
+  .day-holiday { background: #FEE2E2; color: #7F1D1D; font-weight: 700; }
+  .fixed-col { position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.04); }
+  .fixed-col-header { position: sticky; left: 0; background: #F9FAFB; z-index: 6; }
+</style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Sidebar mock -->
+<div class="flex min-h-screen">
+  <aside class="w-48 bg-white border-r px-3 py-4 text-sm">
+    <div class="font-bold text-orange-600 mb-4">RADAR 360</div>
+    <div class="text-xs uppercase text-gray-400 mb-2">RH no Radar</div>
+    <div class="space-y-1 text-gray-600">
+      <div>Indicadores RH</div>
+      <div>Colaboradores</div>
+      <div>Recrutamento</div>
+      <div class="pl-2 border-l-2 border-orange-500 text-orange-600 font-semibold">📅 Escala de Trabalho</div>
+      <div>Departamento Pessoal</div>
+      <div>Lançamentos</div>
+      <div>Configurações RH</div>
+    </div>
+  </aside>
+
+  <div class="flex-1">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
+      <h1 class="text-2xl font-bold">Escala de Trabalho</h1>
+      <p class="text-orange-100 text-sm">Planejamento mensal — setor Açougue · Março/2026</p>
+    </div>
+
+    <!-- Filtros + ações -->
+    <div class="bg-white border-b px-6 py-3 flex items-center gap-3 flex-wrap">
+      <div>
+        <label class="block text-[10px] uppercase text-gray-500 font-semibold">Loja</label>
+        <select class="border rounded-lg px-3 py-1.5 text-sm">
+          <option>Loja 1 — TRADIÇÃO ADM</option>
+          <option>Loja 2 — TRADIÇÃO CENTRO</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] uppercase text-gray-500 font-semibold">Setor</label>
+        <select class="border rounded-lg px-3 py-1.5 text-sm font-medium text-orange-600">
+          <option>🥩 Açougue</option>
+          <option>🍞 Padaria</option>
+          <option>💳 Frente de Caixa</option>
+          <option>🥬 HortFruti</option>
+          <option>📦 Mercearia</option>
+          <option>— Todos os setores —</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] uppercase text-gray-500 font-semibold">Mês</label>
+        <input type="month" value="2026-03" class="border rounded-lg px-3 py-1.5 text-sm">
+      </div>
+      <div class="flex-1"></div>
+      <button class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-semibold">⚡ Gerar Automático</button>
+      <button class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm">📄 PDF</button>
+      <button class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm">📊 Excel</button>
+    </div>
+
+    <!-- Cards de resumo do setor -->
+    <div class="px-6 py-3 grid grid-cols-4 gap-3">
+      <div class="bg-white rounded-lg border p-3">
+        <div class="text-[10px] uppercase text-gray-500 font-semibold">Colaboradores no setor</div>
+        <div class="text-xl font-bold text-gray-800">6</div>
+      </div>
+      <div class="bg-white rounded-lg border p-3 border-l-4 border-l-orange-500">
+        <div class="text-[10px] uppercase text-gray-500 font-semibold">Cobertura diária</div>
+        <div class="text-xl font-bold text-orange-600">92% <span class="text-xs text-gray-500">(28/30 dias OK)</span></div>
+      </div>
+      <div class="bg-white rounded-lg border p-3 border-l-4 border-l-emerald-500">
+        <div class="text-[10px] uppercase text-gray-500 font-semibold">Horas contratadas</div>
+        <div class="text-xl font-bold text-emerald-600">252h/sem</div>
+      </div>
+      <div class="bg-white rounded-lg border p-3 border-l-4 border-l-red-500">
+        <div class="text-[10px] uppercase text-gray-500 font-semibold">Conflitos</div>
+        <div class="text-xl font-bold text-red-600">2 <span class="text-xs text-gray-500">(ASO venc. + férias)</span></div>
+      </div>
+    </div>
+
+    <!-- Grid da escala -->
+    <div class="px-6 pb-6">
+      <div class="bg-white rounded-lg shadow border overflow-auto" style="max-height: 70vh;">
+        <table class="text-xs">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="fixed-col-header px-3 py-2 text-left font-semibold text-gray-700" style="min-width: 260px;">Colaborador</th>
+              <!-- dias 1-31 mar/2026 — 1 é dom -->
+              <th class="cell day-sun">1<br><span class="text-[9px] font-normal">Dom</span></th>
+              <th class="cell">2<br><span class="text-[9px] font-normal">Seg</span></th>
+              <th class="cell">3<br><span class="text-[9px] font-normal">Ter</span></th>
+              <th class="cell">4<br><span class="text-[9px] font-normal">Qua</span></th>
+              <th class="cell">5<br><span class="text-[9px] font-normal">Qui</span></th>
+              <th class="cell">6<br><span class="text-[9px] font-normal">Sex</span></th>
+              <th class="cell">7<br><span class="text-[9px] font-normal">Sáb</span></th>
+              <th class="cell day-sun">8<br><span class="text-[9px] font-normal">Dom</span></th>
+              <th class="cell">9<br><span class="text-[9px] font-normal">Seg</span></th>
+              <th class="cell">10<br><span class="text-[9px] font-normal">Ter</span></th>
+              <th class="cell">11<br><span class="text-[9px] font-normal">Qua</span></th>
+              <th class="cell">12<br><span class="text-[9px] font-normal">Qui</span></th>
+              <th class="cell">13<br><span class="text-[9px] font-normal">Sex</span></th>
+              <th class="cell">14<br><span class="text-[9px] font-normal">Sáb</span></th>
+              <th class="cell day-sun">15<br><span class="text-[9px] font-normal">Dom</span></th>
+              <th class="cell">16<br><span class="text-[9px] font-normal">Seg</span></th>
+              <th class="cell">17<br><span class="text-[9px] font-normal">Ter</span></th>
+              <th class="cell">18<br><span class="text-[9px] font-normal">Qua</span></th>
+              <th class="cell day-holiday">19<br><span class="text-[9px] font-normal">FR</span></th>
+              <th class="cell">20<br><span class="text-[9px] font-normal">Sex</span></th>
+              <th class="cell">21<br><span class="text-[9px] font-normal">Sáb</span></th>
+              <th class="cell day-sun">22<br><span class="text-[9px] font-normal">Dom</span></th>
+              <th class="cell">23<br><span class="text-[9px] font-normal">Seg</span></th>
+              <th class="cell">24<br><span class="text-[9px] font-normal">Ter</span></th>
+              <th class="cell">25<br><span class="text-[9px] font-normal">Qua</span></th>
+              <th class="cell">26<br><span class="text-[9px] font-normal">Qui</span></th>
+              <th class="cell">27<br><span class="text-[9px] font-normal">Sex</span></th>
+              <th class="cell">28<br><span class="text-[9px] font-normal">Sáb</span></th>
+              <th class="cell day-sun">29<br><span class="text-[9px] font-normal">Dom</span></th>
+              <th class="cell">30<br><span class="text-[9px] font-normal">Seg</span></th>
+              <th class="cell">31<br><span class="text-[9px] font-normal">Ter</span></th>
+              <th class="cell tray">Σ Sem 1</th>
+              <th class="cell tray">Σ Mês</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Colaborador 1: Hermeson -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs">H</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">HERMESON S. PROCEL</div>
+                    <div class="text-[10px] text-gray-500">AÇOUGUEIRO</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">7h30</span>
+                      <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">6x1</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell fr">FR</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tray font-semibold">45h</td><td class="cell tray font-semibold text-emerald-600">187h</td>
+            </tr>
+            <!-- Colaborador 2: Idalmir em férias 15-25 -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">I</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">IDALMIR DA CRUZ JESUS</div>
+                    <div class="text-[10px] text-gray-500">AÇOUGUEIRO</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">7h30</span>
+                      <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">6x1</span>
+                      <span class="text-[9px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-semibold">FÉRIAS 15-25</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td>
+              <td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell fe">FE</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tray font-semibold">45h</td><td class="cell tray font-semibold text-emerald-600">120h</td>
+            </tr>
+            <!-- Colaborador 3: Juliano — aux açougue -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs">J</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">JULIANO DUARTE CRUZ</div>
+                    <div class="text-[10px] text-gray-500">AUXILIAR DE AÇOUGUE</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">7h30</span>
+                      <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">6x1</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell tm">TM 7:15</td><td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tm">TM 7:15</td><td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tm">TM 7:15</td><td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell fr">FR</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tm">TM 7:15</td><td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tm">TM 7:15</td><td class="cell fg">FG</td><td class="cell tm">TM 7:15</td>
+              <td class="cell tray font-semibold">45h</td><td class="cell tray font-semibold text-emerald-600">195h</td>
+            </tr>
+            <!-- Colaborador 4: Luiz c/ ASO vencido (alerta) -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">L</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">LUIZ F. DE OLIVEIRA SILVA</div>
+                    <div class="text-[10px] text-gray-500">AUXILIAR DE AÇOUGUE</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">6h15</span>
+                      <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">6x1</span>
+                      <span class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold" title="ASO vence em 05/03">⚠️ ASO vence 05/03</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell fr">FR</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tt">TT 13:00</td><td class="cell tt">TT 13:00</td><td class="cell fg">FG</td>
+              <td class="cell tray font-semibold">37h30</td><td class="cell tray font-semibold text-emerald-600">162h30</td>
+            </tr>
+            <!-- Colaborador 5: Matheus c/ atestado -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center font-bold text-xs">M</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">MATHEUS H. M. SANTOS</div>
+                    <div class="text-[10px] text-gray-500">AUXILIAR DE AÇOUGUE</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">7h30</span>
+                      <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">6x1</span>
+                      <span class="text-[9px] bg-gray-300 text-gray-800 px-1.5 py-0.5 rounded font-semibold">ATESTADO 9-11</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell fg">FG</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td>
+              <td class="cell tm">TM 9:00</td><td class="cell li" title="Atestado médico">LI</td><td class="cell li" title="Atestado médico">LI</td><td class="cell li" title="Atestado médico">LI</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td>
+              <td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell fg">FG</td><td class="cell fr">FR</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td>
+              <td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell fg">FG</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td>
+              <td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td><td class="cell tm">TM 9:00</td>
+              <td class="cell tray font-semibold">37h30</td><td class="cell tray font-semibold text-emerald-600">180h</td>
+            </tr>
+            <!-- Colaborador 6: Nelson folguista -->
+            <tr class="hover:bg-orange-50/30">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs">N</div>
+                  <div>
+                    <div class="font-semibold text-gray-800">NELSON F. DE MORAES</div>
+                    <div class="text-[10px] text-gray-500">FOLGUISTA (AÇOUGUE)</div>
+                    <div class="flex gap-1 mt-0.5">
+                      <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">7h30</span>
+                      <span class="text-[9px] bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded font-semibold">FOLGUISTA</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell fr">FR</td><td class="cell tmd">TMD 11</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell fg">FG</td><td class="cell tt">TT 13:00</td><td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell tt">TT 13:00</td>
+              <td class="cell tm">TM 7:15</td><td class="cell tmd">TMD 11</td><td class="cell fg">FG</td>
+              <td class="cell tray font-semibold">45h</td><td class="cell tray font-semibold text-emerald-600">195h</td>
+            </tr>
+
+            <!-- Separador -->
+            <tr><td colspan="34" class="bg-gray-100 h-1"></td></tr>
+
+            <!-- Rodapé cobertura por turno -->
+            <tr class="bg-amber-50">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="font-semibold text-xs text-gray-700">Cobertura · TM 7:15</div>
+                <div class="text-[10px] text-gray-500">mínimo: seg 2 · ter 3 · qua 2 · qui 2 · sex 2 · sáb 2</div>
+              </td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td>
+              <td class="cell tray"></td><td class="cell tray"></td>
+            </tr>
+            <tr class="bg-blue-50">
+              <td class="fixed-col px-3 py-2 border-b">
+                <div class="font-semibold text-xs text-gray-700">Cobertura · TT 13:00</div>
+                <div class="text-[10px] text-gray-500">mínimo: seg 3 · ter 2 · qua 2 · qui 2 · sex 3 · sáb 2</div>
+              </td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">3/3 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">3/3 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">3/3 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell">0/0</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">3/3 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td><td class="cell text-red-600 font-bold">2/3 ✗</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell">0/0</td><td class="cell text-emerald-700 font-bold">3/3 ✓</td><td class="cell text-emerald-700 font-bold">2/2 ✓</td>
+              <td class="cell tray"></td><td class="cell tray"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Legenda -->
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="cell tm px-3 py-1 rounded">TM = Turno Manhã</span>
+        <span class="cell tt px-3 py-1 rounded">TT = Turno Tarde</span>
+        <span class="cell tmd px-3 py-1 rounded">TMD = Misto</span>
+        <span class="cell ttd px-3 py-1 rounded">TTD = Tarde Reduzido</span>
+        <span class="cell fg px-3 py-1 rounded">FG = Folga</span>
+        <span class="cell fe px-3 py-1 rounded">FE = Férias</span>
+        <span class="cell fr px-3 py-1 rounded">FR = Feriado</span>
+        <span class="cell li px-3 py-1 rounded">LI = Licença / Atestado</span>
+      </div>
+
+      <!-- Alertas -->
+      <div class="mt-4 bg-white rounded-lg border shadow-sm p-4">
+        <h3 class="font-semibold text-gray-800 mb-2">⚠️ Alertas do mês</h3>
+        <ul class="text-sm space-y-1.5">
+          <li class="flex items-start gap-2"><span class="text-red-600 font-bold">✗</span><span><strong>Cobertura TM 7:15 nas terças</strong> — precisa de 3, só temos 2 escalados (Hermeson + Juliano). Sugestão: reforçar com folguista Nelson nas terças.</span></li>
+          <li class="flex items-start gap-2"><span class="text-red-600 font-bold">✗</span><span><strong>Cobertura TT 13:00 nas sextas</strong> — precisa de 3, só temos 2 (Idalmir + Luiz).</span></li>
+          <li class="flex items-start gap-2"><span class="text-amber-600 font-bold">⚠</span><span><strong>ASO do Luiz F. de Oliveira vence em 05/03</strong> — agendar exame periódico até lá.</span></li>
+          <li class="flex items-start gap-2"><span class="text-purple-600 font-bold">📅</span><span><strong>Idalmir em férias de 15 a 25/03</strong> — 11 dias sem atendimento de TT nesse intervalo cobertos pelos demais.</span></li>
+          <li class="flex items-start gap-2"><span class="text-gray-600 font-bold">🏥</span><span><strong>Matheus com atestado médico 9 a 11/03</strong> — 3 dias.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Segunda tela: Template do colaborador -->
+    <div class="px-6 pb-6">
+      <div class="bg-white rounded-lg shadow border p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-800">Template Semanal · HERMESON S. PROCEL</h2>
+            <p class="text-xs text-gray-500">Define a rotação que se repete automaticamente mês a mês</p>
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-2 bg-gray-100 rounded-lg text-sm">Copiar de outro colab</button>
+            <button class="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-semibold">Salvar Template</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div>
+            <label class="block text-[10px] uppercase text-gray-500 font-semibold">Tipo de rotação</label>
+            <select class="w-full border rounded-lg px-3 py-1.5 text-sm">
+              <option>6x1 (6 dias trabalho, 1 folga)</option>
+              <option>5x2 (seg a sex, sáb+dom folga)</option>
+              <option>1x1 Domingo (domingos alternados)</option>
+              <option>2x1 Domingo (2 dom trabalha, 1 folga)</option>
+              <option>Folguista</option>
+              <option>Livre</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-gray-500 font-semibold">Jornada contratada</label>
+            <div class="border rounded-lg px-3 py-1.5 text-sm bg-gray-50">7h30 · vem de rh_jornadas</div>
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-gray-500 font-semibold">Folga preferida</label>
+            <select class="w-full border rounded-lg px-3 py-1.5 text-sm">
+              <option>Domingo (1º do mês)</option>
+              <option>Domingo (2º do mês)</option>
+              <option>Quarta-feira</option>
+              <option>Qualquer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="border rounded-lg overflow-hidden">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-3 py-2 text-left">Semana</th>
+                <th class="px-3 py-2 text-center day-sun">Dom</th>
+                <th class="px-3 py-2 text-center">Seg</th>
+                <th class="px-3 py-2 text-center">Ter</th>
+                <th class="px-3 py-2 text-center">Qua</th>
+                <th class="px-3 py-2 text-center">Qui</th>
+                <th class="px-3 py-2 text-center">Sex</th>
+                <th class="px-3 py-2 text-center">Sáb</th>
+                <th class="px-3 py-2 text-right tray">Σ Horas</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="px-3 py-2 font-semibold">Semana ímpar (1, 3, 5)</td>
+                <td class="cell fg">FG</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td>
+                <td class="cell tray text-emerald-700 font-bold">45h00 / 44h ⚠</td>
+              </tr>
+              <tr>
+                <td class="px-3 py-2 font-semibold">Semana par (2, 4)</td>
+                <td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell tm">TM 7:15</td><td class="cell fg">FG</td>
+                <td class="cell tray text-emerald-700 font-bold">45h00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-3 text-xs text-gray-600">
+          💡 Esse template é aplicado automaticamente todo mês. Férias/licenças/excessões sobrescrevem quando existem.
+        </div>
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 pb-6">Mockup — Escala de Trabalho · Radar 360 RH</p>
+  </div>
+</div>
+
+</body>
+</html>

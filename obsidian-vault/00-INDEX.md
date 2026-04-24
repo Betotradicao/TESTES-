@@ -52,6 +52,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ### RH no Radar
 - [[modulos/rh|RH (Recursos Humanos) — reformulado abril/2026]]
 - [[modulos/lgpd-compliance|⚖️ LGPD Compliance — plano pendente]]
+- [[modulos/rh-escala-planejamento|📅 Escala de Trabalho — especificação pronta pra codar]]
 
 ### Outros
 - [[modulos/metas-rankings|Metas e Rankings]]

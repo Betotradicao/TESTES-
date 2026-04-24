@@ -128,9 +128,15 @@ export class RhEmpresasController {
       const e = await repo().findOne({ where: { id } });
       if (!e) return res.status(404).json({ error: 'Empresa nao encontrada' });
       if (e.isPrincipal) return res.status(400).json({ error: 'Nao e possivel excluir a matriz' });
-      // Soft-delete para preservar FK
-      e.active = false;
-      await repo().save(e);
+      // Verifica se algum colaborador ativo ainda aponta pra essa empresa
+      const emUso = await AppDataSource.query(
+        `SELECT COUNT(*)::int as n FROM rh_colaboradores WHERE company_id = $1::uuid AND status = 'ativo'`,
+        [id]
+      );
+      if (emUso?.[0]?.n > 0) {
+        return res.status(400).json({ error: `Existem ${emUso[0].n} colaborador(es) ativos vinculados a esta empresa. Transfira antes de excluir.` });
+      }
+      await repo().delete({ id });
       res.json({ success: true });
     } catch (e: any) {
       console.error('[RhEmpresas] deletar:', e);

@@ -992,7 +992,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'rh-vagas', submenuId: 'rh-vagas', title: 'VAGAS ABERTAS', path: '/rh/vagas' },
             { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' },
-            { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'METODO DISC', path: '/rh/metodo-disc' },
+            { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'MÉTODO DISC', path: '/rh/metodo-disc' },
+            { id: 'rh-metodo-disc-resultados', submenuId: 'rh-metodo-disc-resultados', title: '↳ RESULTADOS DISC', path: '/rh/metodo-disc/resultados' },
             { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
             { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' }
           ]
@@ -1029,6 +1030,17 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'rh-lancamentos', submenuId: 'rh-lancamentos', title: 'LANÇAMENTOS', path: '/rh/lancamentos' },
             { id: 'rh-folha', submenuId: 'rh-folha', title: 'FOLHA DE PAGAMENTO', path: '/rh/folha' }
+          ]
+        },
+        {
+          id: 'rh-escala',
+          moduleId: 'rh-escala',
+          title: 'ESCALA DE TRABALHO',
+          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>),
+          expandable: true,
+          subItems: [
+            { id: 'rh-escala-grid', submenuId: 'rh-escala-grid', title: 'GRID MENSAL', path: '/rh/escala' },
+            { id: 'rh-escala-eventos', submenuId: 'rh-escala-eventos', title: 'FÉRIAS / LICENÇAS', path: '/rh/escala/eventos' }
           ]
         },
         {

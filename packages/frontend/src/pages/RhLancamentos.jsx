@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { api } from '../utils/api';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +37,11 @@ export default function RhLancamentos() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [aba, setAba] = useState('apontar'); // 'apontar' | 'salvos'
+  const [periodos, setPeriodos] = useState([]);
+  const [loadingPeriodos, setLoadingPeriodos] = useState(false);
+  const [selecaoPeriodo, setSelecaoPeriodo] = useState(null);
+
   const [empresas, setEmpresas] = useState([]);
   const [companyId, setCompanyId] = useState('');
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -68,6 +73,28 @@ export default function RhLancamentos() {
       const r = await api.get('/rh/apontamentos/campos');
       setCamposExtras(Array.isArray(r.data) ? r.data : []);
     } catch { setCamposExtras([]); }
+  };
+
+  const carregarPeriodos = async () => {
+    setLoadingPeriodos(true);
+    try {
+      const r = await api.get('/rh/apontamentos/periodos');
+      setPeriodos(Array.isArray(r.data) ? r.data : []);
+    } catch { toast.error('Erro ao carregar periodos salvos'); }
+    finally { setLoadingPeriodos(false); }
+  };
+
+  useEffect(() => {
+    if (aba === 'salvos') carregarPeriodos();
+  }, [aba]);
+
+  const editarPeriodo = async (p) => {
+    setDataInicio(p.data_inicio);
+    setDataFim(p.data_fim);
+    setCompanyId(p.company_id || '');
+    setAba('apontar');
+    // pequeno delay pra garantir que os estados aplicaram
+    setTimeout(() => carregar(), 100);
   };
 
   const criarColuna = async () => {
@@ -160,11 +187,11 @@ export default function RhLancamentos() {
     } catch { toast.error('Erro ao exportar'); }
   };
 
-  // Totais por colaborador (inclui extras)
+  // Totais por colaborador — soma R$ dos campos _valor (qtd nao entra no dinheiro)
   const totais = (r) => {
-    const prov = PROVENTOS.reduce((s, c) => s + (Number(r[c.key]) || 0), 0)
+    const prov = PROVENTOS.reduce((s, c) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0)
       + extrasProventos.reduce((s, c) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0);
-    const desc = DESCONTOS.reduce((s, c) => s + (Number(r[c.key]) || 0), 0)
+    const desc = DESCONTOS.reduce((s, c) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0)
       + extrasDescontos.reduce((s, c) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0);
     const sal = Number(r.salario) || 0;
     return { prov, desc, liq: sal + prov - desc };
@@ -182,7 +209,94 @@ export default function RhLancamentos() {
           <p className="text-orange-100 text-sm">Apontamento de folha de pagamento por período</p>
         </div>
 
-        {/* Filtros */}
+        {/* Abas */}
+        <div className="bg-white border-b border-gray-200 px-4">
+          <div className="flex gap-1">
+            <button onClick={() => setAba('apontar')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition ${aba === 'apontar' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              📝 Apontamento
+            </button>
+            <button onClick={() => setAba('salvos')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition ${aba === 'salvos' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              💾 Lançamentos Salvos {periodos.length > 0 && <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">{periodos.length}</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* Tela de Lancamentos Salvos */}
+        {aba === 'salvos' && (
+          <div className="flex-1 overflow-auto p-4">
+            <div className="bg-white rounded-lg shadow border">
+              <div className="flex items-center justify-between px-4 py-3 border-b">
+                <div>
+                  <h2 className="font-bold text-gray-800">Lançamentos Salvos</h2>
+                  <p className="text-xs text-gray-500">Uma linha por período — clica + Editar pra abrir e continuar</p>
+                </div>
+                <div className="flex gap-2">
+                  {selecaoPeriodo && (
+                    <button onClick={() => editarPeriodo(selecaoPeriodo)}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold">
+                      ✏️ Editar período selecionado
+                    </button>
+                  )}
+                  <button onClick={carregarPeriodos} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">↻ Recarregar</button>
+                </div>
+              </div>
+              {loadingPeriodos ? (
+                <div className="text-center py-10 text-gray-400">Carregando...</div>
+              ) : periodos.length === 0 ? (
+                <div className="text-center py-16 text-gray-400">
+                  <div className="text-4xl mb-2">📋</div>
+                  <p className="font-semibold">Nenhum lançamento salvo ainda</p>
+                  <p className="text-xs mt-1">Volta na aba Apontamento, preenche e clica em Gravar.</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-600 text-white">
+                    <tr>
+                      <th className="text-left px-4 py-2 w-10"></th>
+                      <th className="text-left px-4 py-2">Período</th>
+                      <th className="text-left px-4 py-2">Empresa</th>
+                      <th className="text-center px-4 py-2">Colaboradores</th>
+                      <th className="text-right px-4 py-2">Total Salários</th>
+                      <th className="text-left px-4 py-2">Última alteração</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {periodos.map(p => {
+                      const chave = `${p.data_inicio}|${p.data_fim}|${p.company_id || ''}`;
+                      const selected = selecaoPeriodo && `${selecaoPeriodo.data_inicio}|${selecaoPeriodo.data_fim}|${selecaoPeriodo.company_id || ''}` === chave;
+                      return (
+                        <tr key={chave}
+                            onClick={() => setSelecaoPeriodo(p)}
+                            onDoubleClick={() => editarPeriodo(p)}
+                            className={`cursor-pointer ${selected ? 'bg-orange-100' : 'hover:bg-orange-50'}`}>
+                          <td className="px-4 py-2">
+                            <input type="radio" checked={!!selected} onChange={() => setSelecaoPeriodo(p)} />
+                          </td>
+                          <td className="px-4 py-2 font-semibold">
+                            {new Date(p.data_inicio + 'T00:00').toLocaleDateString('pt-BR')} → {new Date(p.data_fim + 'T00:00').toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="px-4 py-2 text-gray-700">
+                            {p.empresa_apelido || p.empresa_nome || <span className="text-gray-400">— Todas —</span>}
+                          </td>
+                          <td className="px-4 py-2 text-center">{p.total_colaboradores}</td>
+                          <td className="px-4 py-2 text-right font-semibold text-emerald-700">{fmtMoney(p.total_salario_bruto)}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">
+                            {p.ultima_alteracao ? new Date(p.ultima_alteracao).toLocaleString('pt-BR') : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Filtros — só quando na aba Apontamento */}
+        {aba === 'apontar' && (
         <div className="bg-white border-b border-gray-200 p-3 md:p-4">
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
             <div className="col-span-2">
@@ -232,8 +346,10 @@ export default function RhLancamentos() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Tabela */}
+        {/* Tabela — só quando na aba Apontamento */}
+        {aba === 'apontar' && (
         <div className="flex-1 overflow-auto p-3 md:p-4">
           {rows.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
@@ -245,33 +361,47 @@ export default function RhLancamentos() {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="bg-gray-600 text-white">
-                    <th className="px-2 py-2 text-left sticky left-0 bg-gray-600 z-10 min-w-[180px]">Colaborador</th>
-                    <th className="px-2 py-2 text-left">Cargo</th>
-                    <th className="px-2 py-2 text-right">Salário</th>
+                    <th className="px-2 py-2 text-left sticky left-0 bg-gray-600 z-10 min-w-[180px]" rowSpan={2}>Colaborador</th>
+                    <th className="px-2 py-2 text-left" rowSpan={2}>Cargo</th>
+                    <th className="px-2 py-2 text-right" rowSpan={2}>Salário</th>
                     {PROVENTOS.map(c => (
-                      <th key={c.key} className="px-2 py-2 text-center bg-emerald-700 min-w-[80px]" title={c.label}>
+                      <th key={c.key} colSpan={2} className="px-2 py-1 text-center bg-emerald-700 border-l border-emerald-600" title={c.label}>
                         {c.label}
                       </th>
                     ))}
                     {extrasProventos.map(c => (
-                      <th key={c.chave} className="px-2 py-2 text-center bg-emerald-800 min-w-[80px] relative group" title={c.label}>
+                      <th key={c.chave} className="px-2 py-2 text-center bg-emerald-800 min-w-[80px] relative group" title={c.label} rowSpan={2}>
                         {c.label}
                         <button onClick={() => deletarColuna(c.id)} className="absolute top-0 right-0 text-[10px] px-1 opacity-0 group-hover:opacity-100 hover:text-red-200" title="Remover">✖</button>
                       </th>
                     ))}
                     {DESCONTOS.map(c => (
-                      <th key={c.key} className="px-2 py-2 text-center bg-rose-700 min-w-[80px]" title={c.label}>
+                      <th key={c.key} colSpan={2} className="px-2 py-1 text-center bg-rose-700 border-l border-rose-600" title={c.label}>
                         {c.label}
                       </th>
                     ))}
                     {extrasDescontos.map(c => (
-                      <th key={c.chave} className="px-2 py-2 text-center bg-rose-800 min-w-[80px] relative group" title={c.label}>
+                      <th key={c.chave} className="px-2 py-2 text-center bg-rose-800 min-w-[80px] relative group" title={c.label} rowSpan={2}>
                         {c.label}
                         <button onClick={() => deletarColuna(c.id)} className="absolute top-0 right-0 text-[10px] px-1 opacity-0 group-hover:opacity-100 hover:text-rose-200" title="Remover">✖</button>
                       </th>
                     ))}
-                    <th className="px-2 py-2 text-right bg-blue-700">Líquido</th>
-                    <th className="px-2 py-2 text-left min-w-[150px]">Obs</th>
+                    <th className="px-2 py-2 text-right bg-blue-700" rowSpan={2}>Líquido</th>
+                    <th className="px-2 py-2 text-left min-w-[150px]" rowSpan={2}>Obs</th>
+                  </tr>
+                  <tr className="bg-gray-500 text-white text-[10px]">
+                    {PROVENTOS.map(c => (
+                      <Fragment key={c.key}>
+                        <th className="px-1 py-1 text-center bg-emerald-600 min-w-[60px] font-normal">QTD</th>
+                        <th className="px-1 py-1 text-center bg-emerald-500 min-w-[70px] font-bold">R$</th>
+                      </Fragment>
+                    ))}
+                    {DESCONTOS.map(c => (
+                      <Fragment key={c.key}>
+                        <th className="px-1 py-1 text-center bg-rose-600 min-w-[60px] font-normal">QTD</th>
+                        <th className="px-1 py-1 text-center bg-rose-500 min-w-[70px] font-bold">R$</th>
+                      </Fragment>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -286,12 +416,20 @@ export default function RhLancamentos() {
                         <td className="px-2 py-1 text-gray-600">{r.cargo_nome || '-'}</td>
                         <td className="px-2 py-1 text-right font-semibold text-gray-700">{fmtMoney(r.salario)}</td>
                         {PROVENTOS.map(c => (
-                          <td key={c.key} className="px-1 py-1 bg-emerald-50/30">
-                            <input type="text" inputMode="decimal" value={r[c.key] || ''}
-                              onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
-                              className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                              placeholder="0" />
-                          </td>
+                          <Fragment key={c.key}>
+                            <td className="px-1 py-1 bg-emerald-50/30 border-l border-emerald-200">
+                              <input type="text" inputMode="decimal" value={r[c.key] || ''}
+                                onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
+                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
+                                placeholder="0" />
+                            </td>
+                            <td className="px-1 py-1 bg-emerald-100/40">
+                              <input type="text" inputMode="decimal" value={r.campos_extras?.[`${c.key}_valor`] || ''}
+                                onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
+                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none font-semibold text-emerald-800"
+                                placeholder="R$ 0,00" />
+                            </td>
+                          </Fragment>
                         ))}
                         {extrasProventos.map(c => (
                           <td key={c.chave} className="px-1 py-1 bg-emerald-100/30">
@@ -302,12 +440,20 @@ export default function RhLancamentos() {
                           </td>
                         ))}
                         {DESCONTOS.map(c => (
-                          <td key={c.key} className="px-1 py-1 bg-rose-50/30">
-                            <input type="text" inputMode="decimal" value={r[c.key] || ''}
-                              onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
-                              className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                              placeholder="0" />
-                          </td>
+                          <Fragment key={c.key}>
+                            <td className="px-1 py-1 bg-rose-50/30 border-l border-rose-200">
+                              <input type="text" inputMode="decimal" value={r[c.key] || ''}
+                                onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
+                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
+                                placeholder="0" />
+                            </td>
+                            <td className="px-1 py-1 bg-rose-100/40">
+                              <input type="text" inputMode="decimal" value={r.campos_extras?.[`${c.key}_valor`] || ''}
+                                onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
+                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none font-semibold text-rose-800"
+                                placeholder="R$ 0,00" />
+                            </td>
+                          </Fragment>
                         ))}
                         {extrasDescontos.map(c => (
                           <td key={c.chave} className="px-1 py-1 bg-rose-100/30">
@@ -333,23 +479,33 @@ export default function RhLancamentos() {
                   <tr className="bg-gray-100 font-bold text-xs">
                     <td colSpan={3} className="px-2 py-2 text-right">TOTAIS:</td>
                     {PROVENTOS.map(c => (
-                      <td key={c.key} className="px-2 py-2 text-right bg-emerald-50">
-                        {rows.reduce((s, r) => s + (Number(r[c.key]) || 0), 0).toFixed(2)}
-                      </td>
+                      <Fragment key={c.key}>
+                        <td className="px-2 py-2 text-right bg-emerald-50">
+                          {rows.reduce((s, r) => s + (Number(r[c.key]) || 0), 0).toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-right bg-emerald-100 text-emerald-800">
+                          {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0))}
+                        </td>
+                      </Fragment>
                     ))}
                     {extrasProventos.map(c => (
                       <td key={c.chave} className="px-2 py-2 text-right bg-emerald-100">
-                        {rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0).toFixed(2)}
+                        {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0))}
                       </td>
                     ))}
                     {DESCONTOS.map(c => (
-                      <td key={c.key} className="px-2 py-2 text-right bg-rose-50">
-                        {rows.reduce((s, r) => s + (Number(r[c.key]) || 0), 0).toFixed(2)}
-                      </td>
+                      <Fragment key={c.key}>
+                        <td className="px-2 py-2 text-right bg-rose-50">
+                          {rows.reduce((s, r) => s + (Number(r[c.key]) || 0), 0).toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-right bg-rose-100 text-rose-800">
+                          {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0))}
+                        </td>
+                      </Fragment>
                     ))}
                     {extrasDescontos.map(c => (
                       <td key={c.chave} className="px-2 py-2 text-right bg-rose-100">
-                        {rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0).toFixed(2)}
+                        {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0))}
                       </td>
                     ))}
                     <td className="px-2 py-2 text-right bg-blue-100">
@@ -362,6 +518,7 @@ export default function RhLancamentos() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Modal Nova Coluna */}

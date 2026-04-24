@@ -8,7 +8,7 @@ export default function RhPlaceholder({ title, subtitle, features }) {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
