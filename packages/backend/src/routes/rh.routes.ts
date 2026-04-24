@@ -198,6 +198,7 @@ router.get('/apontamentos/periodos', authenticateToken, RhApontamentosController
 
 // Folha de Pagamento - resumo anual (pivot mes x lancamento)
 router.get('/folha/resumo-anual', authenticateToken, RhFolhaController.resumoAnual);
+router.get('/folha/holerite', authenticateToken, RhFolhaController.holerite);
 router.post('/apontamentos/periodos/deletar', authenticateToken, RhApontamentosController.deletarPeriodo);
 router.post('/apontamentos/batch', authenticateToken, RhApontamentosController.salvarLote);
 router.get('/apontamentos/pdf', authenticateToken, RhApontamentosController.exportarPdf);

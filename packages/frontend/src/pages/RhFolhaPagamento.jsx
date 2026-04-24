@@ -51,14 +51,16 @@ export default function RhFolhaPagamento() {
   useEffect(() => {
     (async () => {
       try {
-        const [r1, r2] = await Promise.all([
-          api.get('/rh/empresas/stores/list'),
-          api.get('/rh/colaboradores?status=ativo&limit=500'),
-        ]);
+        const r1 = await api.get('/rh/empresas/stores/list');
         setEmpresas(Array.isArray(r1.data) ? r1.data : []);
-        const list = r2.data?.data || r2.data || [];
+      } catch (e) { console.error('empresas:', e); }
+      try {
+        const r2 = await api.get('/rh/colaboradores?status=ativo&limit=500');
+        const list = Array.isArray(r2.data?.data) ? r2.data.data
+          : Array.isArray(r2.data) ? r2.data
+          : (r2.data?.colaboradores || []);
         setColaboradores(Array.isArray(list) ? list : []);
-      } catch { /* ignore */ }
+      } catch (e) { console.error('colaboradores:', e); }
     })();
   }, []);
 
@@ -80,6 +82,34 @@ export default function RhFolhaPagamento() {
 
   useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [ano, base, tipo, lancamento, empresaId, colaboradorId]);
 
+  // Lista de meses do ano com algum lancamento (pra escolher qual gerar holerite)
+  const mesesComDado = (resumo?.totaisProv || []).map((p, i) => ({
+    idx: i + 1,
+    label: MESES_LABEL[i],
+    temDado: p > 0 || (resumo?.totaisDesc?.[i] || 0) > 0,
+  }));
+
+  const [showHolerite, setShowHolerite] = useState(false);
+  const [mesHolerite, setMesHolerite] = useState('');
+
+  const baixarHolerite = async () => {
+    if (!colaboradorId) { toast.error('Selecione um colaborador primeiro'); return; }
+    if (!mesHolerite) { toast.error('Selecione o mês'); return; }
+    try {
+      const competencia = `${ano}-${String(mesHolerite).padStart(2, '0')}`;
+      const r = await api.get(`/rh/folha/holerite?colaborador_id=${colaboradorId}&competencia=${competencia}`, { responseType: 'blob' });
+      const blob = new Blob([r.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const colNome = colaboradores.find(c => String(c.id) === String(colaboradorId))?.nome || 'colab';
+      a.download = `holerite_${colNome.replace(/\s/g, '_')}_${competencia}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      setShowHolerite(false);
+    } catch { toast.error('Erro ao gerar holerite'); }
+  };
+
   const proventos = resumo?.linhas.filter(l => l.tipo === 'provento') || [];
   const descontos = resumo?.linhas.filter(l => l.tipo === 'desconto') || [];
 
@@ -96,9 +126,20 @@ export default function RhFolhaPagamento() {
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
 
       <div className="flex-1 overflow-y-auto">
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
-          <h1 className="text-2xl font-bold">Folha de Pagamento</h1>
-          <p className="text-orange-100 text-sm">Visão anual — proventos e descontos por mês</p>
+        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Folha de Pagamento</h1>
+            <p className="text-orange-100 text-sm">Visão anual — proventos e descontos por mês</p>
+          </div>
+          <button
+            onClick={() => {
+              if (!colaboradorId) { toast.error('Selecione um colaborador no filtro pra gerar holerite'); return; }
+              setShowHolerite(true);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-bold ${colaboradorId ? 'bg-white text-orange-700 hover:bg-orange-50' : 'bg-white/30 text-white cursor-not-allowed'}`}
+            title={colaboradorId ? 'Gerar holerite (PDF com 2 vias)' : 'Selecione um colaborador primeiro'}>
+            🧾 Gerar Holerite
+          </button>
         </div>
 
         {/* Filtros */}
@@ -257,6 +298,52 @@ export default function RhFolhaPagamento() {
           )}
         </div>
       </div>
+
+      {/* Modal Holerite */}
+      {showHolerite && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHolerite(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <h3 className="font-bold text-gray-800 text-lg">🧾 Gerar Holerite</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Colaborador: <strong>{colaboradores.find(c => String(c.id) === String(colaboradorId))?.nome}</strong>
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Mês de competência ({ano})</label>
+                <div className="grid grid-cols-4 gap-2 mt-1">
+                  {mesesComDado.map(m => (
+                    <button key={m.idx}
+                      onClick={() => setMesHolerite(m.idx)}
+                      className={`px-2 py-2 rounded text-sm font-semibold border transition ${
+                        mesHolerite === m.idx
+                          ? 'bg-orange-500 text-white border-orange-600'
+                          : m.temDado
+                            ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                            : 'bg-gray-100 text-gray-400 border-gray-200'
+                      }`}>
+                      {m.label}
+                      {m.temDado && <span className="block text-[9px] opacity-70">tem dados</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
+                💡 O PDF vai ter <strong>2 vias idênticas</strong> (1ª empresa, 2ª empregado), prontas pra imprimir e destacar pela linha pontilhada.
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => setShowHolerite(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-semibold">Cancelar</button>
+              <button onClick={baixarHolerite} disabled={!mesHolerite}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded text-sm font-bold">
+                📄 Baixar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
