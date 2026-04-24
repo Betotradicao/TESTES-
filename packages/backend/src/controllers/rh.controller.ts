@@ -125,7 +125,7 @@ export class RhController {
         nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
-        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escolaridade_id, regime_trabalho_id,
+        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -161,7 +161,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
-          company_id, escala_id, beneficios_ids
+          company_id, escala_id, escala_domingo_id, beneficios_ids
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
           $9, $10, $11, $12,
@@ -174,7 +174,7 @@ export class RhController {
           $44, $45,
           $46, $47, $48, $49, $50,
           $51, $52, $53,
-          $54, $55, $56
+          $54, $55, $56, $57
         ) RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
@@ -188,7 +188,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
-          nn(company_id), nnum(escala_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
+          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
         ]
       );
 
@@ -209,7 +209,7 @@ export class RhController {
         nome, cpf, rg, data_nascimento, sexo, estado_civil, nacionalidade, naturalidade,
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
-        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escolaridade_id, regime_trabalho_id,
+        matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -241,9 +241,9 @@ export class RhController {
           nome_mae = $44, nome_pai = $45,
           observacoes = $46, filtro1 = $47, filtro2 = $48, filtro3 = $49, foto_url = $50,
           tipo_desligamento_id = $51, motivo_desligamento_id = $52, observacoes_desligamento = $53,
-          company_id = $54, escala_id = $55, beneficios_ids = $56,
+          company_id = $54, escala_id = $55, escala_domingo_id = $56, beneficios_ids = $57,
           updated_at = NOW()
-        WHERE id = $57
+        WHERE id = $58
         RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
@@ -257,7 +257,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
-          nn(company_id), nnum(escala_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
+          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
           id,
         ]
       );
@@ -438,6 +438,20 @@ export class RhController {
   }
   static async deletarEscala(req: AuthRequest, res: Response) {
     return RhController.deletarConfig(req, res, 'rh_escalas');
+  }
+
+  // --- Escalas Especiais de Domingo (1x1, 2x1, etc) ---
+  static async listarEscalasDomingo(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_escalas_domingo');
+  }
+  static async criarEscalaDomingo(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_escalas_domingo', ['nome', 'descricao']);
+  }
+  static async atualizarEscalaDomingo(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_escalas_domingo', ['nome', 'descricao']);
+  }
+  static async deletarEscalaDomingo(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_escalas_domingo');
   }
 
   // --- Regimes de Trabalho ---

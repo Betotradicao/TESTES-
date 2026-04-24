@@ -120,6 +120,7 @@ import RhLancamentos from './pages/RhLancamentos';
 import RhEscala from './pages/RhEscala';
 import RhEscalaTemplate from './pages/RhEscalaTemplate';
 import RhEscalaEventos from './pages/RhEscalaEventos';
+import RhFolhaPagamento from './pages/RhFolhaPagamento';
 
 function App() {
   return (
@@ -683,7 +684,7 @@ function App() {
             <Route path="/rh/escala" element={<ProtectedRoute><RhEscala /></ProtectedRoute>} />
             <Route path="/rh/escala/template/:colaboradorId" element={<ProtectedRoute><RhEscalaTemplate /></ProtectedRoute>} />
             <Route path="/rh/escala/eventos" element={<ProtectedRoute><RhEscalaEventos /></ProtectedRoute>} />
-            <Route path="/rh/folha" element={<ProtectedRoute><RhPlaceholder title="Folha de Pagamento" subtitle="Gestao da folha de pagamento" features={['Salarios', 'Beneficios', 'Descontos', 'Resumo mensal']} /></ProtectedRoute>} />
+            <Route path="/rh/folha" element={<ProtectedRoute><RhFolhaPagamento /></ProtectedRoute>} />
             <Route path="/rh/beneficios" element={<ProtectedRoute><RhPlaceholder title="Beneficios" subtitle="Gestao de beneficios dos colaboradores" features={['Vale transporte', 'Vale refeicao', 'Plano de saude', 'Outros beneficios']} /></ProtectedRoute>} />
             <Route path="/rh/rotatividade" element={<ProtectedRoute><RhPlaceholder title="Rotatividade (Turnover)" subtitle="Indicadores de rotatividade" features={['Taxa de turnover', 'Evolucao mensal', 'Por departamento', 'Motivos de saida']} /></ProtectedRoute>} />
             <Route path="/rh/perfil" element={<ProtectedRoute><RhPlaceholder title="Perfil Demografico" subtitle="Analise do perfil dos colaboradores" features={['Distribuicao por idade', 'Genero', 'Escolaridade', 'Tempo de casa']} /></ProtectedRoute>} />

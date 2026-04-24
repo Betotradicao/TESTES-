@@ -46,6 +46,12 @@ export default function RhLancamentos() {
   const [companyId, setCompanyId] = useState('');
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
   const [dataFim, setDataFim] = useState(hoje());
+  const [mesCompetencia, setMesCompetencia] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [mesCaixa, setMesCaixa] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -92,9 +98,38 @@ export default function RhLancamentos() {
     setDataInicio(p.data_inicio);
     setDataFim(p.data_fim);
     setCompanyId(p.company_id || '');
+    if (p.mes_referencia) setMesCompetencia(p.mes_referencia);
+    if (p.mes_caixa) setMesCaixa(p.mes_caixa);
     setAba('apontar');
-    // pequeno delay pra garantir que os estados aplicaram
     setTimeout(() => carregar(), 100);
+  };
+
+  const excluirPeriodo = async (p) => {
+    const ini = String(p.data_inicio).slice(0, 10);
+    const fim = String(p.data_fim).slice(0, 10);
+    if (!window.confirm(`Excluir TODOS os apontamentos do período ${ini} → ${fim}? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const r = await api.post('/rh/apontamentos/periodos/deletar', {
+        data_inicio: ini,
+        data_fim: fim,
+        company_id: p.company_id || null,
+      });
+      toast.success(`${r.data?.removidos || 0} apontamento(s) removido(s)`);
+      if (selecaoPeriodo && selecaoPeriodo.data_inicio === p.data_inicio && selecaoPeriodo.data_fim === p.data_fim) {
+        setSelecaoPeriodo(null);
+      }
+      await carregarPeriodos();
+    } catch {
+      toast.error('Erro ao excluir período');
+    }
+  };
+
+  // Formata "YYYY-MM-DD" pra "DD/MM/YYYY" sem cair em Invalid Date
+  const fmtDataBR = (str) => {
+    if (!str) return '—';
+    const s = String(str).slice(0, 10);
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
   };
 
   const criarColuna = async () => {
@@ -135,6 +170,12 @@ export default function RhLancamentos() {
         ALL.forEach(c => { obj[c.key] = d[c.key] == null ? '' : String(d[c.key]); });
         return obj;
       }));
+      // Restaura mes_referencia / mes_caixa do primeiro apontamento que tem
+      const comDado = data.find(d => d.mes_referencia || d.mes_caixa);
+      if (comDado) {
+        if (comDado.mes_referencia) setMesCompetencia(comDado.mes_referencia);
+        if (comDado.mes_caixa) setMesCaixa(comDado.mes_caixa);
+      }
     } catch (err) {
       toast.error('Erro ao carregar apontamentos');
     } finally { setLoading(false); }
@@ -150,12 +191,16 @@ export default function RhLancamentos() {
 
   const salvarTudo = async () => {
     if (rows.length === 0) { toast.error('Nada pra salvar'); return; }
+    if (!mesCompetencia) { toast.error('Informe o Mês de Competência'); return; }
+    if (!mesCaixa) { toast.error('Informe o Mês Caixa'); return; }
     setSaving(true);
     try {
       const payload = {
         data_inicio: dataInicio,
         data_fim: dataFim,
         company_id: companyId || null,
+        mes_referencia: mesCompetencia,
+        mes_caixa: mesCaixa,
         apontamentos: rows.map(r => {
           const a = { colaborador_id: r.colaborador_id, observacao: r.observacao || '', campos_extras: r.campos_extras || {} };
           ALL.forEach(c => { a[c.key] = r[c.key]; });
@@ -170,6 +215,7 @@ export default function RhLancamentos() {
   };
 
   const exportar = async (tipo) => {
+    if (!dataInicio || !dataFim) { toast.error('Informe o período (DE / ATÉ) antes de exportar'); return; }
     try {
       const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
       if (companyId) params.append('company_id', companyId);
@@ -194,7 +240,8 @@ export default function RhLancamentos() {
     const desc = DESCONTOS.reduce((s, c) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0)
       + extrasDescontos.reduce((s, c) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0);
     const sal = Number(r.salario) || 0;
-    return { prov, desc, liq: sal + prov - desc };
+    const bruto = sal + prov;
+    return { prov, desc, bruto, liq: bruto - desc };
   };
 
   const fmtMoney = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -256,10 +303,13 @@ export default function RhLancamentos() {
                     <tr>
                       <th className="text-left px-4 py-2 w-10"></th>
                       <th className="text-left px-4 py-2">Período</th>
+                      <th className="text-left px-4 py-2">📅 Competência</th>
+                      <th className="text-left px-4 py-2">💰 Caixa</th>
                       <th className="text-left px-4 py-2">Empresa</th>
                       <th className="text-center px-4 py-2">Colaboradores</th>
                       <th className="text-right px-4 py-2">Total Salários</th>
                       <th className="text-left px-4 py-2">Última alteração</th>
+                      <th className="text-right px-4 py-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -274,16 +324,50 @@ export default function RhLancamentos() {
                           <td className="px-4 py-2">
                             <input type="radio" checked={!!selected} onChange={() => setSelecaoPeriodo(p)} />
                           </td>
-                          <td className="px-4 py-2 font-semibold">
-                            {new Date(p.data_inicio + 'T00:00').toLocaleDateString('pt-BR')} → {new Date(p.data_fim + 'T00:00').toLocaleDateString('pt-BR')}
+                          <td className="px-4 py-2 font-semibold text-gray-700">
+                            do dia <span className="text-orange-700">{fmtDataBR(p.data_inicio)}</span> ao dia <span className="text-orange-700">{fmtDataBR(p.data_fim)}</span>
+                          </td>
+                          <td className="px-4 py-2">
+                            {p.mes_referencia ? (
+                              <span className="inline-block px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-xs font-bold">
+                                {(() => {
+                                  const [y, m] = p.mes_referencia.split('-');
+                                  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                                  return `${nomes[parseInt(m) - 1] || m}/${y}`;
+                                })()}
+                              </span>
+                            ) : <span className="text-gray-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-2">
+                            {p.mes_caixa ? (
+                              <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">
+                                {(() => {
+                                  const [y, m] = p.mes_caixa.split('-');
+                                  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                                  return `${nomes[parseInt(m) - 1] || m}/${y}`;
+                                })()}
+                              </span>
+                            ) : <span className="text-gray-400 text-xs">—</span>}
                           </td>
                           <td className="px-4 py-2 text-gray-700">
                             {p.empresa_apelido || p.empresa_nome || <span className="text-gray-400">— Todas —</span>}
                           </td>
                           <td className="px-4 py-2 text-center">{p.total_colaboradores}</td>
                           <td className="px-4 py-2 text-right font-semibold text-emerald-700">{fmtMoney(p.total_salario_bruto)}</td>
-                          <td className="px-4 py-2 text-xs text-gray-500">
-                            {p.ultima_alteracao ? new Date(p.ultima_alteracao).toLocaleString('pt-BR') : '—'}
+                          <td className="px-4 py-2 text-xs text-gray-600">
+                            {(() => {
+                              const d = p.ultima_alteracao;
+                              if (!d) return '—';
+                              const dt = new Date(d);
+                              if (isNaN(dt.getTime())) return String(d).slice(0, 10);
+                              return dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            })()}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <button onClick={e => { e.stopPropagation(); excluirPeriodo(p); }}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium">
+                              🗑️ Excluir
+                            </button>
                           </td>
                         </tr>
                       );
@@ -298,7 +382,7 @@ export default function RhLancamentos() {
         {/* Filtros — só quando na aba Apontamento */}
         {aba === 'apontar' && (
         <div className="bg-white border-b border-gray-200 p-3 md:p-4">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-2 md:grid-cols-8 gap-3 items-end">
             <div className="col-span-2">
               <label className="block text-xs font-bold uppercase text-gray-600 mb-1">🏪 Empresa</label>
               <select value={companyId} onChange={e => setCompanyId(e.target.value)}
@@ -320,6 +404,16 @@ export default function RhLancamentos() {
               <label className="block text-xs font-bold uppercase text-gray-600 mb-1">Até</label>
               <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-gray-600 mb-1" title="Mês a que se refere a folha (ex: trabalho de 26/03 a 24/04 = competência Março)">📅 Mês Competência *</label>
+              <input type="month" value={mesCompetencia} onChange={e => setMesCompetencia(e.target.value)}
+                className="w-full border-2 border-orange-300 rounded-lg px-3 py-2 text-sm font-semibold" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-gray-600 mb-1" title="Mês em que o pagamento entra no caixa (data de pagamento)">💰 Mês Caixa *</label>
+              <input type="month" value={mesCaixa} onChange={e => setMesCaixa(e.target.value)}
+                className="w-full border-2 border-emerald-300 rounded-lg px-3 py-2 text-sm font-semibold" />
             </div>
             <button onClick={carregar} disabled={loading}
               className={`px-4 py-2 rounded-lg text-sm font-bold text-white ${loading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}>
@@ -386,6 +480,7 @@ export default function RhLancamentos() {
                         <button onClick={() => deletarColuna(c.id)} className="absolute top-0 right-0 text-[10px] px-1 opacity-0 group-hover:opacity-100 hover:text-rose-200" title="Remover">✖</button>
                       </th>
                     ))}
+                    <th className="px-2 py-2 text-right bg-amber-600" rowSpan={2} title="Salário + total de proventos (antes dos descontos)">Bruto</th>
                     <th className="px-2 py-2 text-right bg-blue-700" rowSpan={2}>Líquido</th>
                     <th className="px-2 py-2 text-left min-w-[150px]" rowSpan={2}>Obs</th>
                   </tr>
@@ -463,6 +558,9 @@ export default function RhLancamentos() {
                               placeholder="0" />
                           </td>
                         ))}
+                        <td className="px-2 py-1 text-right font-bold text-amber-700 bg-amber-50/40 whitespace-nowrap">
+                          {fmtMoney(t.bruto)}
+                        </td>
                         <td className="px-2 py-1 text-right font-bold text-blue-700 bg-blue-50/30 whitespace-nowrap">
                           {fmtMoney(t.liq)}
                         </td>
@@ -508,6 +606,9 @@ export default function RhLancamentos() {
                         {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0))}
                       </td>
                     ))}
+                    <td className="px-2 py-2 text-right bg-amber-100 text-amber-800">
+                      {fmtMoney(rows.reduce((s, r) => s + totais(r).bruto, 0))}
+                    </td>
                     <td className="px-2 py-2 text-right bg-blue-100">
                       {fmtMoney(rows.reduce((s, r) => s + totais(r).liq, 0))}
                     </td>

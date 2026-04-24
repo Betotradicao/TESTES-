@@ -208,8 +208,15 @@ export default function RhMetodoDiscResultados() {
                             {r.perfil_primario} — {PERFIL_NOME[r.perfil_primario]}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-gray-600">
-                          {r.perfil_secundario ? `${r.perfil_secundario} — ${PERFIL_NOME[r.perfil_secundario]}` : '—'}
+                        <td className="px-4 py-2">
+                          {r.perfil_secundario ? (() => {
+                            const c2 = PERFIL_COR[r.perfil_secundario] || PERFIL_COR.D;
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${c2.bg} ${c2.text} ${c2.border}`}>
+                                {r.perfil_secundario} — {PERFIL_NOME[r.perfil_secundario]}
+                              </span>
+                            );
+                          })() : <span className="text-gray-400">—</span>}
                         </td>
                         <td className="px-4 py-2 text-gray-500 text-xs">{formatarData(r.created_at)}</td>
                         <td className="px-4 py-2 text-right">

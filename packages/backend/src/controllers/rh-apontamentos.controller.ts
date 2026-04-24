@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { AppDataSource } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
@@ -98,6 +99,8 @@ export class RhApontamentosController {
         SELECT c.id AS colaborador_id, c.nome, c.matricula, c.data_admissao, c.salario, c.foto_url,
                ca.nome AS cargo_nome,
                a.id AS apontamento_id,
+               to_char(a.mes_referencia, 'YYYY-MM') AS mes_referencia,
+               to_char(a.mes_caixa, 'YYYY-MM') AS mes_caixa,
                a.hora_extra_60, a.hora_extra_60_inter, a.hora_extra_100, a.adicional_noturno,
                a.quebra_caixa, a.ajuda_custo_domingo, a.ajuda_custo_feriado, a.insalubridade, a.premio,
                a.falta_dias, a.atraso_horas, a.desconto_dsr, a.vale_transporte, a.desconto_quebra_caixa,
@@ -118,13 +121,35 @@ export class RhApontamentosController {
     }
   }
 
+  /** Apaga todos os apontamentos de um periodo (data_inicio + data_fim + opcional company_id) */
+  static async deletarPeriodo(req: AuthRequest, res: Response) {
+    try {
+      const { data_inicio, data_fim, company_id } = req.body || {};
+      if (!data_inicio || !data_fim) return res.status(400).json({ error: 'data_inicio e data_fim obrigatorios' });
+      const params: any[] = [data_inicio, data_fim];
+      let whereCompany = '';
+      if (company_id) { params.push(company_id); whereCompany = ` AND company_id = $${params.length}::uuid`; }
+      else { whereCompany = ` AND company_id IS NULL`; }
+      const r = await AppDataSource.query(
+        `DELETE FROM rh_apontamentos WHERE data_inicio = $1::date AND data_fim = $2::date${whereCompany} RETURNING id`,
+        params
+      );
+      return res.json({ success: true, removidos: r?.length ?? 0 });
+    } catch (err: any) {
+      console.error('[APONTAMENTOS] deletarPeriodo:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   /** Lista os periodos salvos (1 linha por combinacao data_inicio/data_fim/company_id) */
   static async listarPeriodos(_req: AuthRequest, res: Response) {
     try {
       const rows = await AppDataSource.query(`
         SELECT
-          a.data_inicio,
-          a.data_fim,
+          to_char(a.data_inicio, 'YYYY-MM-DD') AS data_inicio,
+          to_char(a.data_fim, 'YYYY-MM-DD') AS data_fim,
+          to_char(a.mes_referencia, 'YYYY-MM') AS mes_referencia,
+          to_char(a.mes_caixa, 'YYYY-MM') AS mes_caixa,
           a.company_id,
           e.apelido AS empresa_apelido,
           e.nome_fantasia AS empresa_nome,
@@ -135,8 +160,8 @@ export class RhApontamentosController {
         FROM rh_apontamentos a
         JOIN rh_colaboradores c ON c.id = a.colaborador_id
         LEFT JOIN rh_empresas e ON e.id = a.company_id
-        GROUP BY a.data_inicio, a.data_fim, a.company_id, e.apelido, e.nome_fantasia
-        ORDER BY a.data_inicio DESC, a.data_fim DESC
+        GROUP BY a.data_inicio, a.data_fim, a.mes_referencia, a.mes_caixa, a.company_id, e.apelido, e.nome_fantasia
+        ORDER BY a.mes_referencia DESC NULLS LAST, a.data_inicio DESC, a.data_fim DESC
       `);
       return res.json(rows);
     } catch (err: any) {
@@ -148,10 +173,18 @@ export class RhApontamentosController {
   /** Salva/atualiza em lote os apontamentos de varios colaboradores */
   static async salvarLote(req: AuthRequest, res: Response) {
     try {
-      const { data_inicio, data_fim, company_id, apontamentos } = req.body;
+      const { data_inicio, data_fim, company_id, mes_referencia, mes_caixa, apontamentos } = req.body;
       if (!data_inicio || !data_fim || !Array.isArray(apontamentos)) {
         return res.status(400).json({ error: 'data_inicio, data_fim e apontamentos obrigatorios' });
       }
+      if (!mes_referencia) {
+        return res.status(400).json({ error: 'mes_referencia obrigatorio (formato YYYY-MM)' });
+      }
+      if (!mes_caixa) {
+        return res.status(400).json({ error: 'mes_caixa obrigatorio (formato YYYY-MM)' });
+      }
+      const mesRefDate = String(mes_referencia).length === 7 ? `${mes_referencia}-01` : mes_referencia;
+      const mesCxDate = String(mes_caixa).length === 7 ? `${mes_caixa}-01` : mes_caixa;
       let salvos = 0;
       for (const a of apontamentos) {
         const num = (v: any) => {
@@ -166,18 +199,20 @@ export class RhApontamentosController {
         }
         await AppDataSource.query(`
           INSERT INTO rh_apontamentos (
-            colaborador_id, company_id, data_inicio, data_fim,
+            colaborador_id, company_id, data_inicio, data_fim, mes_referencia, mes_caixa,
             hora_extra_60, hora_extra_60_inter, hora_extra_100, adicional_noturno,
             quebra_caixa, ajuda_custo_domingo, ajuda_custo_feriado, insalubridade, premio,
             falta_dias, atraso_horas, desconto_dsr, vale_transporte, desconto_quebra_caixa,
             contribuicao_sindical, adiantamento, compras, observacao, campos_extras
           ) VALUES (
-            $1, $2, $3::date, $4::date,
-            $5, $6, $7, $8, $9, $10, $11, $12, $13,
-            $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::jsonb
+            $1, $2, $3::date, $4::date, $5::date, $6::date,
+            $7, $8, $9, $10, $11, $12, $13, $14, $15,
+            $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb
           )
           ON CONFLICT (colaborador_id, data_inicio, data_fim) DO UPDATE SET
             company_id = EXCLUDED.company_id,
+            mes_referencia = EXCLUDED.mes_referencia,
+            mes_caixa = EXCLUDED.mes_caixa,
             hora_extra_60 = EXCLUDED.hora_extra_60,
             hora_extra_60_inter = EXCLUDED.hora_extra_60_inter,
             hora_extra_100 = EXCLUDED.hora_extra_100,
@@ -199,7 +234,7 @@ export class RhApontamentosController {
             campos_extras = EXCLUDED.campos_extras,
             updated_at = NOW()
         `, [
-          a.colaborador_id, company_id || null, data_inicio, data_fim,
+          a.colaborador_id, company_id || null, data_inicio, data_fim, mesRefDate, mesCxDate,
           num(a.hora_extra_60), num(a.hora_extra_60_inter), num(a.hora_extra_100), num(a.adicional_noturno),
           num(a.quebra_caixa), num(a.ajuda_custo_domingo), num(a.ajuda_custo_feriado), num(a.insalubridade), num(a.premio),
           num(a.falta_dias), num(a.atraso_horas), num(a.desconto_dsr), num(a.vale_transporte), num(a.desconto_quebra_caixa),
@@ -235,37 +270,139 @@ export class RhApontamentosController {
         ORDER BY c.nome ASC
       `, params);
 
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
+      const doc = new PDFDocument({ size: 'A3', layout: 'landscape', margin: 18 });
       const fname = `apontamento_${data_inicio}_${data_fim}.pdf`;
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
       doc.pipe(res);
 
-      doc.fontSize(14).fillColor('#1f2937').text('APONTAMENTO DE FOLHA DE PAGAMENTO', { align: 'center' });
-      doc.fontSize(10).fillColor('#6b7280').text(`Periodo: ${data_inicio} a ${data_fim}`, { align: 'center' });
+      const fmtBR = (d: string) => {
+        if (!d) return '';
+        const [y, m, day] = String(d).split('-');
+        return `${day}/${m}/${y}`;
+      };
+      const fmtMoney = (n: number) => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      // Header
+      doc.fontSize(16).fillColor('#1f2937').text('APONTAMENTO DE FOLHA DE PAGAMENTO', { align: 'center' });
+      doc.fontSize(10).fillColor('#6b7280').text(`Periodo: ${fmtBR(data_inicio)} a ${fmtBR(data_fim)}  ·  ${rows.length} colaborador(es)`, { align: 'center' });
       doc.moveDown(0.5);
 
-      // Tabela simples: Nome | Cargo | Salario | Proventos total | Descontos total | Liquido
-      doc.fontSize(9).fillColor('#1f2937');
-      let y = doc.y;
-      const colW = [120, 90, 70, 70, 70, 70];
-      const headers = ['Colaborador', 'Cargo', 'Salario', 'Proventos', 'Descontos', 'Liquido'];
-      let x = 20;
-      doc.rect(20, y, colW.reduce((a, b) => a + b, 0), 18).fill('#f3f4f6');
-      doc.fillColor('#1f2937');
-      headers.forEach((h, i) => { doc.text(h, x + 4, y + 5, { width: colW[i] - 8 }); x += colW[i]; });
-      y += 18;
+      // Tabela completa: Matricula | Nome | Cargo | Salario | proventos... | descontos... | Bruto | Liquido
+      const colsBase = [
+        { label: 'Mat', w: 26 },
+        { label: 'Colaborador', w: 110 },
+        { label: 'Cargo', w: 80 },
+        { label: 'Salario', w: 50 },
+      ];
+      const colsProv = CAMPOS_PROVENTOS.map(c => ({ label: c.label, key: c.key, w: 38, tipo: 'prov' as const }));
+      const colsDesc = CAMPOS_DESCONTOS.map(c => ({ label: c.label, key: c.key, w: 38, tipo: 'desc' as const }));
+      const colsTot = [
+        { label: 'Bruto', w: 50, tipo: 'tot' as const },
+        { label: 'Liquido', w: 50, tipo: 'tot' as const },
+      ];
+      const allCols: { label: string; w: number; key?: string; tipo?: 'prov' | 'desc' | 'tot' }[] = [
+        ...colsBase, ...colsProv, ...colsDesc, ...colsTot,
+      ];
 
+      const drawHeader = () => {
+        let x = 18;
+        const y = doc.y;
+        const totalH = 28;
+        allCols.forEach(c => {
+          let bg = '#374151';
+          if (c.tipo === 'prov') bg = '#15803D';
+          else if (c.tipo === 'desc') bg = '#B91C1C';
+          else if (c.tipo === 'tot') bg = '#1D4ED8';
+          doc.rect(x, y, c.w, totalH).fill(bg);
+          doc.fillColor('#FFFFFF').fontSize(7).text(c.label, x + 2, y + 4, { width: c.w - 4, align: 'center' });
+          x += c.w;
+        });
+        doc.y = y + totalH;
+      };
+
+      doc.fontSize(8);
+      drawHeader();
+
+      const rowH = 18;
+      let zebra = false;
       for (const r of rows) {
-        const proventos = CAMPOS_PROVENTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
-        const descontos = CAMPOS_DESCONTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
-        const liquido = Number(r.salario || 0) + proventos - descontos;
-        if (y > 560) { doc.addPage(); y = 40; }
-        x = 20;
-        [r.nome, r.cargo_nome || '-', Number(r.salario || 0).toFixed(2), proventos.toFixed(2), descontos.toFixed(2), liquido.toFixed(2)]
-          .forEach((v, i) => { doc.text(String(v), x + 4, y + 4, { width: colW[i] - 8 }); x += colW[i]; });
-        y += 16;
+        if (doc.y + rowH > doc.page.height - 25) {
+          doc.addPage();
+          drawHeader();
+          zebra = false;
+        }
+        const proventosTot = CAMPOS_PROVENTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
+        const descontosTot = CAMPOS_DESCONTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
+        const sal = Number(r.salario || 0);
+        const bruto = sal + proventosTot;
+        const liquido = bruto - descontosTot;
+
+        const y = doc.y;
+        let x = 18;
+        // fundo da linha (zebra)
+        if (zebra) {
+          doc.rect(18, y, allCols.reduce((a, c) => a + c.w, 0), rowH).fill('#F9FAFB');
+        }
+        zebra = !zebra;
+
+        // Pinta fundo verde/vermelho claro nas celulas de prov/desc
+        let xPaint = 18 + colsBase.reduce((a, c) => a + c.w, 0);
+        colsProv.forEach(c => {
+          doc.rect(xPaint, y, c.w, rowH).fill('#DCFCE7');
+          xPaint += c.w;
+        });
+        colsDesc.forEach(c => {
+          doc.rect(xPaint, y, c.w, rowH).fill('#FEE2E2');
+          xPaint += c.w;
+        });
+        // Totais
+        doc.rect(xPaint, y, colsTot[0].w, rowH).fill('#FEF3C7'); xPaint += colsTot[0].w;
+        doc.rect(xPaint, y, colsTot[1].w, rowH).fill('#DBEAFE');
+
+        // Texto
+        doc.fillColor('#1f2937').fontSize(7);
+        x = 18;
+        const baseVals = [
+          r.matricula || '',
+          r.nome || '',
+          r.cargo_nome || '-',
+          fmtMoney(sal),
+        ];
+        colsBase.forEach((c, i) => {
+          doc.text(String(baseVals[i]), x + 2, y + 4, { width: c.w - 4, ellipsis: true, lineBreak: false });
+          x += c.w;
+        });
+        // Proventos
+        doc.fillColor('#166534');
+        colsProv.forEach(c => {
+          const v = Number(r[c.key!] || 0);
+          doc.text(v ? v.toFixed(2) : '-', x + 2, y + 4, { width: c.w - 4, align: 'right' });
+          x += c.w;
+        });
+        // Descontos
+        doc.fillColor('#991B1B');
+        colsDesc.forEach(c => {
+          const v = Number(r[c.key!] || 0);
+          doc.text(v ? v.toFixed(2) : '-', x + 2, y + 4, { width: c.w - 4, align: 'right' });
+          x += c.w;
+        });
+        // Bruto / Liquido
+        doc.fillColor('#92400E').text(fmtMoney(bruto), x + 2, y + 4, { width: colsTot[0].w - 4, align: 'right' });
+        x += colsTot[0].w;
+        doc.fillColor('#1E3A8A').text(fmtMoney(liquido), x + 2, y + 4, { width: colsTot[1].w - 4, align: 'right' });
+
+        doc.y = y + rowH;
       }
+
+      // Rodape com totais gerais
+      const totSal = rows.reduce((s: number, r: any) => s + Number(r.salario || 0), 0);
+      const totProv = rows.reduce((s: number, r: any) => s + CAMPOS_PROVENTOS.reduce((ss, c) => ss + Number(r[c.key] || 0), 0), 0);
+      const totDesc = rows.reduce((s: number, r: any) => s + CAMPOS_DESCONTOS.reduce((ss, c) => ss + Number(r[c.key] || 0), 0), 0);
+      doc.moveDown(1);
+      doc.fontSize(10).fillColor('#1f2937');
+      doc.text(`TOTAIS: Salario ${fmtMoney(totSal)}  ·  Proventos ${fmtMoney(totProv)}  ·  Descontos ${fmtMoney(totDesc)}  ·  Bruto ${fmtMoney(totSal + totProv)}  ·  Liquido ${fmtMoney(totSal + totProv - totDesc)}`, { align: 'right' });
+
       doc.end();
     } catch (err: any) {
       console.error('[APONTAMENTOS] exportarPdf:', err);
@@ -294,38 +431,114 @@ export class RhApontamentosController {
         ORDER BY c.nome ASC
       `, params);
 
-      const head = ['Matricula', 'Funcionario', 'Admissao', 'Funcao', 'Salario',
-        ...CAMPOS_PROVENTOS.map(c => c.label),
-        ...CAMPOS_DESCONTOS.map(c => c.label),
-        'Total Proventos', 'Total Descontos', 'Liquido', 'Observacao'];
-      const data: any[][] = [head];
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Apontamento');
+
+      // Colunas pareadas: cada provento/desconto vira QTD + R$
+      type Col = { header: string; key: string; width: number; tipo: 'fixa' | 'prov_qtd' | 'prov_val' | 'desc_qtd' | 'desc_val' | 'tot' };
+      const colsFixas: Col[] = [
+        { header: 'Matricula', key: 'matricula', width: 11, tipo: 'fixa' },
+        { header: 'Funcionario', key: 'nome', width: 32, tipo: 'fixa' },
+        { header: 'Admissao', key: 'admissao', width: 11, tipo: 'fixa' },
+        { header: 'Funcao', key: 'funcao', width: 22, tipo: 'fixa' },
+        { header: 'Salario', key: 'salario', width: 12, tipo: 'fixa' },
+      ];
+      const colsProv: Col[] = [];
+      CAMPOS_PROVENTOS.forEach(c => {
+        colsProv.push({ header: `${c.label} QTD`, key: `${c.key}_qtd`, width: 10, tipo: 'prov_qtd' });
+        colsProv.push({ header: `${c.label} R$`, key: `${c.key}_val`, width: 12, tipo: 'prov_val' });
+      });
+      const colsDesc: Col[] = [];
+      CAMPOS_DESCONTOS.forEach(c => {
+        colsDesc.push({ header: `${c.label} QTD`, key: `${c.key}_qtd`, width: 10, tipo: 'desc_qtd' });
+        colsDesc.push({ header: `${c.label} R$`, key: `${c.key}_val`, width: 12, tipo: 'desc_val' });
+      });
+      const colsTotais: Col[] = [
+        { header: 'Total Proventos', key: '_totProv', width: 14, tipo: 'tot' },
+        { header: 'Total Descontos', key: '_totDesc', width: 14, tipo: 'tot' },
+        { header: 'Bruto', key: '_bruto', width: 13, tipo: 'tot' },
+        { header: 'Liquido', key: '_liquido', width: 13, tipo: 'tot' },
+        { header: 'Observacao', key: 'observacao', width: 25, tipo: 'fixa' },
+      ];
+      const allCols: Col[] = [...colsFixas, ...colsProv, ...colsDesc, ...colsTotais];
+      ws.columns = allCols.map(c => ({ header: c.header, key: c.key, width: c.width }));
+
+      // Style do header
+      const header = ws.getRow(1);
+      header.height = 30;
+      header.eachCell((cell, colNumber) => {
+        const col = allCols[colNumber - 1];
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        let bg = 'FF374151';
+        if (col.tipo === 'prov_qtd') bg = 'FF22C55E';      // verde claro
+        else if (col.tipo === 'prov_val') bg = 'FF15803D'; // verde escuro
+        else if (col.tipo === 'desc_qtd') bg = 'FFEF4444'; // vermelho claro
+        else if (col.tipo === 'desc_val') bg = 'FFB91C1C'; // vermelho escuro
+        else if (col.tipo === 'tot') bg = 'FF1D4ED8';
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+      });
+
+      // Linhas de dados
       for (const r of rows) {
-        const proventos = CAMPOS_PROVENTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
-        const descontos = CAMPOS_DESCONTOS.reduce((s, c) => s + Number(r[c.key] || 0), 0);
-        const liquido = Number(r.salario || 0) + proventos - descontos;
-        data.push([
-          r.matricula || '',
-          r.nome || '',
-          r.data_admissao ? new Date(r.data_admissao).toLocaleDateString('pt-BR') : '',
-          r.cargo_nome || '',
-          Number(r.salario || 0),
-          ...CAMPOS_PROVENTOS.map(c => Number(r[c.key] || 0)),
-          ...CAMPOS_DESCONTOS.map(c => Number(r[c.key] || 0)),
-          proventos,
-          descontos,
-          liquido,
-          r.observacao || '',
-        ]);
+        const totProv = CAMPOS_PROVENTOS.reduce((s, c) => s + Number(r.campos_extras?.[`${c.key}_valor`] || 0), 0);
+        const totDesc = CAMPOS_DESCONTOS.reduce((s, c) => s + Number(r.campos_extras?.[`${c.key}_valor`] || 0), 0);
+        const sal = Number(r.salario || 0);
+        const bruto = sal + totProv;
+        const liquido = bruto - totDesc;
+        const rowData: any = {
+          matricula: r.matricula || '',
+          nome: r.nome || '',
+          admissao: r.data_admissao ? new Date(r.data_admissao).toLocaleDateString('pt-BR') : '',
+          funcao: r.cargo_nome || '',
+          salario: sal,
+          _totProv: totProv,
+          _totDesc: totDesc,
+          _bruto: bruto,
+          _liquido: liquido,
+          observacao: r.observacao || '',
+        };
+        CAMPOS_PROVENTOS.forEach(c => {
+          rowData[`${c.key}_qtd`] = Number(r[c.key] || 0);
+          rowData[`${c.key}_val`] = Number(r.campos_extras?.[`${c.key}_valor`] || 0);
+        });
+        CAMPOS_DESCONTOS.forEach(c => {
+          rowData[`${c.key}_qtd`] = Number(r[c.key] || 0);
+          rowData[`${c.key}_val`] = Number(r.campos_extras?.[`${c.key}_valor`] || 0);
+        });
+        const newRow = ws.addRow(rowData);
+
+        newRow.eachCell((cell, colNumber) => {
+          const col = allCols[colNumber - 1];
+          if (col.tipo === 'prov_qtd' || col.tipo === 'prov_val') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: col.tipo === 'prov_qtd' ? 'FFF0FDF4' : 'FFDCFCE7' } };
+            cell.font = { color: { argb: 'FF166534' } };
+          } else if (col.tipo === 'desc_qtd' || col.tipo === 'desc_val') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: col.tipo === 'desc_qtd' ? 'FFFEF2F2' : 'FFFEE2E2' } };
+            cell.font = { color: { argb: 'FF991B1B' } };
+          } else if (col.tipo === 'tot') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+            cell.font = { color: { argb: 'FF1E3A8A' }, bold: true };
+          }
+          // Formato: QTD = decimal puro, R$ = moeda
+          if (typeof cell.value === 'number') {
+            if (col.tipo === 'prov_val' || col.tipo === 'desc_val' || col.tipo === 'tot' || col.key === 'salario') {
+              cell.numFmt = 'R$ #,##0.00';
+            } else if (col.tipo === 'prov_qtd' || col.tipo === 'desc_qtd') {
+              cell.numFmt = '#,##0.00';
+            }
+          }
+        });
       }
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, 'Apontamento');
-      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+
+      const buf = await wb.xlsx.writeBuffer();
       const fname = `apontamento_${data_inicio}_${data_fim}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
-      res.send(buf);
+      res.send(Buffer.from(buf));
     } catch (err: any) {
       console.error('[APONTAMENTOS] exportarExcel:', err);
       return res.status(500).json({ error: err.message });

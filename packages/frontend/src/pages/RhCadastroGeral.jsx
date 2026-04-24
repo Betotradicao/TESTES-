@@ -74,6 +74,7 @@ export default function RhCadastroGeral() {
   const [jornadas, setJornadas] = useState([]);
   const [escolaridades, setEscolaridades] = useState([]);
   const [escalas, setEscalas] = useState([]);
+  const [escalasDomingo, setEscalasDomingo] = useState([]);
   const [regimes, setRegimes] = useState([]);
   const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -168,6 +169,7 @@ export default function RhCadastroGeral() {
     company_id: '',
     jornada_id: '',
     escala_id: '',
+    escala_domingo_id: '',
     regime_trabalho_id: '',
     data_admissao: '',
     salario: '',
@@ -219,22 +221,23 @@ export default function RhCadastroGeral() {
 
   const carregarConfiguracoes = async () => {
     try {
-      const [cargosRes, empRes, jorRes, escRes, escalasRes, regimesRes, beneficiosRes] = await Promise.all([
+      const [cargosRes, empRes, jorRes, escRes, escalasRes, escDomRes, regimesRes, beneficiosRes] = await Promise.all([
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/empresas/stores/list'),
         api.get('/rh/configuracoes/jornadas'),
         api.get('/rh/configuracoes/escolaridades'),
         api.get('/rh/configuracoes/escalas'),
+        api.get('/rh/configuracoes/escalas-domingo'),
         api.get('/rh/configuracoes/regimes-trabalho'),
         api.get('/rh/configuracoes/beneficios')
       ]);
       setCargos(cargosRes.data?.cargos || cargosRes.data || []);
-      // /rh/empresas/stores/list retorna array: [{ id, cod_loja, nome_fantasia, razao_social, apelido, label }]
       const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.companies || []);
       setEmpresas(empData);
       setJornadas(jorRes.data?.jornadas || jorRes.data || []);
       setEscolaridades(escRes.data?.escolaridades || escRes.data || []);
       setEscalas(escalasRes.data?.escalas || escalasRes.data || []);
+      setEscalasDomingo(escDomRes.data?.escalas_domingo || escDomRes.data || []);
       setRegimes(regimesRes.data?.regimes || regimesRes.data || []);
       const benData = beneficiosRes.data?.beneficios || beneficiosRes.data || [];
       setBeneficiosDisponiveis(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
@@ -307,6 +310,7 @@ export default function RhCadastroGeral() {
         company_id: colaborador.company_id || '',
         jornada_id: colaborador.jornada_id || '',
         escala_id: colaborador.escala_id || '',
+        escala_domingo_id: colaborador.escala_domingo_id || '',
         regime_trabalho_id: colaborador.regime_trabalho_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
         salario: colaborador.salario || '',
@@ -999,6 +1003,15 @@ export default function RhCadastroGeral() {
                           <option value="">Selecione...</option>
                           {escalas.map(esc => (
                             <option key={esc.id} value={esc.id}>{esc.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Escala Especial Domingo</label>
+                        <select className={selectClass} value={formData.escala_domingo_id} onChange={(e) => handleChange('escala_domingo_id', e.target.value)}>
+                          <option value="">Nenhum</option>
+                          {escalasDomingo.map(ed => (
+                            <option key={ed.id} value={ed.id}>{ed.nome}</option>
                           ))}
                         </select>
                       </div>

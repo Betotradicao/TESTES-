@@ -77,7 +77,7 @@ export default function DiscPublico() {
   const progresso = Math.round(((currentGroup + 1) / DISC_GROUPS.length) * 100);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-gray-100" lang="pt-BR" translate="no">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-6 shadow">
         <div className="max-w-3xl mx-auto">
@@ -197,18 +197,18 @@ export default function DiscPublico() {
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Obrigado, {nome}!</h2>
             <p className="text-gray-600 mb-6">Sua avaliação foi enviada com sucesso.</p>
 
-            <div className="bg-gray-50 rounded-lg p-5 mb-5 text-left">
+            <div className="bg-gray-50 rounded-lg p-5 mb-5 text-left" translate="no">
               <div className="text-sm text-gray-500 mb-1 uppercase font-semibold">Seu Perfil Primário</div>
-              <div className={`text-3xl font-bold ${PERFIL_COR[scores.perfil_primario].text} mb-3`}>
-                {scores.perfil_primario} — {PERFIL_NOME[scores.perfil_primario]}
+              <div className={`text-3xl font-bold ${PERFIL_COR[scores.perfil_primario].text} mb-3`} translate="no">
+                <span translate="no">{scores.perfil_primario}</span> — <span translate="no">{PERFIL_NOME[scores.perfil_primario]}</span>
               </div>
               <div className="text-sm text-gray-500 mb-1 uppercase font-semibold">Secundário</div>
-              <div className={`text-xl font-semibold ${PERFIL_COR[scores.perfil_secundario].text}`}>
-                {scores.perfil_secundario} — {PERFIL_NOME[scores.perfil_secundario]}
+              <div className={`text-xl font-semibold ${PERFIL_COR[scores.perfil_secundario].text}`} translate="no">
+                <span translate="no">{scores.perfil_secundario}</span> — <span translate="no">{PERFIL_NOME[scores.perfil_secundario]}</span>
               </div>
             </div>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6" translate="no">
               {['D', 'I', 'S', 'C'].map(p => {
                 const val = scores.raw[p] || 0;
                 const max = Math.max(...Object.values(scores.raw).map(v => Math.abs(v)), 1);
@@ -216,7 +216,7 @@ export default function DiscPublico() {
                 return (
                   <div key={p}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="font-semibold">{p} · {PERFIL_NOME[p]}</span>
+                      <span className="font-semibold" translate="no"><span translate="no">{p}</span> · <span translate="no">{PERFIL_NOME[p]}</span></span>
                       <span className="text-gray-600">{val}</span>
                     </div>
                     <div className="h-3 bg-gray-200 rounded overflow-hidden">

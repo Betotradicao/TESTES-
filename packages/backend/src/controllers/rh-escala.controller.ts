@@ -195,11 +195,15 @@ export class RhEscalaController {
                 ca.nome AS cargo_nome,
                 dep.nome AS setor_nome,
                 j.nome AS jornada_nome, j.carga_horaria AS jornada_carga,
+                esc.nome AS escala_cadastro,
+                ed.nome AS escala_domingo_nome,
                 t.tipo_rotacao, t.padrao_semanal, t.trabalha_feriado, t.folga_preferida
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
          LEFT JOIN rh_departamentos dep ON dep.id = c.departamento_id
          LEFT JOIN rh_jornadas j ON j.id = c.jornada_id
+         LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
+         LEFT JOIN rh_escalas_domingo ed ON ed.id = c.escala_domingo_id
          LEFT JOIN rh_escala_templates t ON t.colaborador_id = c.id AND t.ativo = true
          WHERE ${whereParts.join(' AND ')}
          ORDER BY c.nome`,
@@ -220,26 +224,26 @@ export class RhEscalaController {
         return res.json({ mes, qtdDias, colaboradores: [], turnos, feriados: [] });
       }
 
-      // Eventos do periodo
+      // Eventos do periodo — cast DATE pra text (YYYY-MM-DD) pra casar com as chaves do JS
       const [lancamentos, excessoes, ferias, licencas, feriadosRaw] = await Promise.all([
         AppDataSource.query(
-          `SELECT colaborador_id, data, turno_id, origem FROM rh_escala_lancamentos
+          `SELECT colaborador_id, to_char(data, 'YYYY-MM-DD') as data, turno_id, origem FROM rh_escala_lancamentos
            WHERE colaborador_id = ANY($1::int[]) AND data BETWEEN $2::date AND $3::date`,
           [colabIds, dataInicio, dataFim]
         ),
         AppDataSource.query(
-          `SELECT colaborador_id, data, turno_id, motivo FROM rh_escala_excessoes
+          `SELECT colaborador_id, to_char(data, 'YYYY-MM-DD') as data, turno_id, motivo FROM rh_escala_excessoes
            WHERE colaborador_id = ANY($1::int[]) AND data BETWEEN $2::date AND $3::date`,
           [colabIds, dataInicio, dataFim]
         ),
         AppDataSource.query(
-          `SELECT colaborador_id, data_inicio, data_fim FROM rh_escala_ferias
+          `SELECT colaborador_id, to_char(data_inicio, 'YYYY-MM-DD') as data_inicio, to_char(data_fim, 'YYYY-MM-DD') as data_fim FROM rh_escala_ferias
            WHERE colaborador_id = ANY($1::int[])
              AND NOT (data_fim < $2::date OR data_inicio > $3::date)`,
           [colabIds, dataInicio, dataFim]
         ),
         AppDataSource.query(
-          `SELECT colaborador_id, data_inicio, data_fim, motivo FROM rh_escala_licencas
+          `SELECT colaborador_id, to_char(data_inicio, 'YYYY-MM-DD') as data_inicio, to_char(data_fim, 'YYYY-MM-DD') as data_fim, motivo FROM rh_escala_licencas
            WHERE colaborador_id = ANY($1::int[])
              AND NOT (data_fim < $2::date OR data_inicio > $3::date)`,
           [colabIds, dataInicio, dataFim]
@@ -365,6 +369,8 @@ export class RhEscalaController {
           jornadaNome: c.jornada_nome,
           jornadaCarga: c.jornada_carga,
           tipoRotacao: c.tipo_rotacao,
+          escalaCadastro: c.escala_cadastro,
+          escalaDomingo: c.escala_domingo_nome,
           temTemplate: Array.isArray(c.padrao_semanal) && c.padrao_semanal.length > 0,
           celulas,
           horasMes: Math.round(horasMes * 100) / 100,

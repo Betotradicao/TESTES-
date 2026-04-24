@@ -7,6 +7,7 @@ import { RhDpController } from '../controllers/rh-dp.controller';
 import { RhApontamentosController } from '../controllers/rh-apontamentos.controller';
 import { RhEmpresasController } from '../controllers/rh-empresas.controller';
 import { RhEscalaController } from '../controllers/rh-escala.controller';
+import { RhFolhaController } from '../controllers/rh-folha.controller';
 import { authenticateToken } from '../middleware/auth';
 
 const router: Router = Router();
@@ -49,6 +50,12 @@ router.get('/configuracoes/escalas', authenticateToken, RhController.listarEscal
 router.post('/configuracoes/escalas', authenticateToken, RhController.criarEscala);
 router.put('/configuracoes/escalas/:id', authenticateToken, RhController.atualizarEscala);
 router.delete('/configuracoes/escalas/:id', authenticateToken, RhController.deletarEscala);
+
+// Escalas especiais de Domingo (1x1, 2x1, 3x1 etc)
+router.get('/configuracoes/escalas-domingo', authenticateToken, RhController.listarEscalasDomingo);
+router.post('/configuracoes/escalas-domingo', authenticateToken, RhController.criarEscalaDomingo);
+router.put('/configuracoes/escalas-domingo/:id', authenticateToken, RhController.atualizarEscalaDomingo);
+router.delete('/configuracoes/escalas-domingo/:id', authenticateToken, RhController.deletarEscalaDomingo);
 
 // Configuracoes - Regimes de Trabalho
 router.get('/configuracoes/regimes-trabalho', authenticateToken, RhController.listarRegimesTrabalho);
@@ -188,6 +195,10 @@ router.delete('/documentacao/pastas/:id', authenticateToken, RhDocumentacaoContr
 // Apontamentos (Lancamentos Financeiros)
 router.get('/apontamentos', authenticateToken, RhApontamentosController.listar);
 router.get('/apontamentos/periodos', authenticateToken, RhApontamentosController.listarPeriodos);
+
+// Folha de Pagamento - resumo anual (pivot mes x lancamento)
+router.get('/folha/resumo-anual', authenticateToken, RhFolhaController.resumoAnual);
+router.post('/apontamentos/periodos/deletar', authenticateToken, RhApontamentosController.deletarPeriodo);
 router.post('/apontamentos/batch', authenticateToken, RhApontamentosController.salvarLote);
 router.get('/apontamentos/pdf', authenticateToken, RhApontamentosController.exportarPdf);
 router.get('/apontamentos/excel', authenticateToken, RhApontamentosController.exportarExcel);
