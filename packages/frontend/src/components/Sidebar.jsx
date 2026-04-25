@@ -1476,6 +1476,26 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             </span>
           )}
         </div>
+        {/* Botão de reconectar tunel - só aparece quando CONEXÃO = OFF */}
+        {dbConnected === false && !isCollapsed && (
+          <button
+            onClick={async () => {
+              try {
+                const r = await api.get('/tunnel-installer/reconectar-bat', { responseType: 'blob' });
+                const url = URL.createObjectURL(new Blob([r.data]));
+                const a = document.createElement('a');
+                a.href = url; a.download = 'Reconectar-Tuneis.bat';
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                alert('Arquivo baixado!\n\nVá na pasta Downloads e clique 2 vezes em "Reconectar-Tuneis.bat".\n\nVão abrir janelas pretas — NÃO FECHE essas janelas, elas estão mantendo a conexão ativa.');
+              } catch { alert('Erro ao baixar o arquivo. Tente novamente.'); }
+            }}
+            className="w-full mt-2 py-2 px-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-md flex items-center justify-center gap-1 transition shadow"
+            title="Baixa um arquivo que reconecta o túnel. Você só precisa dar duplo-clique no arquivo baixado."
+          >
+            🔄 Reconectar Túnel
+          </button>
+        )}
       </div>
 
       {/* Close button for mobile */}

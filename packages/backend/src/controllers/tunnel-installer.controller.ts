@@ -374,6 +374,78 @@ export class TunnelInstallerController {
    * POST /api/tunnel-installer/uninstall
    * Remove chave SSH do authorized_keys e retorna BAT de desinstalação
    */
+  /**
+   * GET /api/tunnel-installer/reconectar-bat
+   * Gera um .bat universal pro cliente baixar e dar duplo-clique.
+   * O .bat auto-descobre todos os tuneis instalados (pastas SSHTunnels*) e
+   * abre um PowerShell por tunel rodando o ssh -N direto, sem o loop quebrado
+   * do tunnel-service.ps1.
+   */
+  async baixarReconectarBat(_req: Request, res: Response) {
+    try {
+      const bat = `@echo off
+title Reconectar Tuneis SSH - Radar 360
+color 0E
+echo ============================================================
+echo   RECONECTAR TUNEIS - RADAR 360
+echo ============================================================
+echo.
+echo Aguarde, reconectando tuneis SSH...
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ^
+  $ErrorActionPreference = 'SilentlyContinue'; ^
+  Write-Host 'Parando processos SSH antigos...' -ForegroundColor Yellow; ^
+  Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force; ^
+  Write-Host 'Parando tasks de tunel...' -ForegroundColor Yellow; ^
+  Get-ScheduledTask | Where-Object { $_.TaskName -like 'SSH-Tunnel*' } | ForEach-Object { Stop-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue }; ^
+  Start-Sleep -Seconds 2; ^
+  Write-Host ''; ^
+  Write-Host 'Procurando configuracoes de tunel em C:\\ProgramData\\SSHTunnels*...' -ForegroundColor Cyan; ^
+  $folders = Get-ChildItem 'C:\\ProgramData' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'SSHTunnels*' }; ^
+  if ($folders.Count -eq 0) { Write-Host 'Nenhuma configuracao encontrada.' -ForegroundColor Red; Read-Host 'Pressione ENTER'; exit }; ^
+  $abertos = 0; ^
+  foreach ($folder in $folders) { ^
+    $cfg = Join-Path $folder.FullName 'tunnel-service.ps1'; ^
+    if (-not (Test-Path $cfg)) { continue }; ^
+    $content = Get-Content $cfg -Raw; ^
+    $vpsIp = if ($content -match '\\$VPS_IP\\s*=\\s*\"([^\"]+)\"') { $matches[1] } else { continue }; ^
+    $sshKey = if ($content -match '\\$SSH_KEY\\s*=\\s*\"([^\"]+)\"') { $matches[1] } else { continue }; ^
+    $forwards = @(); ^
+    for ($i = 1; $i -le 10; $i++) { ^
+      $localIp = if ($content -match ('\\$TUNNEL' + $i + '_LOCAL_IP\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
+      $localPort = if ($content -match ('\\$TUNNEL' + $i + '_LOCAL_PORT\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
+      $remotePort = if ($content -match ('\\$TUNNEL' + $i + '_REMOTE_PORT\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
+      if (-not $localIp -or -not $localPort -or -not $remotePort) { break }; ^
+      $forwards += ('-R ' + $remotePort + ':' + $localIp + ':' + $localPort); ^
+    }; ^
+    if ($forwards.Count -eq 0) { continue }; ^
+    $sshArgs = '-i \"' + $sshKey + '\" -p 22 ' + ($forwards -join ' ') + ' root@' + $vpsIp + ' -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes'; ^
+    $titulo = 'Tunel - ' + $folder.Name; ^
+    Write-Host (' Abrindo: ' + $titulo) -ForegroundColor Green; ^
+    $cmd = '$Host.UI.RawUI.WindowTitle = ''' + $titulo + '''; Write-Host ''Tunel ativo. NAO FECHE esta janela.'' -ForegroundColor Green; Write-Host ''Conexao: ' + $vpsIp + ''' -ForegroundColor Cyan; Write-Host ''Forwards: ' + ($forwards -join ' ').Replace('''', '''''') + ''' -ForegroundColor Cyan; ssh ' + $sshArgs.Replace('''', '''''') + '; Write-Host ''Tunel encerrado. Esta janela pode ser fechada.'' -ForegroundColor Yellow; Read-Host'; ^
+    Start-Process powershell -ArgumentList ('-NoExit', '-NoProfile', '-Command', $cmd); ^
+    $abertos++; ^
+    Start-Sleep -Milliseconds 800; ^
+  }; ^
+  Write-Host ''; ^
+  Write-Host ('Pronto! ' + $abertos + ' tunel(eis) reconectado(s).') -ForegroundColor Green; ^
+  Write-Host 'NAO FECHE as janelas pretas que abriram - elas estao mantendo a conexao.'; ^
+  Write-Host 'Voce pode minimizar mas NAO FECHAR.'; ^
+  Read-Host 'Pressione ENTER para fechar esta janela'; ^
+}"
+exit
+`;
+
+      res.setHeader('Content-Type', 'application/x-msdos-program');
+      res.setHeader('Content-Disposition', 'attachment; filename="Reconectar-Tuneis.bat"');
+      return res.send(bat);
+    } catch (error: any) {
+      console.error('Erro ao gerar reconectar.bat:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   async uninstallTunnel(req: Request, res: Response) {
     try {
       const { clientName } = req.body;

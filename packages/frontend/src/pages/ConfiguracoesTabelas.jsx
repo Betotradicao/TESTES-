@@ -1748,9 +1748,30 @@ export default function ConfiguracoesTabelas() {
 
       {installedTunnels?.hasTunnels && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
-            <span>📡</span> Túneis Instalados
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+              <span>📡</span> Túneis Instalados
+            </h3>
+            <a
+              href={(api.defaults?.baseURL || '') + '/tunnel-installer/reconectar-bat'}
+              download="Reconectar-Tuneis.bat"
+              onClick={async (e) => {
+                e.preventDefault();
+                try {
+                  const r = await api.get('/tunnel-installer/reconectar-bat', { responseType: 'blob' });
+                  const url = URL.createObjectURL(new Blob([r.data]));
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'Reconectar-Tuneis.bat';
+                  document.body.appendChild(a); a.click(); a.remove();
+                  URL.revokeObjectURL(url);
+                } catch { alert('Erro ao baixar'); }
+              }}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg cursor-pointer flex items-center gap-2 transition"
+              title="Baixa um arquivo .bat que reconecta todos os tuneis. Cliente da duplo-clique e pronto."
+            >
+              🔄 Baixar Reconectar.bat
+            </a>
+          </div>
           <div className="space-y-3">
             {installedTunnels.tunnels.map((tunnel, idx) => (
               <div key={idx}>

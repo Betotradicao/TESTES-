@@ -26,4 +26,7 @@ router.post('/download/:type', authenticateToken, controller.downloadScript.bind
 // Desinstalar túnel (remove chave + gera BAT de remoção)
 router.post('/uninstall', authenticateToken, controller.uninstallTunnel.bind(controller));
 
+// Baixar BAT universal de reconexao dos tuneis (clicar 2x e pronto)
+router.get('/reconectar-bat', authenticateToken, controller.baixarReconectarBat.bind(controller));
+
 export default router;
