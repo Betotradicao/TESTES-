@@ -383,110 +383,93 @@ export class TunnelInstallerController {
    */
   async baixarReconectarBat(_req: Request, res: Response) {
     try {
-      // Script PowerShell completo - reconecta todos os tuneis instalados.
-      // ESTRATEGIA: NAO usa o tunnel-service.ps1 (tem bug do
-      // [System.Diagnostics.Process]::Start com stdin fechado que mata ssh em 2s).
-      // Em vez disso, abre UMA JANELA POWERSHELL VISIVEL por tunel rodando 'ssh -N'
-      // direto. Janela real = stdin real = ssh sobrevive.
+      // Script PowerShell - reconecta TODOS os tuneis HIDDEN (sem janela visivel).
+      // Logica que funcionou manualmente no Tradicao em 2026-04-25:
+      //   1. Deletar todas Scheduled Tasks SSH-Tunnel-* (orfas + bugadas)
+      //   2. Matar processos powershell rodando tunnel-service.ps1
+      //   3. Matar todos ssh.exe (estado limpo)
+      //   4. Esperar 5s pra VPS liberar TIME_WAIT
+      //   5. Gerar 1 .vbs com 'sh.Run "cmd /c ssh -N ...", 0, False' por pasta SSHTunnels*
+      //   6. Executar o .vbs via wscript - cria consoles ocultos por tunel
+      // Nada visivel, nada pra fechar acidentalmente. ssh sobrevive porque tem console.
       const ps1 = `$ErrorActionPreference = 'Continue'
-
 $Host.UI.RawUI.WindowTitle = 'Reconectar Tuneis SSH - Radar 360'
 
 Write-Host ''
 Write-Host '============================================================' -ForegroundColor Cyan
-Write-Host '  RECONECTAR TUNEIS - RADAR 360' -ForegroundColor Cyan
+Write-Host '  RECONECTAR TUNEIS - RADAR 360 (modo hidden)' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host ''
 
-# 1. Verificar admin
-$current = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($current)
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+# Verificar admin
+$cur = [Security.Principal.WindowsIdentity]::GetCurrent()
+$pri = New-Object Security.Principal.WindowsPrincipal($cur)
+if (-not $pri.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host 'ERRO: Execute como ADMINISTRADOR!' -ForegroundColor Red
-    Write-Host ''
-    Read-Host 'Pressione ENTER para fechar'
+    Read-Host 'ENTER para fechar'
     exit 1
 }
 
-# 2. Procurar pastas de tuneis instalados
-Write-Host 'Procurando tuneis instalados em C:\\ProgramData\\SSHTunnels*...' -ForegroundColor Cyan
+# 1. DELETAR Scheduled Tasks SSH-Tunnel-* (orfas + bugadas)
+Write-Host '[1/6] Removendo Scheduled Tasks SSH-Tunnel-* antigas/orfas...' -ForegroundColor Yellow
+$tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like 'SSH-Tunnel-*' })
+foreach ($t in $tasks) {
+    try {
+        Unregister-ScheduledTask -TaskName $t.TaskName -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Host ('  removida: ' + $t.TaskName) -ForegroundColor DarkGray
+    } catch {}
+}
+
+# 2. Matar powershell do tunnel-service.ps1 bugado
+Write-Host '[2/6] Matando powershell do servico bugado...' -ForegroundColor Yellow
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*tunnel-service.ps1*' } | ForEach-Object {
+    try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+}
+
+# 3. Matar todos ssh.exe
+Write-Host '[3/6] Matando ssh.exe antigos...' -ForegroundColor Yellow
+Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# 4. Esperar TIME_WAIT da VPS
+Write-Host '[4/6] Aguardando 5s (VPS liberar portas)...' -ForegroundColor Yellow
+Start-Sleep -Seconds 5
+
+# 5. Gerar VBS com 1 linha por pasta SSHTunnels*
+Write-Host '[5/6] Lendo configuracao dos tuneis instalados...' -ForegroundColor Cyan
+
 $folders = @(Get-ChildItem 'C:\\ProgramData' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'SSHTunnels*' })
 
 if ($folders.Count -eq 0) {
-    Write-Host 'Nenhum tunel instalado encontrado.' -ForegroundColor Red
-    Write-Host ''
-    Read-Host 'Pressione ENTER para fechar'
+    Write-Host 'Nenhum tunel instalado em C:\\ProgramData\\SSHTunnels*' -ForegroundColor Red
+    Read-Host 'ENTER para fechar'
     exit 1
 }
 
-Write-Host ('Encontrados ' + $folders.Count + ' tunel(eis):') -ForegroundColor Green
-foreach ($f in $folders) {
-    Write-Host ('  - ' + $f.Name) -ForegroundColor White
-}
-Write-Host ''
-
-# 3. Parar TUDO antes de reabrir
-Write-Host 'Parando processos ssh.exe antigos...' -ForegroundColor Yellow
-Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-
-# Matar powershell que estava rodando tunnel-service.ps1 (servico bugado)
-$psProcs = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*tunnel-service.ps1*' })
-foreach ($p in $psProcs) {
-    try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
-}
-
-# Parar Scheduled Tasks SSH-Tunnel-* (vamos abrir manualmente, sem o servico bugado)
-Write-Host 'Parando Scheduled Tasks SSH-Tunnel-* (orfas e atuais)...' -ForegroundColor Yellow
-$tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like 'SSH-Tunnel-*' })
-foreach ($t in $tasks) {
-    try { Stop-ScheduledTask -TaskName $t.TaskName -ErrorAction SilentlyContinue } catch {}
-}
-
-Start-Sleep -Seconds 2
-Write-Host ''
-
-# 4. Pra cada pasta, ler tunnel-service.ps1, extrair config, abrir JANELA com ssh -N
-Write-Host 'Abrindo janelas SSH (uma por tunel)...' -ForegroundColor Cyan
-Write-Host ''
-$abertos = 0
-$erros = 0
+$vbsLines = @('Set sh = CreateObject("WScript.Shell")')
+$contagem = 0
 
 foreach ($folder in $folders) {
     $cfg = Join-Path $folder.FullName 'tunnel-service.ps1'
     Write-Host ('Tunel: ' + $folder.Name) -ForegroundColor White
 
     if (-not (Test-Path $cfg)) {
-        Write-Host '  ERRO: tunnel-service.ps1 nao encontrado nesta pasta' -ForegroundColor Red
-        $erros++
+        Write-Host '  ERRO: tunnel-service.ps1 nao encontrado' -ForegroundColor Red
         continue
     }
 
     $content = Get-Content $cfg -Raw
 
-    # Extrair VPS_IP
     $vpsIp = $null
     if ($content -match '\\$VPS_IP\\s*=\\s*"([^"]+)"') { $vpsIp = $matches[1] }
-    if (-not $vpsIp) {
-        Write-Host '  ERRO: VPS_IP nao encontrado no tunnel-service.ps1' -ForegroundColor Red
-        $erros++
-        continue
-    }
-
-    # Extrair SSH_KEY
     $sshKey = $null
     if ($content -match '\\$SSH_KEY\\s*=\\s*"([^"]+)"') { $sshKey = $matches[1] }
-    if (-not $sshKey) {
-        Write-Host '  ERRO: SSH_KEY nao encontrado' -ForegroundColor Red
-        $erros++
-        continue
-    }
-    if (-not (Test-Path $sshKey)) {
-        Write-Host ('  ERRO: chave SSH nao existe: ' + $sshKey) -ForegroundColor Red
-        $erros++
+
+    if (-not $vpsIp -or -not $sshKey -or -not (Test-Path $sshKey)) {
+        Write-Host '  ERRO: VPS_IP ou SSH_KEY invalido' -ForegroundColor Red
         continue
     }
 
-    # Detectar porta SSH (22 ou 443)
+    # Porta SSH (22 padrao, ssh-port.txt se existir)
     $sshPort = 22
     $portFile = Join-Path $folder.FullName 'ssh-port.txt'
     if (Test-Path $portFile) {
@@ -494,72 +477,62 @@ foreach ($folder in $folders) {
         if ($saved -match '^\\d+$') { $sshPort = [int]$saved }
     }
 
-    # Extrair forwards TUNNELN_LOCAL_IP / LOCAL_PORT / REMOTE_PORT
+    # Extrair forwards
     $forwards = @()
     for ($i = 1; $i -le 10; $i++) {
         $rxIp = '\\$TUNNEL' + $i + '_LOCAL_IP\\s*=\\s*"([^"]+)"'
         $rxLp = '\\$TUNNEL' + $i + '_LOCAL_PORT\\s*=\\s*"([^"]+)"'
         $rxRp = '\\$TUNNEL' + $i + '_REMOTE_PORT\\s*=\\s*"([^"]+)"'
-        $localIp = $null; $localPort = $null; $remotePort = $null
-        if ($content -match $rxIp) { $localIp = $matches[1] }
-        if ($content -match $rxLp) { $localPort = $matches[1] }
-        if ($content -match $rxRp) { $remotePort = $matches[1] }
-        if (-not $localIp -or -not $localPort -or -not $remotePort) { break }
-        $forwards += ('-R ' + $remotePort + ':' + $localIp + ':' + $localPort)
+        $lip = $null; $lp = $null; $rp = $null
+        if ($content -match $rxIp) { $lip = $matches[1] }
+        if ($content -match $rxLp) { $lp = $matches[1] }
+        if ($content -match $rxRp) { $rp = $matches[1] }
+        if (-not $lip -or -not $lp -or -not $rp) { break }
+        $forwards += ('-R ' + $rp + ':' + $lip + ':' + $lp)
     }
 
     if ($forwards.Count -eq 0) {
-        Write-Host '  ERRO: nenhum forward TUNNELN_* encontrado' -ForegroundColor Red
-        $erros++
+        Write-Host '  ERRO: forwards nao encontrados' -ForegroundColor Red
         continue
     }
 
-    Write-Host ('  VPS: ' + $vpsIp + '   Porta SSH: ' + $sshPort) -ForegroundColor DarkGray
-    Write-Host ('  Forwards: ' + ($forwards -join ' ')) -ForegroundColor DarkGray
+    $sshCmd = 'cmd /c ssh -i ' + $sshKey + ' -p ' + $sshPort + ' ' + ($forwards -join ' ') + ' root@' + $vpsIp + ' -N -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o TCPKeepAlive=yes -o ExitOnForwardFailure=no'
 
-    # Montar comando ssh
-    $sshArgs = '-i "' + $sshKey + '" -p ' + $sshPort + ' ' + ($forwards -join ' ') + ' root@' + $vpsIp + ' -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes -o ExitOnForwardFailure=yes'
+    # Escapar aspas duplas pra VBS
+    $sshCmdVbs = $sshCmd -replace '"', '""'
+    $vbsLines += 'sh.Run "' + $sshCmdVbs + '", 0, False'
 
-    # Abrir janela PowerShell visivel rodando ssh - janela real = stdin real = ssh sobrevive
-    $titulo = 'Tunel ' + $folder.Name + ' (NAO FECHE)'
-    $forwardsStr = ($forwards -join ' ')
-    $innerCmd = '$Host.UI.RawUI.WindowTitle = ''' + $titulo + ''';' +
-                'Write-Host ''============================================================'' -ForegroundColor Cyan;' +
-                'Write-Host ''  TUNEL ATIVO - NAO FECHE ESTA JANELA'' -ForegroundColor Green;' +
-                'Write-Host ''  ' + $folder.Name + ''' -ForegroundColor White;' +
-                'Write-Host ''============================================================'' -ForegroundColor Cyan;' +
-                'Write-Host ''VPS: ' + $vpsIp + '   Porta: ' + $sshPort + ''';' +
-                'Write-Host ''Forwards: ' + $forwardsStr + ''';' +
-                'Write-Host '''';' +
-                'Write-Host ''Voce pode minimizar mas NAO FECHAR.'' -ForegroundColor Yellow;' +
-                'Write-Host '''';' +
-                '& ssh ' + $sshArgs + ';' +
-                'Write-Host '''';' +
-                'Write-Host ''Tunel encerrado.'' -ForegroundColor Red;' +
-                'Read-Host ''Pressione ENTER para fechar esta janela'''
-
-    try {
-        Start-Process 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-Command', $innerCmd) -ErrorAction Stop
-        Write-Host '  OK - janela SSH aberta' -ForegroundColor Green
-        $abertos++
-        Start-Sleep -Milliseconds 1500
-    } catch {
-        Write-Host ('  ERRO ao abrir janela: ' + $_.Exception.Message) -ForegroundColor Red
-        $erros++
-    }
-    Write-Host ''
+    Write-Host ('  ' + ($forwards -join ' ')) -ForegroundColor DarkGray
+    Write-Host '  OK - adicionado ao VBS' -ForegroundColor Green
+    $contagem++
 }
 
+Write-Host ''
+
+if ($contagem -eq 0) {
+    Write-Host 'Nenhum tunel valido encontrado.' -ForegroundColor Red
+    Read-Host 'ENTER para fechar'
+    exit 1
+}
+
+# 6. Executar VBS (cmd hidden por tunel, ssh sobrevive porque tem console)
+Write-Host '[6/6] Iniciando tuneis em background (sem janela)...' -ForegroundColor Cyan
+$vbsPath = Join-Path $env:TEMP 'reconectar-tuneis-radar360.vbs'
+$vbsLines | Out-File -FilePath $vbsPath -Encoding ASCII
+Start-Process 'wscript.exe' -ArgumentList ('"' + $vbsPath + '"') -WindowStyle Hidden
+
+Start-Sleep -Seconds 8
+
+$running = @(Get-Process ssh -ErrorAction SilentlyContinue)
+Write-Host ''
 Write-Host '============================================================' -ForegroundColor Cyan
-Write-Host ('Pronto! ' + $abertos + ' tunel(eis) ativo(s), ' + $erros + ' erro(s).') -ForegroundColor Green
+Write-Host ('  ' + $contagem + ' tunel(eis) iniciado(s) | ' + $running.Count + ' ssh.exe rodando') -ForegroundColor Green
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host ''
-Write-Host 'IMPORTANTE: As janelas pretas que abriram sao os tuneis.' -ForegroundColor Yellow
-Write-Host '            Voce pode MINIMIZAR mas NAO PODE FECHAR.' -ForegroundColor Yellow
+Write-Host 'Os tuneis estao rodando OCULTOS (sem janela). Nao tem nada pra fechar.' -ForegroundColor Yellow
+Write-Host 'Aguarde 5s e clique em "Atualizar Status" no sistema.' -ForegroundColor Cyan
 Write-Host ''
-Write-Host 'Aguarde 10 a 30 segundos e clique em "Atualizar Status" no sistema.' -ForegroundColor Cyan
-Write-Host ''
-Read-Host 'Pressione ENTER para fechar esta janela (as outras vao continuar abertas)'
+Read-Host 'ENTER para fechar esta janela'
 `;
 
       // Codifica PS1 em base64 e quebra em chunks pra caber no echo do CMD
