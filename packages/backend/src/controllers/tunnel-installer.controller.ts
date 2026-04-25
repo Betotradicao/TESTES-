@@ -383,63 +383,196 @@ export class TunnelInstallerController {
    */
   async baixarReconectarBat(_req: Request, res: Response) {
     try {
+      // Script PowerShell completo - reconecta todos os tuneis instalados.
+      // Reinicia as Scheduled Tasks (SSH-Tunnel-*), que ja sabem como rodar
+      // o tunnel-service.ps1 do jeito certo (mesmo metodo da instalacao original).
+      const ps1 = `$ErrorActionPreference = 'Continue'
+
+$Host.UI.RawUI.WindowTitle = 'Reconectar Tuneis SSH - Radar 360'
+
+Write-Host ''
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host '  RECONECTAR TUNEIS - RADAR 360' -ForegroundColor Cyan
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host ''
+
+# 1. Verificar admin
+$current = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($current)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host 'ERRO: Execute como ADMINISTRADOR!' -ForegroundColor Red
+    Write-Host 'Clique com botao direito no .bat e escolha "Executar como administrador"' -ForegroundColor Yellow
+    Write-Host ''
+    Read-Host 'Pressione ENTER para fechar'
+    exit 1
+}
+
+# 2. Procurar pastas de tuneis instalados
+Write-Host 'Procurando tuneis instalados em C:\\ProgramData\\SSHTunnels*...' -ForegroundColor Cyan
+$folders = @(Get-ChildItem 'C:\\ProgramData' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'SSHTunnels*' })
+
+if ($folders.Count -eq 0) {
+    Write-Host 'Nenhum tunel instalado encontrado.' -ForegroundColor Red
+    Write-Host ''
+    Read-Host 'Pressione ENTER para fechar'
+    exit 1
+}
+
+Write-Host ('Encontrados ' + $folders.Count + ' tunel(eis):') -ForegroundColor Green
+foreach ($f in $folders) {
+    Write-Host ('  - ' + $f.Name) -ForegroundColor White
+}
+Write-Host ''
+
+# 3. Parar processos SSH e tasks
+Write-Host 'Parando processos ssh.exe antigos...' -ForegroundColor Yellow
+Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+Write-Host 'Parando Scheduled Tasks SSH-Tunnel-*...' -ForegroundColor Yellow
+$tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like 'SSH-Tunnel-*' })
+foreach ($t in $tasks) {
+    try { Stop-ScheduledTask -TaskName $t.TaskName -ErrorAction SilentlyContinue } catch {}
+    Write-Host ('  - parado: ' + $t.TaskName) -ForegroundColor DarkGray
+}
+
+# Matar processos powershell que estavam rodando o tunnel-service.ps1
+$psProcs = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*tunnel-service.ps1*' })
+foreach ($p in $psProcs) {
+    try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+}
+
+Start-Sleep -Seconds 2
+Write-Host ''
+
+# 4. Reiniciar cada Scheduled Task (mesmo metodo da instalacao - usa o .vbs invisivel)
+Write-Host 'Reconectando tuneis...' -ForegroundColor Cyan
+Write-Host ''
+$abertos = 0
+$erros = 0
+
+foreach ($folder in $folders) {
+    $name = $folder.Name -replace '^SSHTunnels-?', ''
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = 'VPS46' }
+    $taskName = 'SSH-Tunnel-' + $name
+    $vbs = Join-Path $folder.FullName 'start-tunnel-service.vbs'
+    $ps1Path = Join-Path $folder.FullName 'tunnel-service.ps1'
+
+    Write-Host ('Tunel: ' + $folder.Name) -ForegroundColor White
+
+    # Tentar via Scheduled Task primeiro
+    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($task) {
+        try {
+            Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+            Write-Host ('  OK - task ' + $taskName + ' iniciada') -ForegroundColor Green
+            $abertos++
+            Start-Sleep -Milliseconds 1000
+            continue
+        } catch {
+            Write-Host ('  Falhou via Scheduled Task: ' + $_.Exception.Message) -ForegroundColor Yellow
+        }
+    }
+
+    # Fallback: rodar o .vbs direto
+    if (Test-Path $vbs) {
+        try {
+            Start-Process 'wscript.exe' -ArgumentList ('"' + $vbs + '"') -ErrorAction Stop
+            Write-Host '  OK - servico iniciado via VBS' -ForegroundColor Green
+            $abertos++
+            Start-Sleep -Milliseconds 1000
+            continue
+        } catch {
+            Write-Host ('  Falhou via VBS: ' + $_.Exception.Message) -ForegroundColor Red
+        }
+    }
+
+    # Ultimo fallback: rodar o PS1 direto em janela oculta
+    if (Test-Path $ps1Path) {
+        try {
+            Start-Process 'powershell.exe' -ArgumentList @('-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $ps1Path) -ErrorAction Stop
+            Write-Host '  OK - servico iniciado via PS1 direto' -ForegroundColor Green
+            $abertos++
+            Start-Sleep -Milliseconds 1000
+        } catch {
+            Write-Host ('  ERRO: ' + $_.Exception.Message) -ForegroundColor Red
+            $erros++
+        }
+    } else {
+        Write-Host '  ERRO: nenhum arquivo de servico encontrado nesta pasta' -ForegroundColor Red
+        $erros++
+    }
+}
+
+Write-Host ''
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host ('Pronto! ' + $abertos + ' tunel(eis) reconectado(s), ' + $erros + ' erro(s).') -ForegroundColor Green
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host ''
+Write-Host 'Aguarde 10 a 30 segundos e clique em "Atualizar Status" no sistema.' -ForegroundColor Yellow
+Write-Host ''
+Read-Host 'Pressione ENTER para fechar'
+`;
+
+      // Codifica PS1 em base64 e quebra em chunks pra caber no echo do CMD
+      const ps1Base64 = Buffer.from(ps1, 'utf8').toString('base64');
+      const ps1Chunks: string[] = [];
+      for (let i = 0; i < ps1Base64.length; i += 900) {
+        ps1Chunks.push(ps1Base64.substring(i, i + 900));
+      }
+      const echoLines = ps1Chunks.map((chunk, i) => {
+        const op = i === 0 ? '>' : '>>';
+        return `echo ${chunk} ${op} "%TEMP%\\reconectar-radar.b64"`;
+      }).join('\r\n');
+
       const bat = `@echo off
+chcp 65001 >nul 2>&1
 title Reconectar Tuneis SSH - Radar 360
 color 0E
+
+echo.
 echo ============================================================
 echo   RECONECTAR TUNEIS - RADAR 360
 echo ============================================================
 echo.
-echo Aguarde, reconectando tuneis SSH...
-echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ^
-  $ErrorActionPreference = 'SilentlyContinue'; ^
-  Write-Host 'Parando processos SSH antigos...' -ForegroundColor Yellow; ^
-  Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force; ^
-  Write-Host 'Parando tasks de tunel...' -ForegroundColor Yellow; ^
-  Get-ScheduledTask | Where-Object { $_.TaskName -like 'SSH-Tunnel*' } | ForEach-Object { Stop-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue }; ^
-  Start-Sleep -Seconds 2; ^
-  Write-Host ''; ^
-  Write-Host 'Procurando configuracoes de tunel em C:\\ProgramData\\SSHTunnels*...' -ForegroundColor Cyan; ^
-  $folders = Get-ChildItem 'C:\\ProgramData' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'SSHTunnels*' }; ^
-  if ($folders.Count -eq 0) { Write-Host 'Nenhuma configuracao encontrada.' -ForegroundColor Red; Read-Host 'Pressione ENTER'; exit }; ^
-  $abertos = 0; ^
-  foreach ($folder in $folders) { ^
-    $cfg = Join-Path $folder.FullName 'tunnel-service.ps1'; ^
-    if (-not (Test-Path $cfg)) { continue }; ^
-    $content = Get-Content $cfg -Raw; ^
-    $vpsIp = if ($content -match '\\$VPS_IP\\s*=\\s*\"([^\"]+)\"') { $matches[1] } else { continue }; ^
-    $sshKey = if ($content -match '\\$SSH_KEY\\s*=\\s*\"([^\"]+)\"') { $matches[1] } else { continue }; ^
-    $forwards = @(); ^
-    for ($i = 1; $i -le 10; $i++) { ^
-      $localIp = if ($content -match ('\\$TUNNEL' + $i + '_LOCAL_IP\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
-      $localPort = if ($content -match ('\\$TUNNEL' + $i + '_LOCAL_PORT\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
-      $remotePort = if ($content -match ('\\$TUNNEL' + $i + '_REMOTE_PORT\\s*=\\s*\"([^\"]+)\"')) { $matches[1] } else { $null }; ^
-      if (-not $localIp -or -not $localPort -or -not $remotePort) { break }; ^
-      $forwards += ('-R ' + $remotePort + ':' + $localIp + ':' + $localPort); ^
-    }; ^
-    if ($forwards.Count -eq 0) { continue }; ^
-    $sshArgs = '-i \"' + $sshKey + '\" -p 22 ' + ($forwards -join ' ') + ' root@' + $vpsIp + ' -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes'; ^
-    $titulo = 'Tunel - ' + $folder.Name; ^
-    Write-Host (' Abrindo: ' + $titulo) -ForegroundColor Green; ^
-    $cmd = '$Host.UI.RawUI.WindowTitle = ''' + $titulo + '''; Write-Host ''Tunel ativo. NAO FECHE esta janela.'' -ForegroundColor Green; Write-Host ''Conexao: ' + $vpsIp + ''' -ForegroundColor Cyan; Write-Host ''Forwards: ' + ($forwards -join ' ').Replace('''', '''''') + ''' -ForegroundColor Cyan; ssh ' + $sshArgs.Replace('''', '''''') + '; Write-Host ''Tunel encerrado. Esta janela pode ser fechada.'' -ForegroundColor Yellow; Read-Host'; ^
-    Start-Process powershell -ArgumentList ('-NoExit', '-NoProfile', '-Command', $cmd); ^
-    $abertos++; ^
-    Start-Sleep -Milliseconds 800; ^
-  }; ^
-  Write-Host ''; ^
-  Write-Host ('Pronto! ' + $abertos + ' tunel(eis) reconectado(s).') -ForegroundColor Green; ^
-  Write-Host 'NAO FECHE as janelas pretas que abriram - elas estao mantendo a conexao.'; ^
-  Write-Host 'Voce pode minimizar mas NAO FECHAR.'; ^
-  Read-Host 'Pressione ENTER para fechar esta janela'; ^
-}"
-exit
+REM Auto-elevar se nao estiver como admin
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Solicitando privilegios de administrador...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
+echo Preparando script de reconexao...
+${echoLines}
+
+REM Decodificar base64 em arquivo PS1
+powershell -NoProfile -Command "$b64 = (Get-Content '%TEMP%\\reconectar-radar.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('%TEMP%\\reconectar-radar.ps1', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
+
+if not exist "%TEMP%\\reconectar-radar.ps1" (
+    echo.
+    echo ERRO: Falha ao criar script de reconexao!
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Executar PS1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\\reconectar-radar.ps1"
+
+REM Limpar temporarios
+del "%TEMP%\\reconectar-radar.b64" 2>nul
+del "%TEMP%\\reconectar-radar.ps1" 2>nul
+
+exit /b 0
 `;
+
+      // Converter para CRLF (CMD do Windows exige \r\n)
+      const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
 
       res.setHeader('Content-Type', 'application/x-msdos-program');
       res.setHeader('Content-Disposition', 'attachment; filename="Reconectar-Tuneis.bat"');
-      return res.send(bat);
+      return res.send(toCRLF(bat));
     } catch (error: any) {
       console.error('Erro ao gerar reconectar.bat:', error);
       return res.status(500).json({ success: false, error: error.message });
