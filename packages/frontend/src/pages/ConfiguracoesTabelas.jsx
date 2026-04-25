@@ -1811,6 +1811,30 @@ export default function ConfiguracoesTabelas() {
                      tunnel.status === 'partial' ? 'PARCIAL' :
                      'OFFLINE'}
                   </div>
+                  {tunnel.status !== 'online' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const r = await api.get('/tunnel-installer/reconectar-bat', { responseType: 'blob' });
+                          const url = URL.createObjectURL(new Blob([r.data]));
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'Reconectar-Tuneis.bat';
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(url);
+                          alert('Arquivo baixado!\n\nVá na pasta Downloads do PC do cliente e clique 2 vezes em "Reconectar-Tuneis.bat".\n\nDepois clique em "Atualizar Status" pra confirmar.');
+                        } catch (e) {
+                          alert('Erro ao baixar: ' + (e.response?.data?.message || e.message));
+                        }
+                      }}
+                      className="text-sm px-3 py-1 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium"
+                      title="Baixar .bat para reconectar este túnel no PC do cliente"
+                    >
+                      🔄 Reconectar
+                    </button>
+                  )}
                   <button
                     onClick={() => handleUninstallTunnel(tunnel.clientName)}
                     disabled={uninstalling}
