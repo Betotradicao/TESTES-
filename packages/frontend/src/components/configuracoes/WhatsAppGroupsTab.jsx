@@ -78,8 +78,41 @@ export default function WhatsAppGroupsTab() {
     garimpadorConcorrente: {
       groupId: '',
       groupName: '',
+    },
+    topQuedas: {
+      groupId: '',
+      groupName: '',
+      diaSemana: '1',
+      scheduleTime: '08:00'
     }
   });
+
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handlePreviewTopQuedas = async () => {
+    try {
+      setIsPreviewing(true);
+      const token = localStorage.getItem('token');
+      const baseURL = api.defaults?.baseURL || '';
+      const url = `${baseURL}/top-quedas/preview${token ? '?_t=' + Date.now() : ''}`;
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!response.ok) {
+        const txt = await response.text();
+        throw new Error(`HTTP ${response.status}: ${txt.substring(0, 200)}`);
+      }
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err) {
+      console.error('Erro preview Top Quedas:', err);
+      alert('Erro ao gerar preview: ' + err.message);
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
 
   const [modalTarget, setModalTarget] = useState(null);
 
@@ -94,7 +127,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'producao', label: '🥖 Prevenção Produção', icon: '🥖' },
     { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' },
     { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' },
-    { id: 'garimpadorOfertas', label: '🏷️ Oferta no Radar', icon: '🏷️' }
+    { id: 'garimpadorOfertas', label: '🏷️ Oferta no Radar', icon: '🏷️' },
+    { id: 'topQuedas', label: '📉 Top Quedas Semanal', icon: '📉' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -1158,6 +1192,17 @@ Imagem anexada para verificação.`,
                     className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
                     {isSendingNow ? '📤 Enviando...' : '📤 Enviar Agora'}
+                  </button>
+                )}
+
+                {activeSubTab === 'topQuedas' && (
+                  <button
+                    onClick={handlePreviewTopQuedas}
+                    disabled={isPreviewing}
+                    className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    title="Gera o PDF agora pra voce visualizar como vai ser enviado"
+                  >
+                    {isPreviewing ? '🔍 Gerando preview...' : '🔍 Visualizar Preview do PDF'}
                   </button>
                 )}
               </div>
