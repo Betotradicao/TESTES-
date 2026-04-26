@@ -336,6 +336,7 @@ export class TopQuedasController {
   /**
    * Query Oracle direta: vendas por item filtrando APENAS por secao + periodo
    * (vs `buscarVendasPorItemPeriodo` do GestaoInteligente que exige codGrupo+codSubgrupo).
+   * Usa MappingService pra TODAS as tabelas e colunas (regra obrigatoria do projeto).
    * Recebe datas em YYYY-MM-DD, converte pra DD/MM/YYYY pra Oracle.
    */
   private static async queryItensPorSecao(
@@ -346,26 +347,37 @@ export class TopQuedasController {
       const tabPv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
       const tabP = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
 
+      // Colunas mapeadas
+      const colCodProdutoP = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colCodSecao = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_secao');
+      const colCodProdutoPv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_produto');
+      const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
+      const colCodLojaPv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'codigo_loja');
+      const colValTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
+      const colValCusto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_rep');
+      const colQtdTotal = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
+
       const [aIni, mIni, dIni] = dataInicio.split('-');
       const [aFim, mFim, dFim] = dataFim.split('-');
       const dataIniBR = `${dIni}/${mIni}/${aIni}`;
       const dataFimBR = `${dFim}/${mFim}/${aFim}`;
 
       let sql = `
-        SELECT p.COD_PRODUTO, p.DES_PRODUTO,
-          NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
-          NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
-          NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
+        SELECT p.${colCodProdutoP} as COD_PRODUTO, p.${colDesProduto} as DES_PRODUTO,
+          NVL(SUM(pv.${colValTotal}), 0) as VENDA,
+          NVL(SUM(pv.${colValCusto} * pv.${colQtdTotal}), 0) as CUSTO,
+          NVL(SUM(pv.${colQtdTotal}), 0) as QTD
         FROM ${tabPv} pv
-        JOIN ${tabP} p ON p.COD_PRODUTO = pv.COD_PRODUTO AND p.COD_SECAO = :codSecao
-        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+        JOIN ${tabP} p ON p.${colCodProdutoP} = pv.${colCodProdutoPv} AND p.${colCodSecao} = :codSecao
+        WHERE pv.${colDtaSaida} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
       `;
       const params: any = { codSecao, dataInicio: dataIniBR, dataFim: dataFimBR };
       if (codLoja) {
-        sql += ` AND pv.COD_LOJA = :codLoja`;
+        sql += ` AND pv.${colCodLojaPv} = :codLoja`;
         params.codLoja = codLoja;
       }
-      sql += ` GROUP BY p.COD_PRODUTO, p.DES_PRODUTO ORDER BY VENDA DESC`;
+      sql += ` GROUP BY p.${colCodProdutoP}, p.${colDesProduto} ORDER BY VENDA DESC`;
 
       return await OracleService.query<any>(sql, params);
     } catch (err: any) {
