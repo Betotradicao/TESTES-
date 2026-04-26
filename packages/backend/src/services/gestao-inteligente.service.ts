@@ -2114,18 +2114,50 @@ export class GestaoInteligenteService {
       // Busca a matriz (codLoja=null) ou a primeira loja existente como base
       const matriz = todas.find(c => c.codLoja == null) || todas[0];
 
+      // CNPJ unico por cod_loja: filiais herdam a raiz da matriz mas trocam o
+      // numero de filial (posicoes 9-12 do CNPJ) pelo cod_loja zerado-padded.
+      // Se matriz nao tem CNPJ valido, usa fallback 00000000000{cod_loja}.
+      // Necessario porque companies tem UNIQUE (cnpj) e todas as filiais
+      // herdando o mesmo CNPJ da matriz batem na constraint.
+      const cnpjsExistentes = new Set(todas.map(c => c.cnpj).filter(Boolean));
+      const buildCnpjFilial = (codLoja: number): string => {
+        const codStr = String(codLoja).padStart(4, '0');
+        const matrizCnpj = (matriz?.cnpj || '').replace(/\D/g, '');
+        let candidato: string;
+        if (matrizCnpj.length === 14) {
+          // Trocar dígitos 9-12 (filial) e zerar DV (13-14)
+          candidato = matrizCnpj.substring(0, 8) + codStr + '00';
+        } else {
+          candidato = '0000000000' + codStr;
+        }
+        // Se ja existir (improvavel), prefixa cod_loja em outras posicoes
+        let suffix = 0;
+        let final = candidato;
+        while (cnpjsExistentes.has(final)) {
+          suffix++;
+          final = candidato.substring(0, 14 - String(suffix).length) + String(suffix);
+        }
+        cnpjsExistentes.add(final);
+        return final;
+      };
+
       console.log(`📍 [GESTAO INTELIGENTE] Auto-criando ${faltantes.length} loja(s) faltante(s) em companies:`, faltantes.map(f => f.cod_loja).join(', '));
 
       for (const loja of faltantes) {
-        const nova = companyRepository.create({
-          nomeFantasia: matriz?.nomeFantasia || loja.des_loja || `Loja ${loja.cod_loja}`,
-          razaoSocial: matriz?.razaoSocial || '',
-          cnpj: matriz?.cnpj || '',
-          codLoja: Number(loja.cod_loja),
-          apelido: loja.des_loja || null,
-          active: true,
-        });
-        await companyRepository.save(nova);
+        try {
+          const nova = companyRepository.create({
+            nomeFantasia: matriz?.nomeFantasia || loja.des_loja || `Loja ${loja.cod_loja}`,
+            razaoSocial: matriz?.razaoSocial || '',
+            cnpj: buildCnpjFilial(Number(loja.cod_loja)),
+            codLoja: Number(loja.cod_loja),
+            apelido: loja.des_loja || null,
+            active: true,
+          });
+          await companyRepository.save(nova);
+        } catch (innerErr: any) {
+          // Falha em uma loja nao bloqueia as demais
+          console.warn(`⚠️ [GESTAO INTELIGENTE] Falha ao criar loja ${loja.cod_loja}:`, innerErr?.message || innerErr);
+        }
       }
     } catch (err) {
       console.error('❌ [GESTAO INTELIGENTE] Erro ao auto-criar companies faltantes:', err);
