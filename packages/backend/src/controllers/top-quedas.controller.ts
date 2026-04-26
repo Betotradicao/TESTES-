@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { GestaoInteligenteService } from '../services/gestao-inteligente.service';
+import { ConfigurationService } from '../services/configuration.service';
+import { WhatsAppService } from '../services/whatsapp.service';
+import { MappingService } from '../services/mapping.service';
+import { OracleService } from '../services/oracle.service';
 
 /**
  * Top Quedas Semanal - relatorio em PDF dos 20 itens em maior queda por setor.
@@ -19,7 +23,7 @@ export class TopQuedasController {
 
       const data = await TopQuedasController.coletarDados(codLoja);
 
-      const doc = new PDFDocument({ size: 'A4', margin: 36, bufferPages: true });
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30, bufferPages: true });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="top-quedas-preview.pdf"');
       doc.pipe(res);
@@ -36,62 +40,208 @@ export class TopQuedasController {
   }
 
   /**
-   * Coleta dados: pra cada setor, busca itens com comparativo e filtra os 20 piores
+   * POST /api/top-quedas/send-test
+   * Gera o PDF e envia AGORA pro grupo configurado em whatsapp_group_topQuedas.
+   * Body: { codLoja? } (opcional)
+   */
+  static async sendTest(req: Request, res: Response): Promise<void> {
+    try {
+      const codLoja = req.body?.codLoja ? Number(req.body.codLoja) : undefined;
+
+      const groupId = await ConfigurationService.get('whatsapp_group_topQuedas', '');
+      if (!groupId) {
+        res.status(400).json({
+          success: false,
+          error: 'Nenhum grupo WhatsApp configurado. Salve a configuração primeiro com um grupo selecionado.'
+        });
+        return;
+      }
+
+      console.log(`[TopQuedas] Gerando PDF de teste pro grupo ${groupId}...`);
+      const data = await TopQuedasController.coletarDados(codLoja);
+
+      // Gerar PDF em buffer
+      const pdfBuffer = await TopQuedasController.renderPdfToBuffer(data);
+
+      const dataAtual = new Date().toLocaleDateString('pt-BR');
+      const totalSetores = data.setores.length;
+      const totalItens = data.setores.reduce((acc: number, s: any) => acc + s.itens.length, 0);
+
+      const fmtBRL = (v: number) => 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmtPct = (v: number) => {
+        if (!isFinite(v) || v === 0) return '0,0%';
+        const sign = v > 0 ? '+' : '';
+        return sign + v.toFixed(1).replace('.', ',') + '%';
+      };
+      // Cor visual via emoji (verde sobe / vermelho cai), grudado no R$ e no %
+      const cor = (v: number) => v < 0 ? '🔴' : v > 0 ? '🟢' : '⚪';
+
+      // Bloco resumo de cada setor
+      const blocosSetor = data.setores
+        .sort((a: any, b: any) => b.vendaAtual - a.vendaAtual)
+        .map((s: any) =>
+          `🛒 *${s.setor}* — *${fmtBRL(s.vendaAtual)}*\n` +
+          `  📅 Mês anterior: ${cor(s.varMesPct)} *${fmtBRL(s.vendaMesAnterior)}*  ${cor(s.varMesPct)} *${fmtPct(s.varMesPct)}*\n` +
+          `  🗓️ Ano anterior: ${cor(s.varAnoPct)} *${fmtBRL(s.vendaAnoAnterior)}*  ${cor(s.varAnoPct)} *${fmtPct(s.varAnoPct)}*\n` +
+          `  📊 Média linear: ${cor(s.varMediaLinearPct)} *${fmtBRL(s.mediaLinear)}*  ${cor(s.varMediaLinearPct)} *${fmtPct(s.varMediaLinearPct)}*`
+        )
+        .join('\n\n');
+
+      const caption = `📉 *TOP QUEDAS SEMANAL* (Teste)\n` +
+                      `📅 Período: ${TopQuedasController.brDate(data.dataInicio)} a ${TopQuedasController.brDate(data.dataFim)}\n` +
+                      `🗓️ ${data.diasDecorridos} de ${data.diasNoMes} dias do mês\n` +
+                      `\n💼 *VENDAS POR SETOR*\n` +
+                      `${blocosSetor || '_(sem dados de vendas no período)_'}\n` +
+                      `\n📦 *${totalItens}* itens em queda nos top 20 por setor (PDF anexo)\n` +
+                      `\n_Enviado manualmente em ${dataAtual} via Radar 360_`;
+
+      const fileName = `top-quedas-${data.dataInicio}-a-${data.dataFim}.pdf`;
+      const ok = await WhatsAppService.sendDocumentBuffer(groupId, pdfBuffer, fileName, caption);
+
+      if (ok) {
+        res.json({
+          success: true,
+          message: `PDF enviado com sucesso pro grupo! ${totalSetores} setores, ${totalItens} itens.`,
+          totalSetores,
+          totalItens,
+        });
+      } else {
+        res.status(500).json({ success: false, error: 'Falha ao enviar PDF pro WhatsApp' });
+      }
+    } catch (error: any) {
+      console.error('[TopQuedas] Erro send-test:', error);
+      res.status(500).json({ success: false, error: error?.message || 'Erro ao enviar teste' });
+    }
+  }
+
+  /**
+   * Renderiza o PDF e retorna como Buffer (pra envio via WhatsApp).
+   */
+  private static renderPdfToBuffer(data: any): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30, bufferPages: true });
+        const chunks: Buffer[] = [];
+        doc.on('data', (c: Buffer) => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+        TopQuedasController.renderPdf(doc, data);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Coleta dados: pra cada setor, busca itens com comparativo e filtra os 20 piores.
+   * Tambem retorna RESUMO por setor (total vendas atual/mes ant/ano ant + variacoes).
    */
   private static async coletarDados(codLoja?: number) {
     const hoje = new Date();
     const ano = hoje.getFullYear();
     const mes = hoje.getMonth() + 1;
-    const dia = hoje.getDate();
+    // Periodo: dia 1 ate ONTEM (dia anterior). Se hoje for dia 1, usa apenas o dia 1
+    // (pra nao precisar ir pro mes anterior). Esperado rodar segunda a sexta.
+    const dia = Math.max(1, hoje.getDate() - 1);
     const dataInicio = `${ano}-${String(mes).padStart(2, '0')}-01`;
     const dataFim = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 
-    console.log(`[TopQuedas] Coletando dados de ${dataInicio} a ${dataFim} (codLoja=${codLoja || 'todas'})`);
+    // Periodos comparativos (mesmo intervalo dia 1 a dia atual)
+    const mesAntIni = mes === 1 ? 12 : mes - 1;
+    const anoMesAntIni = mes === 1 ? ano - 1 : ano;
+    const mesAntInicio = `${anoMesAntIni}-${String(mesAntIni).padStart(2, '0')}-01`;
+    const mesAntFim = `${anoMesAntIni}-${String(mesAntIni).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const anoAntInicio = `${ano - 1}-${String(mes).padStart(2, '0')}-01`;
+    const anoAntFim = `${ano - 1}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 
-    // 1. Lista de setores (com vendas no periodo)
-    const setores = await GestaoInteligenteService.getVendasPorSetor({ dataInicio, dataFim, codLoja });
+    console.log(`[TopQuedas] Periodo atual: ${dataInicio} a ${dataFim} (codLoja=${codLoja || 'todas'})`);
+    console.log(`[TopQuedas] Mes anterior: ${mesAntInicio} a ${mesAntFim}`);
+    console.log(`[TopQuedas] Ano anterior: ${anoAntInicio} a ${anoAntFim}`);
 
+    // 1. Setores - 3 periodos em paralelo
+    const [setoresAtual, setoresMesAnt, setoresAnoAnt] = await Promise.all([
+      GestaoInteligenteService.getVendasPorSetor({ dataInicio, dataFim, codLoja }),
+      GestaoInteligenteService.getVendasPorSetor({ dataInicio: mesAntInicio, dataFim: mesAntFim, codLoja }).catch(() => []),
+      GestaoInteligenteService.getVendasPorSetor({ dataInicio: anoAntInicio, dataFim: anoAntFim, codLoja }).catch(() => []),
+    ]);
+
+    // Indexar comparativos por codSecao
+    const idxMesAnt = new Map<number, any>();
+    setoresMesAnt.forEach((s: any) => idxMesAnt.set(Number(s.codSecao), s));
+    const idxAnoAnt = new Map<number, any>();
+    setoresAnoAnt.forEach((s: any) => idxAnoAnt.set(Number(s.codSecao), s));
+
+    // 2. Resumo + top 20 itens por setor
     const result: Array<{
       setor: string;
       codSecao: number;
+      vendaAtual: number;
+      vendaMesAnterior: number;
+      vendaAnoAnterior: number;
+      mediaLinear: number;
+      varMesPct: number;
+      varAnoPct: number;
+      varMediaLinearPct: number;
       itens: any[];
     }> = [];
 
-    // 2. Pra cada setor, busca itens com comparativo
-    for (const setor of setores) {
-      if (!setor.codSecao) continue;
-      try {
-        // getItensAnaliticos retorna itens com vendaAtual/vendaMesAnterior/vendaAnoAnterior + variacao %
-        // Como nao temos codGrupo/codSubgrupo, vou usar uma busca por secao via metodo direto
-        // Reaproveitando o helper buscarVendasPorItemPeriodo (que aceita so codSecao)
-        const itens = await TopQuedasController.buscarItensPorSecaoComComparativo(
-          setor.codSecao,
-          dataInicio,
-          dataFim,
-          codLoja
-        );
+    // Calcular media linear (projecao mensal): venda atual / diasDecorridos * diasMes
+    const diasDecorridos = dia;
+    const diasNoMes = new Date(ano, mes, 0).getDate();
 
-        // Ordena por queda em % (mes anterior) e pega top 20 com queda
-        const top20Quedas = itens
+    for (const setor of setoresAtual) {
+      if (!setor.codSecao) continue;
+      const codSec = Number(setor.codSecao);
+      const sMesAnt = idxMesAnt.get(codSec);
+      const sAnoAnt = idxAnoAnt.get(codSec);
+      const vAtual = Number(setor.venda || 0);
+      const vMesAnt = sMesAnt ? Number(sMesAnt.venda || 0) : 0;
+      const vAnoAnt = sAnoAnt ? Number(sAnoAnt.venda || 0) : 0;
+      const varMesPct = vMesAnt > 0 ? ((vAtual - vMesAnt) / vMesAnt) * 100 : 0;
+      const varAnoPct = vAnoAnt > 0 ? ((vAtual - vAnoAnt) / vAnoAnt) * 100 : 0;
+      const mediaLinear = diasDecorridos > 0 ? (vAtual / diasDecorridos) * diasNoMes : 0;
+      const varMediaLinearPct = vMesAnt > 0 ? ((mediaLinear - vMesAnt) / vMesAnt) * 100 : 0;
+
+      let top20Quedas: any[] = [];
+      try {
+        const itens = await TopQuedasController.buscarItensPorSecaoComComparativo(
+          codSec, dataInicio, dataFim, codLoja
+        );
+        top20Quedas = itens
           .filter((it: any) => (it.vendaMesAnterior || 0) > 0 && (it.vendaAtual || 0) < (it.vendaMesAnterior || 0))
           .sort((a: any, b: any) => (a.varMesPct || 0) - (b.varMesPct || 0))
           .slice(0, 20);
-
-        if (top20Quedas.length > 0) {
-          result.push({
-            setor: setor.setor,
-            codSecao: setor.codSecao,
-            itens: top20Quedas,
-          });
-        }
       } catch (err: any) {
-        console.error(`[TopQuedas] Erro setor ${setor.setor}:`, err?.message);
+        console.error(`[TopQuedas] Erro itens setor ${setor.setor}:`, err?.message);
       }
+
+      // Inclui o setor sempre (mesmo sem itens em queda) — usuario quer ver resumo geral
+      result.push({
+        setor: setor.setor,
+        codSecao: codSec,
+        vendaAtual: vAtual,
+        vendaMesAnterior: vMesAnt,
+        vendaAnoAnterior: vAnoAnt,
+        mediaLinear,
+        varMesPct,
+        varAnoPct,
+        varMediaLinearPct,
+        itens: top20Quedas,
+      });
     }
+
+    console.log(`[TopQuedas] Total setores: ${result.length}, com itens em queda: ${result.filter(s => s.itens.length > 0).length}`);
 
     return {
       dataInicio,
       dataFim,
+      mesAntInicio,
+      mesAntFim,
+      anoAntInicio,
+      anoAntFim,
+      diasDecorridos,
+      diasNoMes,
       codLoja,
       setores: result,
     };
@@ -131,23 +281,11 @@ export class TopQuedasController {
     const mesAnt = calcPeriodoAnterior(dataInicio, dataFim);
     const anoAnt = calcPeriodoAnoAnterior(dataInicio, dataFim);
 
-    // Buscar 3 periodos em paralelo
+    // Buscar 3 periodos em paralelo - query Oracle direta filtrando so por secao
     const [vendasAtual, vendasMesAnt, vendasAnoAnt] = await Promise.all([
-      (GestaoInteligenteService as any).buscarVendasPorItemPeriodo(
-        TopQuedasController.toErpDate(dataInicio),
-        TopQuedasController.toErpDate(dataFim),
-        codLoja, codSecao
-      ).catch(() => []),
-      (GestaoInteligenteService as any).buscarVendasPorItemPeriodo(
-        TopQuedasController.toErpDate(mesAnt.ini),
-        TopQuedasController.toErpDate(mesAnt.fim),
-        codLoja, codSecao
-      ).catch(() => []),
-      (GestaoInteligenteService as any).buscarVendasPorItemPeriodo(
-        TopQuedasController.toErpDate(anoAnt.ini),
-        TopQuedasController.toErpDate(anoAnt.fim),
-        codLoja, codSecao
-      ).catch(() => []),
+      TopQuedasController.queryItensPorSecao(dataInicio, dataFim, codSecao, codLoja),
+      TopQuedasController.queryItensPorSecao(mesAnt.ini, mesAnt.fim, codSecao, codLoja),
+      TopQuedasController.queryItensPorSecao(anoAnt.ini, anoAnt.fim, codSecao, codLoja),
     ]);
 
     // Indexar por COD_PRODUTO
@@ -196,13 +334,53 @@ export class TopQuedasController {
   }
 
   /**
+   * Query Oracle direta: vendas por item filtrando APENAS por secao + periodo
+   * (vs `buscarVendasPorItemPeriodo` do GestaoInteligente que exige codGrupo+codSubgrupo).
+   * Recebe datas em YYYY-MM-DD, converte pra DD/MM/YYYY pra Oracle.
+   */
+  private static async queryItensPorSecao(
+    dataInicio: string, dataFim: string, codSecao: number, codLoja?: number
+  ): Promise<any[]> {
+    try {
+      const schema = await MappingService.getSchema();
+      const tabPv = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_PDV')}`;
+      const tabP = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+
+      const [aIni, mIni, dIni] = dataInicio.split('-');
+      const [aFim, mFim, dFim] = dataFim.split('-');
+      const dataIniBR = `${dIni}/${mIni}/${aIni}`;
+      const dataFimBR = `${dFim}/${mFim}/${aFim}`;
+
+      let sql = `
+        SELECT p.COD_PRODUTO, p.DES_PRODUTO,
+          NVL(SUM(pv.VAL_TOTAL_PRODUTO), 0) as VENDA,
+          NVL(SUM(pv.VAL_CUSTO_REP * pv.QTD_TOTAL_PRODUTO), 0) as CUSTO,
+          NVL(SUM(pv.QTD_TOTAL_PRODUTO), 0) as QTD
+        FROM ${tabPv} pv
+        JOIN ${tabP} p ON p.COD_PRODUTO = pv.COD_PRODUTO AND p.COD_SECAO = :codSecao
+        WHERE pv.DTA_SAIDA BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
+      `;
+      const params: any = { codSecao, dataInicio: dataIniBR, dataFim: dataFimBR };
+      if (codLoja) {
+        sql += ` AND pv.COD_LOJA = :codLoja`;
+        params.codLoja = codLoja;
+      }
+      sql += ` GROUP BY p.COD_PRODUTO, p.DES_PRODUTO ORDER BY VENDA DESC`;
+
+      return await OracleService.query<any>(sql, params);
+    } catch (err: any) {
+      console.error(`[TopQuedas] queryItensPorSecao(${codSecao}, ${dataInicio}-${dataFim}):`, err?.message);
+      return [];
+    }
+  }
+
+  /**
    * Render do PDF
    */
   private static renderPdf(doc: PDFKit.PDFDocument, data: any) {
     const fmtMoney = (v: number) =>
       v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const fmtPct = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
-    const truncate = (s: string, n: number) => (s.length > n ? s.substring(0, n - 1) + '…' : s);
 
     // CAPA
     doc.fillColor('#FF6B00').fontSize(20).font('Helvetica-Bold')
@@ -220,7 +398,7 @@ export class TopQuedasController {
     doc.moveDown(1);
 
     if (!data.setores || data.setores.length === 0) {
-      doc.fontSize(14).fillColor('#999').text('Nenhum item em queda encontrado no periodo.', { align: 'center' });
+      doc.fontSize(14).fillColor('#999').text('Nenhum dado de vendas encontrado no periodo.', { align: 'center' });
       return;
     }
 
@@ -233,75 +411,144 @@ export class TopQuedasController {
       doc.fillColor('#FF6B00').fontSize(16).font('Helvetica-Bold')
         .text(`${setor.setor}`);
       doc.moveDown(0.3);
+
+      // Bloco RESUMO DO SETOR (totais com comparativo)
+      doc.fillColor('#000').fontSize(10).font('Helvetica-Bold')
+        .text('RESUMO DO SETOR');
+      doc.moveDown(0.2);
+      const resumoLineas = [
+        ['Vendas (atual)', fmtMoney(setor.vendaAtual), '', '#000'],
+        ['Mês anterior', fmtMoney(setor.vendaMesAnterior), fmtPct(setor.varMesPct), setor.varMesPct < 0 ? '#C62828' : '#2E7D32'],
+        ['Ano anterior', fmtMoney(setor.vendaAnoAnterior), fmtPct(setor.varAnoPct), setor.varAnoPct < 0 ? '#C62828' : '#2E7D32'],
+        ['Média linear (projeção)', fmtMoney(setor.mediaLinear), fmtPct(setor.varMediaLinearPct), setor.varMediaLinearPct < 0 ? '#C62828' : '#2E7D32'],
+      ];
+      doc.fontSize(9).font('Helvetica');
+      for (const [lbl, val, pct, cor] of resumoLineas) {
+        const yLine = doc.y;
+        doc.fillColor('#000').text(lbl, 36, yLine, { width: 180 });
+        doc.fillColor('#000').text(val, 220, yLine, { width: 100, align: 'right' });
+        if (pct) doc.fillColor(cor).text(pct, 330, yLine, { width: 70, align: 'right' });
+        doc.y = yLine + 12;
+      }
+      doc.fillColor('#000');
+      doc.moveDown(0.5);
+
+      if (!setor.itens || setor.itens.length === 0) {
+        doc.fontSize(10).fillColor('#888').font('Helvetica-Oblique')
+          .text('(Nenhum item individual em queda neste setor.)');
+        doc.moveDown(0.5);
+        continue;
+      }
+
       doc.fillColor('#666').fontSize(9).font('Helvetica-Oblique')
         .text(`Top ${setor.itens.length} itens em queda`);
       doc.moveDown(0.5);
 
-      // Cabecalho da tabela
-      const startY = doc.y;
+      // Layout LANDSCAPE A4: 842 x 595, margem 30 -> util 782
+      // Colunas (x absoluto):
+      const COL_VENDA_ATUAL_BG = '#E8F5E9'; // verde claro fundo
+      const COL_VENDA_ATUAL_TX = '#1B5E20'; // verde escuro texto
       const cols = [
-        { label: 'Cod', x: 36, w: 40 },
-        { label: 'Produto', x: 76, w: 180 },
-        { label: 'Atual R$', x: 256, w: 60, align: 'right' },
-        { label: 'Mes Ant', x: 316, w: 60, align: 'right' },
-        { label: 'Var %', x: 376, w: 50, align: 'right' },
-        { label: 'Ano Ant', x: 426, w: 60, align: 'right' },
-        { label: 'Var %', x: 486, w: 50, align: 'right' },
-        { label: 'Lucro R$', x: 536, w: 60, align: 'right' },
+        { label: 'Cod',          x: 30,  w: 50,  align: 'left' },
+        { label: 'Produto',      x: 80,  w: 230, align: 'left' },
+        { label: 'Vendas Atual', x: 310, w: 78,  align: 'right' },
+        { label: 'Mês Ant R$',   x: 388, w: 70,  align: 'right' },
+        { label: 'Var %',        x: 458, w: 48,  align: 'right' },
+        { label: 'Ano Ant R$',   x: 506, w: 70,  align: 'right' },
+        { label: 'Var %',        x: 576, w: 48,  align: 'right' },
+        { label: 'Lucro Atual',  x: 624, w: 65,  align: 'right' },
+        { label: 'Lucro M.Ant',  x: 689, w: 65,  align: 'right' },
+        { label: 'Lucro A.Ant',  x: 754, w: 58,  align: 'right' },
       ];
+      const rowLeft = 30;
+      const rowWidth = 782;
 
-      doc.fillColor('#FFF').rect(36, startY - 2, 560, 16).fill('#FF6B00');
+      // Cabecalho
+      const headY = doc.y;
+      doc.fillColor('#FF6B00').rect(rowLeft, headY - 2, rowWidth, 16).fill();
+      // Destaque verde no header da coluna Vendas Atual
+      doc.fillColor('#43A047').rect(cols[2].x, headY - 2, cols[2].w, 16).fill();
       doc.fillColor('#FFF').fontSize(8).font('Helvetica-Bold');
       cols.forEach(c => {
-        doc.text(c.label, c.x + 2, startY + 2, { width: c.w - 4, align: (c.align || 'left') as any });
+        doc.text(c.label, c.x + 2, headY + 3, { width: c.w - 4, align: c.align as any });
       });
-      doc.moveDown(1.2);
+      doc.y = headY + 16;
 
       // Linhas
       doc.fontSize(8).font('Helvetica');
       let rowIdx = 0;
       for (const item of setor.itens) {
-        const y = doc.y;
+        // Calcular altura da linha baseado no produto (wrap automatico)
+        const produto = String(item.produto || '-');
+        const prodH = doc.heightOfString(produto, { width: cols[1].w - 4 });
+        const rowH = Math.max(13, prodH + 4);
 
         // Quebra de pagina
-        if (y > 770) {
+        if (doc.y + rowH > 540) {
           doc.addPage();
+          // Re-render header na nova pagina
+          const hY = doc.y;
+          doc.fillColor('#FF6B00').rect(rowLeft, hY - 2, rowWidth, 16).fill();
+          doc.fillColor('#43A047').rect(cols[2].x, hY - 2, cols[2].w, 16).fill();
+          doc.fillColor('#FFF').fontSize(8).font('Helvetica-Bold');
+          cols.forEach(c => {
+            doc.text(c.label, c.x + 2, hY + 3, { width: c.w - 4, align: c.align as any });
+          });
+          doc.y = hY + 16;
           doc.fontSize(8).font('Helvetica');
         }
 
+        const y = doc.y;
+
         // Zebra
         if (rowIdx % 2 === 0) {
-          doc.fillColor('#F8F8F8').rect(36, y - 1, 560, 13).fill();
+          doc.fillColor('#F8F8F8').rect(rowLeft, y, rowWidth, rowH).fill();
         }
+        // Fundo verde claro na coluna Vendas Atual (sempre)
+        doc.fillColor(COL_VENDA_ATUAL_BG).rect(cols[2].x, y, cols[2].w, rowH).fill();
 
+        // Conteudo
         doc.fillColor('#000');
-        doc.text(String(item.codProduto || '-'), cols[0].x + 2, y + 1, { width: cols[0].w - 4 });
-        doc.text(truncate(item.produto || '-', 28), cols[1].x + 2, y + 1, { width: cols[1].w - 4 });
-        doc.text(fmtMoney(item.vendaAtual), cols[2].x + 2, y + 1, { width: cols[2].w - 4, align: 'right' });
-        doc.text(fmtMoney(item.vendaMesAnterior), cols[3].x + 2, y + 1, { width: cols[3].w - 4, align: 'right' });
+        doc.text(String(item.codProduto || '-'), cols[0].x + 2, y + 2, { width: cols[0].w - 4 });
+        doc.text(produto, cols[1].x + 2, y + 2, { width: cols[1].w - 4 });
+
+        // Vendas Atual em verde
+        doc.fillColor(COL_VENDA_ATUAL_TX).font('Helvetica-Bold');
+        doc.text(fmtMoney(item.vendaAtual), cols[2].x + 2, y + 2, { width: cols[2].w - 4, align: 'right' });
+        doc.font('Helvetica');
+
+        // Mes Anterior R$ + var %
+        doc.fillColor('#000');
+        doc.text(fmtMoney(item.vendaMesAnterior), cols[3].x + 2, y + 2, { width: cols[3].w - 4, align: 'right' });
         doc.fillColor(item.varMesPct < 0 ? '#C62828' : '#2E7D32');
-        doc.text(fmtPct(item.varMesPct), cols[4].x + 2, y + 1, { width: cols[4].w - 4, align: 'right' });
-        doc.fillColor('#000');
-        doc.text(fmtMoney(item.vendaAnoAnterior), cols[5].x + 2, y + 1, { width: cols[5].w - 4, align: 'right' });
-        doc.fillColor(item.varAnoPct < 0 ? '#C62828' : '#2E7D32');
-        doc.text(fmtPct(item.varAnoPct), cols[6].x + 2, y + 1, { width: cols[6].w - 4, align: 'right' });
-        doc.fillColor('#000');
-        doc.text(fmtMoney(item.lucroAtual), cols[7].x + 2, y + 1, { width: cols[7].w - 4, align: 'right' });
+        doc.text(fmtPct(item.varMesPct), cols[4].x + 2, y + 2, { width: cols[4].w - 4, align: 'right' });
 
-        doc.y = y + 13;
+        // Ano Anterior R$ + var %
+        doc.fillColor('#000');
+        doc.text(fmtMoney(item.vendaAnoAnterior), cols[5].x + 2, y + 2, { width: cols[5].w - 4, align: 'right' });
+        doc.fillColor(item.varAnoPct < 0 ? '#C62828' : '#2E7D32');
+        doc.text(fmtPct(item.varAnoPct), cols[6].x + 2, y + 2, { width: cols[6].w - 4, align: 'right' });
+
+        // 3 colunas de Lucro (sem %)
+        doc.fillColor('#000');
+        doc.text(fmtMoney(item.lucroAtual || 0), cols[7].x + 2, y + 2, { width: cols[7].w - 4, align: 'right' });
+        doc.text(fmtMoney(item.lucroMesAnterior || 0), cols[8].x + 2, y + 2, { width: cols[8].w - 4, align: 'right' });
+        doc.text(fmtMoney(item.lucroAnoAnterior || 0), cols[9].x + 2, y + 2, { width: cols[9].w - 4, align: 'right' });
+
+        doc.y = y + rowH;
         rowIdx++;
       }
 
       doc.moveDown(0.5);
     }
 
-    // Rodape em todas as paginas
+    // Rodape em todas as paginas (landscape: altura 595)
     const pages = doc.bufferedPageRange();
     for (let i = 0; i < pages.count; i++) {
       doc.switchToPage(i);
       doc.fillColor('#888').fontSize(8).font('Helvetica');
       doc.text(`Radar 360 - Top Quedas - ${TopQuedasController.brDate(data.dataInicio)} a ${TopQuedasController.brDate(data.dataFim)}  |  Pagina ${i + 1} de ${pages.count}`,
-        36, 810, { width: 560, align: 'center' });
+        30, 575, { width: 782, align: 'center' });
     }
   }
 

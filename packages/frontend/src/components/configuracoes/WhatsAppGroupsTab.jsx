@@ -87,30 +87,21 @@ export default function WhatsAppGroupsTab() {
     }
   });
 
-  const [isPreviewing, setIsPreviewing] = useState(false);
-
-  const handlePreviewTopQuedas = async () => {
+  const handleSendTopQuedasTest = async () => {
     try {
-      setIsPreviewing(true);
-      const token = localStorage.getItem('token');
-      const baseURL = api.defaults?.baseURL || '';
-      const url = `${baseURL}/top-quedas/preview${token ? '?_t=' + Date.now() : ''}`;
-      const response = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`HTTP ${response.status}: ${txt.substring(0, 200)}`);
+      setIsSendingNow(true);
+      setSendNowResult('');
+      const response = await api.post('/top-quedas/send-test');
+      if (response.data.success) {
+        setSendNowResult(`✅ ${response.data.message}`);
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
       }
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-    } catch (err) {
-      console.error('Erro preview Top Quedas:', err);
-      alert('Erro ao gerar preview: ' + err.message);
+    } catch (error) {
+      console.error('Erro ao enviar teste Top Quedas:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
     } finally {
-      setIsPreviewing(false);
+      setIsSendingNow(false);
     }
   };
 
@@ -357,6 +348,11 @@ Imagem anexada para verificação.`,
             pct: configs.garimpador_pct_bronze || '0'
           },
           garimpadorConcorrente: getGroupConfig('whatsapp_group_garimpador_concorrente', 'whatsapp_group_garimpador_concorrente_name'),
+          topQuedas: {
+            ...getGroupConfig('whatsapp_group_topQuedas', 'whatsapp_group_topQuedas_name'),
+            diaSemana: configs.whatsapp_top_quedas_dia_semana || '1',
+            scheduleTime: configs.whatsapp_top_quedas_schedule_time || '08:00'
+          },
         });
       }
     } catch (error) {
@@ -452,6 +448,16 @@ Imagem anexada para verificação.`,
         configData.whatsapp_prazo_fornecedores_schedule_time = currentConfig.scheduleTime;
       }
 
+      // Se for top quedas, salvar dia da semana + horário
+      if (activeSubTab === 'topQuedas') {
+        if (currentConfig.scheduleTime) {
+          configData.whatsapp_top_quedas_schedule_time = currentConfig.scheduleTime;
+        }
+        if (currentConfig.diaSemana !== undefined) {
+          configData.whatsapp_top_quedas_dia_semana = String(currentConfig.diaSemana);
+        }
+      }
+
       await api.post('/config/configurations', configData);
 
       alert('✅ Configuração salva com sucesso!');
@@ -473,7 +479,7 @@ Imagem anexada para verificação.`,
 
       const currentConfig = groupConfigs[activeSubTab];
 
-      if (!currentConfig.groupId.trim()) {
+      if (!currentConfig || !currentConfig.groupId || !currentConfig.groupId.trim()) {
         setTestResult('❌ Por favor, preencha o ID do grupo antes de testar.');
         return;
       }
@@ -1080,8 +1086,33 @@ Imagem anexada para verificação.`,
                 </p>
               </div>
 
+              {/* Dia da Semana - Para Top Quedas Semanal */}
+              {activeSubTab === 'topQuedas' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Dia da Semana para Envio
+                  </label>
+                  <select
+                    value={currentConfig.diaSemana || '1'}
+                    onChange={(e) => handleInputChange('diaSemana', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="1">Segunda-feira</option>
+                    <option value="2">Terça-feira</option>
+                    <option value="3">Quarta-feira</option>
+                    <option value="4">Quinta-feira</option>
+                    <option value="5">Sexta-feira</option>
+                    <option value="6">Sábado</option>
+                    <option value="0">Domingo</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Em qual dia da semana o PDF será enviado automaticamente
+                  </p>
+                </div>
+              )}
+
               {/* Campo de Horário - Para Bipagens e Quebras */}
-              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores') && (
+              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ⏰ Horário de Envio Automático
@@ -1103,6 +1134,8 @@ Imagem anexada para verificação.`,
                       ? 'PDF de pedidos em atraso será enviado automaticamente todos os dias neste horário'
                       : activeSubTab === 'prazoFornecedores'
                       ? 'PDF de fornecedores fora do combinado do dia anterior será enviado automaticamente todos os dias neste horário'
+                      : activeSubTab === 'topQuedas'
+                      ? 'PDF dos top 20 itens em queda por setor será enviado no dia da semana e horário escolhidos'
                       : 'PDF de quebras/ajustes do dia anterior será enviado automaticamente todos os dias neste horário'}
                   </p>
                 </div>
@@ -1197,12 +1230,12 @@ Imagem anexada para verificação.`,
 
                 {activeSubTab === 'topQuedas' && (
                   <button
-                    onClick={handlePreviewTopQuedas}
-                    disabled={isPreviewing}
-                    className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-                    title="Gera o PDF agora pra voce visualizar como vai ser enviado"
+                    onClick={handleSendTopQuedasTest}
+                    disabled={isSendingNow || !currentConfig.groupId?.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    title="Gera o PDF agora e envia pro grupo configurado pra voce ver no WhatsApp"
                   >
-                    {isPreviewing ? '🔍 Gerando preview...' : '🔍 Visualizar Preview do PDF'}
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Teste no WhatsApp'}
                   </button>
                 )}
               </div>
@@ -1221,7 +1254,7 @@ Imagem anexada para verificação.`,
               )}
 
               {/* Resultado do Envio Manual (Bipagens e Quebras) */}
-              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores') && (
+              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas') && (
                 <div className={`p-4 rounded-lg ${
                   sendNowResult.startsWith('✅') ? 'bg-green-50 border border-green-200' :
                   sendNowResult.startsWith('ℹ️') ? 'bg-blue-50 border border-blue-200' :
