@@ -923,7 +923,8 @@ function TabEnviar() {
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const r = await api.post('/recrutador/entrevistas', form);
+      const payload = { ...form, provedor_tts: form.modo_entrevista === 'voz' ? provedorTts : null };
+      const r = await api.post('/recrutador/entrevistas', payload);
       const url = `${window.location.origin}/recrutamento/${r.data.token}`;
       setResultado({ ...r.data, url });
     } catch (e) {
@@ -954,8 +955,8 @@ function TabEnviar() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { v: 'texto', i: '💬', t: 'Chat (Texto)', d: 'Candidato responde digitando. Mais simples, mais rápido.', custo: 'R$ 0,10-0,30', dispo: true },
-            { v: 'voz',   i: '🎤', t: 'Voz', d: 'Candidato fala e ouve a Helen. Web Speech API (grátis).', custo: 'Grátis (Web Speech)', dispo: true },
-            { v: 'video', i: '📹', t: 'Vídeo', d: 'Webcam grava o candidato. Em desenvolvimento.', custo: '~R$ 5/entrevista', dispo: false },
+            { v: 'voz',   i: '🎤', t: 'Voz', d: 'Candidato fala e ouve a Helen. TTS configurável.', custo: 'Grátis a R$ 0,40', dispo: true },
+            { v: 'video', i: '📹', t: 'Vídeo', d: 'Grava webcam do candidato + voz da Helen. RH revisa o vídeo depois.', custo: 'Grátis (storage MinIO)', dispo: true },
           ].map(opt => (
             <button
               key={opt.v}
@@ -1297,6 +1298,7 @@ function TabEntrevistas() {
   const [entrevistas, setEntrevistas] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState('');
   const [detalhe, setDetalhe] = useState(null);
+  const [comparando, setComparando] = useState(false);
 
   const carregar = async () => {
     try {
@@ -1325,7 +1327,7 @@ function TabEntrevistas() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
         <div className="flex gap-3 items-center">
           <h2 className="text-lg font-bold">Entrevistas ({entrevistas.length})</h2>
           <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
@@ -1336,8 +1338,17 @@ function TabEntrevistas() {
             <option value="finalizada">Finalizada</option>
           </select>
         </div>
-        <div className="text-sm text-gray-500">
-          Custo total: <strong>{fmtCusto(entrevistas.reduce((acc, e) => acc + (e.custo_estimado_centavos || 0), 0))}</strong>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setComparando(true)}
+            className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium text-sm flex items-center gap-2"
+            title="Compare 2 ou mais candidatos da mesma vaga lado a lado"
+          >
+            📊 Comparar Candidatos
+          </button>
+          <div className="text-sm text-gray-500">
+            Custo total: <strong>{fmtCusto(entrevistas.reduce((acc, e) => acc + (e.custo_estimado_centavos || 0), 0))}</strong>
+          </div>
         </div>
       </div>
 
@@ -1402,6 +1413,200 @@ function TabEntrevistas() {
       </div>
 
       {detalhe && <ModalEntrevistaDetalhe id={detalhe} onClose={() => setDetalhe(null)} />}
+      {comparando && <ModalComparacao entrevistas={entrevistas} onClose={() => setComparando(false)} />}
+    </div>
+  );
+}
+
+// ============================================================================
+// MODAL: COMPARAR CANDIDATOS (radar sobreposto)
+// ============================================================================
+function ModalComparacao({ entrevistas, onClose }) {
+  const [vagaId, setVagaId] = useState('');
+  const [selecionadas, setSelecionadas] = useState(new Set());
+
+  // Apenas finalizadas com relatorio
+  const finalizadas = entrevistas.filter(e => e.status === 'finalizada' && e.score_final !== null);
+  // Vagas distintas
+  const vagas = [...new Map(finalizadas.map(e => [e.vaga_titulo, { titulo: e.vaga_titulo, count: 0 }])).values()];
+  finalizadas.forEach(e => { const v = vagas.find(x => x.titulo === e.vaga_titulo); if (v) v.count++; });
+
+  // Filtra por vaga
+  const candidatos = vagaId
+    ? finalizadas.filter(e => e.vaga_titulo === vagaId)
+    : finalizadas;
+
+  const toggle = (id) => {
+    const ns = new Set(selecionadas);
+    if (ns.has(id)) ns.delete(id);
+    else if (ns.size < 6) ns.add(id);
+    setSelecionadas(ns);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto" onClick={ev => ev.stopPropagation()}>
+        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10 flex justify-between items-start">
+          <div>
+            <h3 className="text-xl font-bold flex items-center gap-2">📊 Comparar Candidatos</h3>
+            <p className="text-sm text-gray-600">Selecione até 6 candidatos da mesma vaga pra ver no mesmo gráfico</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Filtro por vaga */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Filtrar por vaga (recomendado)</label>
+            <select value={vagaId} onChange={e => { setVagaId(e.target.value); setSelecionadas(new Set()); }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="">Todas as vagas</option>
+              {vagas.map(v => <option key={v.titulo} value={v.titulo}>{v.titulo} ({v.count})</option>)}
+            </select>
+          </div>
+
+          {/* Lista de candidatos selecionáveis */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Candidatos disponíveis ({candidatos.length}) — selecionados: {selecionadas.size}/6
+            </label>
+            {candidatos.length === 0 && (
+              <p className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded">
+                Nenhum candidato com relatório finalizado encontrado.
+              </p>
+            )}
+            <div className="grid md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+              {candidatos.map(c => (
+                <label key={c.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer ${
+                  selecionadas.has(c.id) ? 'bg-purple-50 border-purple-400' : 'bg-white border-gray-200 hover:border-purple-300'
+                }`}>
+                  <input type="checkbox" checked={selecionadas.has(c.id)} onChange={() => toggle(c.id)}
+                    className="w-4 h-4" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{c.candidato_nome}</div>
+                    <div className="text-xs text-gray-500">
+                      {c.vaga_titulo} • Score {c.score_final} • {c.recomendacao} {c.disc_inferido ? `• DISC ${c.disc_inferido}` : ''}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {selecionadas.size >= 1 && (
+            <ComparacaoRadarChart candidatosIds={[...selecionadas]} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Gráfico radar sobreposto: carrega cada candidato e renderiza
+function ComparacaoRadarChart({ candidatosIds }) {
+  const [dados, setDados] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelado = false;
+    setLoading(true);
+    Promise.all(candidatosIds.map(id => api.get(`/recrutador/entrevistas/${id}`).then(r => r.data.entrevista).catch(() => null)))
+      .then(arr => { if (!cancelado) { setDados(arr.filter(Boolean)); setLoading(false); } });
+    return () => { cancelado = true; };
+  }, [candidatosIds.join(',')]);
+
+  if (loading) return <div className="text-sm text-gray-500 p-4">Carregando...</div>;
+  if (dados.length === 0) return null;
+
+  const cores = [
+    { bg: 'rgba(255, 99, 132, 0.20)', border: 'rgba(255, 99, 132, 1)' },   // pink
+    { bg: 'rgba(54, 162, 235, 0.20)', border: 'rgba(54, 162, 235, 1)' },   // blue
+    { bg: 'rgba(75, 192, 75, 0.20)',  border: 'rgba(75, 192, 75, 1)' },    // green
+    { bg: 'rgba(255, 159, 64, 0.20)', border: 'rgba(255, 159, 64, 1)' },   // orange
+    { bg: 'rgba(153, 102, 255, 0.20)',border: 'rgba(153, 102, 255, 1)' },  // purple
+    { bg: 'rgba(255, 206, 86, 0.20)', border: 'rgba(255, 206, 86, 1)' },   // yellow
+  ];
+
+  const radarData = {
+    labels: ['Técnica', 'Comportamental', 'Comunicação', 'Ética', 'Motivação', 'Fit Cultural'],
+    datasets: dados.map((e, i) => {
+      const dim = e.relatorio_json?.scores_dimensoes || {};
+      const cor = cores[i % cores.length];
+      return {
+        label: `${e.candidato_nome} (${e.score_final})`,
+        data: [
+          dim.tecnica ?? 0, dim.comportamental ?? 0, dim.comunicacao ?? 0,
+          dim.etica ?? 0, dim.motivacao ?? 0, dim.fit_cultural ?? 0
+        ],
+        backgroundColor: cor.bg,
+        borderColor: cor.border,
+        borderWidth: 2,
+        pointBackgroundColor: cor.border,
+        pointRadius: 4
+      };
+    })
+  };
+  const radarOptions = {
+    scales: { r: { suggestedMin: 0, suggestedMax: 10, ticks: { stepSize: 2 } } },
+    plugins: { legend: { position: 'top' } },
+    maintainAspectRatio: false
+  };
+
+  // Ranking ordenado por score
+  const ranking = [...dados].sort((a, b) => (b.score_final || 0) - (a.score_final || 0));
+  const fmtBRL = (centavos) => 'R$ ' + ((centavos || 0) / 100).toFixed(2);
+  const corReco = (r) => ({
+    contratar: 'bg-green-100 text-green-800',
+    segunda_etapa: 'bg-blue-100 text-blue-800',
+    reserva: 'bg-yellow-100 text-yellow-800',
+    descartar: 'bg-red-100 text-red-800'
+  })[r] || 'bg-gray-100 text-gray-700';
+
+  return (
+    <div className="grid md:grid-cols-3 gap-4 mt-4">
+      {/* Radar 2/3 */}
+      <div className="md:col-span-2 bg-white border border-gray-200 rounded-xl p-4">
+        <h4 className="font-bold mb-2">Comparativo de Dimensões</h4>
+        <div style={{ height: '420px' }}>
+          <Radar data={radarData} options={radarOptions} />
+        </div>
+      </div>
+
+      {/* Ranking 1/3 */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <h4 className="font-bold mb-2">🏆 Ranking</h4>
+        <div className="space-y-2">
+          {ranking.map((e, idx) => (
+            <div key={e.id} className="border border-gray-200 rounded-lg p-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}º`}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">{e.candidato_nome}</div>
+                  <div className="text-xs text-gray-500">Score: <strong className="text-gray-900">{e.score_final}</strong></div>
+                </div>
+                <div className="w-3 h-3 rounded-full" style={{ background: cores[dados.findIndex(d => d.id === e.id) % cores.length].border }}></div>
+              </div>
+              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium ${corReco(e.recomendacao)}`}>
+                {e.recomendacao}
+              </span>
+              {e.disc_inferido && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">DISC {e.disc_inferido}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumo IA por candidato */}
+      <div className="md:col-span-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {dados.map((e, i) => (
+          <div key={e.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cores[i % cores.length].border }}></div>
+              <strong className="text-sm">{e.candidato_nome}</strong>
+            </div>
+            <p className="text-xs text-gray-700 line-clamp-4">{e.relatorio_json?.resumo_final || '—'}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1461,8 +1666,43 @@ function ModalEntrevistaDetalhe({ id, onClose }) {
 
         <div className="p-6 space-y-5">
           {!e.relatorio_json && (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-              ⚠️ Esta entrevista ainda não foi finalizada — relatório só fica disponível ao concluir.
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                {e.status === 'finalizada' ? (
+                  <>⚠️ Entrevista finalizada mas sem relatório (provavelmente estourou budget de tokens). Você pode gerar o relatório agora a partir do transcript.</>
+                ) : (
+                  <>⚠️ Esta entrevista ainda não foi finalizada — relatório só fica disponível ao concluir.</>
+                )}
+              </div>
+              {(respostas.length > 0) && (
+                <button
+                  onClick={async () => {
+                    if (!confirm('Gerar relatório agora a partir do transcript? Vai consumir tokens da OpenAI (~R$ 0,30).')) return;
+                    try {
+                      await api.post(`/recrutador/entrevistas/${e.id}/regerar-relatorio`);
+                      alert('✅ Relatório gerado! Recarregando...');
+                      window.location.reload();
+                    } catch (err) {
+                      alert('Erro: ' + (err.response?.data?.error || err.message));
+                    }
+                  }}
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium text-sm whitespace-nowrap"
+                >
+                  🔄 Gerar Relatório agora
+                </button>
+              )}
+            </div>
+          )}
+
+          {e.video_url && (
+            <div className="bg-black rounded-xl overflow-hidden">
+              <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between">
+                <span className="text-sm font-medium">📹 Vídeo da entrevista</span>
+                <a href={e.video_url} download target="_blank" rel="noreferrer" className="text-xs text-blue-300 hover:underline">
+                  ⬇️ Baixar vídeo
+                </a>
+              </div>
+              <video src={e.video_url} controls className="w-full max-h-96 bg-black" preload="metadata" />
             </div>
           )}
 

@@ -37,6 +37,15 @@ const STATUS_LABEL = {
   contratado: { label: 'Contratado', emoji: '🎉', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
 };
 
+// Cores e nomes dos perfis DISC (mesmo padrao do RhMetodoDiscResultados)
+const DISC_NOME = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
+const DISC_COR = {
+  D: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
+  I: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300' },
+  S: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300' },
+  C: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
+};
+
 export default function BancoCurriculos() {
   const { user, logout } = useAuth();
   const { lojaSelecionada } = useLoja();
@@ -213,6 +222,10 @@ export default function BancoCurriculos() {
                       <th className="px-4 py-3 text-left font-semibold">Localização</th>
                       <th className="px-4 py-3 text-left font-semibold">Cargos de Interesse</th>
                       <th className="px-4 py-3 text-left font-semibold">Experiências</th>
+                      <th className="px-4 py-3 text-left font-semibold">Perfil Primário</th>
+                      <th className="px-4 py-3 text-left font-semibold">Perfil Secundário</th>
+                      <th className="px-4 py-3 text-left font-semibold">Entrevista</th>
+                      <th className="px-4 py-3 text-left font-semibold">Relatório</th>
                       <th className="px-4 py-3 text-right font-semibold">Data</th>
                     </tr>
                   </thead>
@@ -325,6 +338,48 @@ export default function BancoCurriculos() {
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
+                          </td>
+                          {/* Perfil Primário (DISC) */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {cv.disc?.perfil_primario ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${DISC_COR[cv.disc.perfil_primario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_primario]?.text || 'text-gray-700'} ${DISC_COR[cv.disc.perfil_primario]?.border || 'border-gray-300'}`}>
+                                {cv.disc.perfil_primario} — {DISC_NOME[cv.disc.perfil_primario]}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Perfil Secundário (DISC) */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {cv.disc?.perfil_secundario ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${DISC_COR[cv.disc.perfil_secundario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_secundario]?.text || 'text-gray-700'} ${DISC_COR[cv.disc.perfil_secundario]?.border || 'border-gray-300'}`}>
+                                {cv.disc.perfil_secundario} — {DISC_NOME[cv.disc.perfil_secundario]}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Entrevista (status) */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {cv.entrevista ? (
+                              cv.entrevista.status === 'finalizada' ? (
+                                <span className="inline-block text-xs px-2 py-0.5 rounded-full font-bold border bg-emerald-100 text-emerald-800 border-emerald-300">✅ Finalizada</span>
+                              ) : cv.entrevista.status === 'em_andamento' ? (
+                                <span className="inline-block text-xs px-2 py-0.5 rounded-full font-bold border bg-amber-100 text-amber-800 border-amber-300">⏳ Em andamento</span>
+                              ) : (
+                                <span className="inline-block text-xs px-2 py-0.5 rounded-full font-bold border bg-gray-100 text-gray-700 border-gray-300">📨 Pendente</span>
+                              )
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          {/* Relatório (botão -> Entrevistas Realizadas) */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {cv.entrevista?.tem_relatorio ? (
+                              <button onClick={e => {
+                                e.stopPropagation();
+                                window.location.href = `/rh/recrutador/entrevistas?entrevista=${cv.entrevista.id}`;
+                              }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 text-xs font-bold">
+                                📄 Ver
+                              </button>
+                            ) : cv.entrevista ? (
+                              <span className="text-xs text-gray-400 italic">aguardando</span>
+                            ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Data */}
                           <td className="px-4 py-3 text-gray-600 text-right whitespace-nowrap text-xs">

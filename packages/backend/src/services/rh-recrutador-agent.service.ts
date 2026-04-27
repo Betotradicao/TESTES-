@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { AppDataSource } from '../config/database';
 import { ConfigurationService } from './configuration.service';
+import axios from 'axios';
 
 /**
  * Agente Entrevistadora Digital — usa OpenAI Function Calling.
@@ -171,11 +171,29 @@ export class RhRecrutadorAgentService {
       throw new Error(`Entrevista ja ${ent.status}`);
     }
 
-    const vaga = await AppDataSource.query(
-      `SELECT * FROM rh_recrutador_vagas WHERE id = $1`, [ent.vaga_id]
-    );
-    if (!vaga || vaga.length === 0) throw new Error('Vaga nao encontrada');
-    const v = vaga[0];
+    let v: any;
+    if (ent.vaga_id) {
+      const vaga = await AppDataSource.query(
+        `SELECT * FROM rh_recrutador_vagas WHERE id = $1`, [ent.vaga_id]
+      );
+      if (!vaga || vaga.length === 0) throw new Error('Vaga nao encontrada');
+      v = vaga[0];
+    } else {
+      // Pre-entrevista exploratoria sem vaga especifica
+      v = {
+        titulo: 'Pré-Entrevista Exploratória',
+        descricao: 'Entrevista exploratoria pra conhecer o candidato. NAO mencione vaga especifica — pergunte sobre experiencia, comportamento, valores e motivacoes.',
+        competencias_chave: ['comunicacao', 'autoconhecimento', 'maturidade', 'integridade'],
+        perfil_disc_ideal: null,
+        carga_horaria: null,
+        requisitos_obrigatorios: null,
+        red_flags: [],
+        instrucoes_extras_ia: 'IMPORTANTE: NAO mencione vaga especifica. Esta e uma pre-entrevista exploratoria - foco em conhecer a pessoa: trajetoria, comportamento, sonhos. Helen NAO deve perguntar tecnicas de varejo aqui. Foco 100% em comportamental + vida pessoal/sonhos.',
+        max_perguntas: 10,
+        setor: 'exploratoria',
+        requer_experiencia: false,
+      };
+    }
 
     const config = await AppDataSource.query(
       `SELECT * FROM rh_recrutador_config ORDER BY id ASC LIMIT 1`
@@ -460,6 +478,43 @@ Em vez de aceitar "trabalhei como caixa por 2 anos", aprofunde:
 
 Resposta sem CONQUISTA concreta = sinal de performance fraca.
 
+## ⚠️ REGRA ANTI-MARTELO (CRITICA — NAO QUEBRAR)
+**MAXIMO 2 perguntas de aprofundamento NO MESMO TOPICO.** Apos 2 follow-ups
+sobre o mesmo assunto (ex: vendas no TikTok, primeira venda, persistencia,
+configuracao), VOCE OBRIGATORIAMENTE MUDA pra outra dimensao:
+- Outro emprego/experiencia que nao foi explorado
+- Habilidade tecnica do setor (se vaga exigir experiencia)
+- Trabalho em equipe / lideranca
+- Etica / situacao dificil
+- Vida pessoal / sonhos (sempre opcional)
+- Atendimento ao cliente
+- Aprendizado / receptividade a feedback
+
+NAO fique 3+ turnos no mesmo topico. Se candidato dar resposta vaga 2 vezes
+no mesmo assunto, ANOTE como "resposta superficial" no salvar_resposta_e_analise
+e MUDE pra outra area pra dar chance de mostrar outras competencias.
+
+Exemplos de transicao saudavel:
+- "Ok Maria, valeu por compartilhar. Mudando um pouco de assunto, **conta de
+  alguma situacao no trabalho em que voce teve que lidar com cliente dificil**."
+- "Entendi. Bem interessante. **E pensando em trabalho em equipe, conta uma
+  vez em que voce e um colega tiveram visoes diferentes sobre algo**."
+- "Maria, voce ja trabalhou em supermercado/varejo antes? Se sim, **conta
+  um pouco da rotina**."
+
+## ⚠️ COBERTURA MINIMA OBRIGATORIA POR ENTREVISTA
+Voce DEVE cobrir nestas areas (1+ pergunta cada) antes de finalizar:
+1. Rapport + apresentacao
+2. Trajetoria profissional / ultimo emprego
+3. Comportamental STAR (cliente dificil OU conflito OU erro/aprendizado)
+4. Etica (uma situacao moral ou de pressao)
+5. Tecnica (se vaga exigir experiencia)
+6. Vida pessoal/sonhos (opcional, mas pergunte 1)
+7. Fechamento (pergunta aberta + agradecimento)
+
+Se atingir limite de perguntas sem cobrir 1-4 e 7, **finalizar mesmo assim**
+mas registrar em pontos_atencao "Entrevista incompleta — areas X, Y nao avaliadas".
+
 ## QUANDO FALAR
 - Cumprimentar e fazer rapport
 - Fazer 1 pergunta clara por vez
@@ -681,15 +736,129 @@ ${cfg.instrucoes_extras || ''}`.trim();
   }
 
   private static async finalizarPorBudget(entrevistaId: number) {
+    // Tenta gerar relatorio consolidado mesmo tendo estourado budget
+    try {
+      const relatorio = await RhRecrutadorAgentService.gerarRelatorioRetroativo(entrevistaId);
+      if (relatorio) {
+        await AppDataSource.query(
+          `UPDATE rh_recrutador_entrevistas
+           SET status = 'finalizada', finalizada_em = NOW(),
+               score_final = $1, recomendacao = $2, disc_inferido = $3,
+               relatorio_json = $4,
+               observacoes_rh = COALESCE(observacoes_rh, '') || ' [Encerrada por budget de tokens. Relatório gerado retroativamente.]',
+               updated_at = NOW()
+           WHERE id = $5`,
+          [relatorio.score_final || null, relatorio.recomendacao || 'reserva', relatorio.disc_inferido || null,
+           JSON.stringify(relatorio), entrevistaId]
+        );
+        return;
+      }
+    } catch (err: any) {
+      console.error('[Recrutador] Falha gerando relatorio retroativo:', err?.message);
+    }
+    // Fallback: encerra sem relatorio
     await AppDataSource.query(
       `UPDATE rh_recrutador_entrevistas
-       SET status = 'finalizada',
-           finalizada_em = NOW(),
-           recomendacao = 'reserva',
-           observacoes_rh = COALESCE(observacoes_rh, '') || ' [Encerrada automaticamente: budget de tokens atingido]',
+       SET status = 'finalizada', finalizada_em = NOW(), recomendacao = 'reserva',
+           observacoes_rh = COALESCE(observacoes_rh, '') || ' [Encerrada por budget de tokens. Relatorio nao gerado.]',
            updated_at = NOW()
        WHERE id = $1`,
       [entrevistaId]
     );
+  }
+
+  /**
+   * Gera relatorio consolidado a partir do historico salvo. Usado em 2 casos:
+   *  - finalizar_por_budget (estourou tokens sem chamar finalizar_entrevista)
+   *  - botao "Regenerar relatorio" no admin (entrevistas antigas sem report)
+   */
+  static async gerarRelatorioRetroativo(entrevistaId: number): Promise<any | null> {
+    const apiKey = await ConfigurationService.get('openai_api_key', '');
+    if (!apiKey) return null;
+
+    const ent = await AppDataSource.query(
+      `SELECT e.*, v.titulo AS vaga_titulo, v.descricao AS vaga_descricao, v.competencias_chave, v.perfil_disc_ideal
+       FROM rh_recrutador_entrevistas e
+       LEFT JOIN rh_recrutador_vagas v ON v.id = e.vaga_id
+       WHERE e.id = $1`, [entrevistaId]
+    );
+    if (!ent || ent.length === 0) return null;
+    const e = ent[0];
+
+    const respostas = await AppDataSource.query(
+      `SELECT ordem, pergunta, resposta FROM rh_recrutador_respostas
+       WHERE entrevista_id = $1 AND resposta IS NOT NULL ORDER BY ordem ASC`, [entrevistaId]
+    );
+    if (respostas.length === 0) return null;
+
+    const cfg = await AppDataSource.query(
+      `SELECT modelo_ia, nome_recrutadora FROM rh_recrutador_config ORDER BY id ASC LIMIT 1`
+    );
+    const modelo = cfg[0]?.modelo_ia || 'gpt-4o-mini';
+
+    const transcript = respostas
+      .map((r: any) => `[${r.ordem}] Recrutadora: ${r.pergunta}\nCandidato: ${r.resposta}`)
+      .join('\n\n');
+
+    const competencias = Array.isArray(e.competencias_chave)
+      ? e.competencias_chave.join(', ')
+      : (typeof e.competencias_chave === 'string' ? e.competencias_chave : '');
+
+    const sysPrompt = `Voce e ${cfg[0]?.nome_recrutadora || 'Helen'}, recrutadora PhD. Analise a entrevista abaixo e devolva um relatorio JSON estruturado.
+
+Vaga: ${e.vaga_titulo}
+Descricao: ${e.vaga_descricao || 'sem descricao'}
+Competencias-chave: ${competencias || 'nao especificadas'}
+Perfil DISC ideal: ${e.perfil_disc_ideal || 'nao especificado'}
+Candidato: ${e.candidato_nome}
+
+Transcript da entrevista (${respostas.length} turnos):
+---
+${transcript}
+---
+
+Retorne APENAS um JSON valido com esta estrutura (sem texto adicional, sem markdown, so o JSON):
+{
+  "score_final": numero 0-100,
+  "recomendacao": "contratar"|"segunda_etapa"|"reserva"|"descartar",
+  "recomendacao_simples": "SIM"|"NAO"|"TALVEZ",
+  "disc_inferido": "D"|"I"|"S"|"C"|"DI"|"DC"|"IS"|"IC"|"SC"|"DISC",
+  "scores_dimensoes": { "tecnica": 0-10, "comportamental": 0-10, "comunicacao": 0-10, "etica": 0-10, "motivacao": 0-10, "fit_cultural": 0-10 },
+  "pontos_fortes": ["...", "..."],
+  "pontos_atencao": ["...", "..."],
+  "red_flags": ["..."],
+  "possiveis_ganhos": ["...", "..."],
+  "possiveis_problemas": ["...", "..."],
+  "compatibilidade_disc": "frase curta",
+  "sugestao_treinamento": ["...", "..."],
+  "resumo_final": "texto livre 3-5 paragrafos"
+}`;
+
+    try {
+      const resp = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: modelo,
+          messages: [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: 'Gere o relatorio JSON agora.' }
+          ],
+          response_format: { type: 'json_object' },
+          ...(modelo.startsWith('gpt-5') || modelo.startsWith('gpt-4.1')
+            ? { max_completion_tokens: 4000 }
+            : { temperature: 0.4, max_tokens: 4000 }),
+        },
+        {
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          timeout: 90000
+        }
+      );
+      const content = resp.data.choices[0]?.message?.content;
+      if (!content) return null;
+      return JSON.parse(content);
+    } catch (err: any) {
+      console.error('[Recrutador] gerarRelatorioRetroativo erro:', err?.message);
+      return null;
+    }
   }
 }

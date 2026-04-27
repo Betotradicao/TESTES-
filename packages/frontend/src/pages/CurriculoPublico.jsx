@@ -7,9 +7,17 @@ export default function CurriculoPublico() {
   const [lojas, setLojas] = useState([]);
   // Loja escolhida pelo candidato na tela inicial (usa id da empresa)
   const [lojaEscolhidaId, setLojaEscolhidaId] = useState(null);
+  // Tela intermediaria de dicas (foto + redes sociais) entre loja e formulario
+  const [viuDicas, setViuDicas] = useState(false);
+  // Configs do RH (DISC + pre-entrevista habilitados?)
+  const [config, setConfig] = useState({ disc_habilitado: false, preentrevista_habilitada: false });
+  // Estado da tela pos-envio (oferecer DISC e/ou pre-entrevista)
+  const [posEnvioEtapa, setPosEnvioEtapa] = useState(null); // null | 'disc' | 'preentrevista' | 'finalizar'
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  // ID do curriculo recem-criado (amarra DISC e pre-entrevista ao curriculo)
+  const [curriculoId, setCurriculoId] = useState(null);
   const [erro, setErro] = useState('');
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -49,10 +57,10 @@ export default function CurriculoPublico() {
         setHabilidades(res.data?.habilidades || []);
         const listaLojas = res.data?.lojas || [];
         setLojas(listaLojas);
-        // Se so existe 1 loja, seleciona ela automaticamente
-        if (listaLojas.length === 1) {
-          setLojaEscolhidaId(listaLojas[0].id);
-        }
+        // Configs (DISC + pre-entrevista)
+        if (res.data?.config) setConfig(res.data.config);
+        // SEMPRE mostra a tela de selecao de loja primeiro (mesmo com 1 unica loja),
+        // pra o candidato entender pra qual loja esta se candidatando.
       } catch (e) {
         setErro('Nao foi possivel carregar o formulario. Tente novamente mais tarde.');
       } finally {
@@ -231,7 +239,9 @@ export default function CurriculoPublico() {
         })),
       };
       const lojaSel = lojas.find(l => l.id === lojaEscolhidaId);
-      await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaSel?.cod_loja ?? null });
+      const r = await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaSel?.cod_loja ?? null });
+      // Captura o id retornado pra amarrar DISC e pre-entrevista a este curriculo
+      if (r?.data?.id) setCurriculoId(r.data.id);
       setEnviado(true);
       window.scrollTo(0, 0);
     } catch (err) {
@@ -311,7 +321,140 @@ export default function CurriculoPublico() {
     );
   }
 
+  // Tela intermediaria: Dicas pra aumentar chances (foto + redes sociais)
+  if (lojaEscolhidaId != null && !viuDicas) {
+    const lj = lojas.find(l => l.id === lojaEscolhidaId);
+    const tituloLoja = lj ? (lj.apelido || (lj.is_principal ? 'MATRIZ' : (lj.cod_loja ? `LOJA ${lj.cod_loja}` : 'LOJA'))) : '';
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex items-center justify-center p-4">
+        <div className="max-w-lg w-full">
+          {/* Banner topo */}
+          <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-t-2xl p-5 shadow-lg flex items-center gap-3">
+            <div className="text-5xl">⚠️</div>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-wide">ATENÇÃO!</h1>
+              <p className="text-sm opacity-95">Antes de começar, leia com carinho:</p>
+            </div>
+          </div>
+
+          {/* Card com a mensagem */}
+          <div className="bg-white rounded-b-2xl shadow-xl p-6 space-y-4">
+            <div className="text-center">
+              <div className="text-5xl mb-2">📸 ✨ 📱</div>
+              <p className="text-lg font-bold text-gray-900 leading-snug">
+                Currículos com <span className="text-rose-600">foto</span> e <span className="text-rose-600">redes sociais</span> possuem <span className="underline decoration-amber-400 decoration-4">muito mais chances</span> de seleção.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-center">
+                <div className="text-3xl mb-1">📸</div>
+                <p className="text-xs font-bold text-rose-800">FOTO</p>
+                <p className="text-[11px] text-rose-700 mt-0.5">Mostra que você é real e profissional</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+                <div className="text-3xl mb-1">📱</div>
+                <p className="text-xs font-bold text-blue-800">REDES SOCIAIS</p>
+                <p className="text-[11px] text-blue-700 mt-0.5">Instagram, LinkedIn, TikTok ajudam a te conhecer</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded text-sm text-amber-900">
+              💡 <strong>Dica:</strong> Capriche! Quanto mais completo e bonito for seu currículo, maiores as chances de te chamarmos pra entrevista. 🚀
+            </div>
+
+            {tituloLoja && (
+              <div className="text-center text-xs text-gray-500 mt-2">
+                Você está se candidatando para <strong className="text-rose-600">{tituloLoja}</strong>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setLojaEscolhidaId(null)}
+                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium text-sm"
+              >
+                ← Trocar loja
+              </button>
+              <button
+                onClick={() => setViuDicas(true)}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-xl font-bold text-base shadow-md"
+              >
+                Entendi, vamos lá! →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Após currículo enviado - oferece DISC e/ou pré-entrevista
   if (enviado) {
+    const candidatoNome = form.nome || '';
+    const candidatoTelefone = form.whatsapp || '';
+    const candidatoEmail = form.email || '';
+
+    // ============ TELA: Convidar pra DISC ============
+    if (config.disc_habilitado && posEnvioEtapa === null) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 flex items-center justify-center p-4">
+          <div className="max-w-lg w-full">
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-2xl p-5 shadow-lg flex items-center gap-3">
+              <div className="text-5xl">🎯</div>
+              <div>
+                <h1 className="text-2xl font-extrabold">Atenção, candidatos(as)!</h1>
+              </div>
+            </div>
+            <div className="bg-white rounded-b-2xl shadow-xl p-6 space-y-4">
+              <p className="text-gray-800 leading-relaxed">
+                Nós utilizamos um teste chamado <strong className="text-purple-700">DISC</strong> para conhecer melhor o perfil do candidato. 🎯
+              </p>
+              <p className="text-gray-800 leading-relaxed">
+                Candidatos que preenchem o teste possuem <strong className="underline decoration-amber-400 decoration-4">muito mais chances</strong> de seleção. ✨
+              </p>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-900 text-center">
+                ⏱️ Leva em torno de <strong>10 a 15 minutos</strong>
+              </div>
+              <p className="text-center text-gray-700 font-bold mt-2">Gostaria de preencher?</p>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setPosEnvioEtapa('skip_disc')}
+                  className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-bold">
+                  ❌ NÃO, agora não
+                </button>
+                <button onClick={() => {
+                  // Vai pra DISC ja amarrado ao curriculo. Quando voltar, oferece pré-entrevista (se habilitada).
+                  // Salva dados do candidato pra prefilling apos o DISC.
+                  if (config.preentrevista_habilitada) {
+                    localStorage.setItem('apos_disc_oferecer_preentrevista', JSON.stringify({
+                      nome: candidatoNome,
+                      telefone: candidatoTelefone,
+                      email: candidatoEmail,
+                      curriculo_id: curriculoId,
+                    }));
+                  }
+                  const qs = new URLSearchParams({ nome: candidatoNome });
+                  if (curriculoId) qs.set('curriculo_id', String(curriculoId));
+                  window.location.href = `/disc?${qs.toString()}`;
+                }}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-xl font-bold">
+                  ✅ SIM, vamos lá!
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ TELA: Convidar pra Pré-Entrevista (se DISC desabilitado mas pré-entrevista sim) ============
+    if (!config.disc_habilitado && config.preentrevista_habilitada && posEnvioEtapa === null) {
+      return <ConvitePreEntrevista nome={candidatoNome} telefone={candidatoTelefone} email={candidatoEmail}
+        curriculoId={curriculoId}
+        onSkip={() => setPosEnvioEtapa('skip_preentrevista')} />;
+    }
+
+    // ============ TELA FINAL ============
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-100 to-green-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-10 text-center max-w-md">
@@ -715,6 +858,65 @@ function FieldReq({ label, value, onChange, type = 'text', placeholder, caseSens
         placeholder={placeholder} required
         style={shouldUpper ? { textTransform: 'uppercase' } : undefined}
         className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
+    </div>
+  );
+}
+
+// ============================================================================
+// COMPONENTE: Convite pra Pré-Entrevista com Helen (após DISC ou direto)
+// ============================================================================
+function ConvitePreEntrevista({ nome, telefone, email, curriculoId, onSkip }) {
+  const [criando, setCriando] = useState(false);
+
+  const aceitar = async () => {
+    setCriando(true);
+    try {
+      const r = await api.post('/recrutador/publico/criar-preentrevista', {
+        candidato_nome: nome, candidato_telefone: telefone, candidato_email: email,
+        curriculo_id: curriculoId || null,
+      });
+      window.location.href = `/recrutamento/${r.data.token}`;
+    } catch (e) {
+      alert('Erro ao iniciar pré-entrevista: ' + (e.response?.data?.error || e.message));
+      setCriando(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full">
+        <div className="bg-gradient-to-r from-orange-500 to-rose-600 text-white rounded-t-2xl p-5 shadow-lg flex items-center gap-3">
+          <div className="text-5xl">🤖</div>
+          <div>
+            <h1 className="text-2xl font-extrabold">Mais uma etapa, {nome.split(' ')[0]}!</h1>
+          </div>
+        </div>
+        <div className="bg-white rounded-b-2xl shadow-xl p-6 space-y-4">
+          <p className="text-gray-800 leading-relaxed">
+            Você gostaria de responder uma <strong className="text-rose-600">Pré-Entrevista com nossa Recrutadora Digital</strong>? 🎯
+          </p>
+          <p className="text-gray-800 leading-relaxed">
+            Candidatos que preenchem essa etapa têm <strong className="underline decoration-amber-400 decoration-4">muito mais chances</strong> de contratação. ✨
+          </p>
+          <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm text-rose-900 text-center">
+            ⏱️ Leva em torno de <strong>5 a 8 minutos</strong>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded text-xs text-blue-900">
+            💡 É uma conversa rápida pra a IA te conhecer melhor: sua trajetória, comportamento, sonhos. Não tem certo nem errado.
+          </div>
+          <p className="text-center text-gray-700 font-bold mt-2">Vamos lá?</p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onSkip} disabled={criando}
+              className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-bold disabled:opacity-50">
+              ❌ NÃO, agora não
+            </button>
+            <button onClick={aceitar} disabled={criando}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-xl font-bold disabled:opacity-50">
+              {criando ? 'Iniciando...' : '✅ SIM, vamos lá!'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

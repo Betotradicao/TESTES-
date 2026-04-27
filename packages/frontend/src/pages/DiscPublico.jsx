@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import { DISC_GROUPS } from './RhMetodoDisc';
@@ -14,10 +14,21 @@ const PERFIL_NOME = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 
 export default function DiscPublico() {
   const [step, setStep] = useState('info'); // info | quiz | results | thanks
   const [nome, setNome] = useState('');
+  // Amarra o resultado do DISC ao curriculo de origem (quando vem do fluxo do curriculo)
+  const [curriculoId, setCurriculoId] = useState(null);
   const [currentGroup, setCurrentGroup] = useState(0);
   const [answers, setAnswers] = useState({});
   const [scores, setScores] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Le ?nome=X&curriculo_id=Y da URL pra pre-preencher e amarrar ao curriculo
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nomeParam = params.get('nome');
+    if (nomeParam) setNome(nomeParam.toUpperCase());
+    const cidParam = params.get('curriculo_id');
+    if (cidParam) setCurriculoId(Number(cidParam) || null);
+  }, []);
 
   const handleStart = () => {
     if (!nome.trim()) { toast.error('Informe seu nome pra começar'); return; }
@@ -66,6 +77,7 @@ export default function DiscPublico() {
         perfil_primario,
         perfil_secundario,
         respostas: answers,
+        curriculo_id: curriculoId || null,
       });
       setStep('results');
     } catch (err) {
@@ -99,25 +111,43 @@ export default function DiscPublico() {
             </div>
 
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Bem-vindo à Avaliação DISC</h2>
-            <p className="text-center text-gray-500 mb-6">Leva em média <strong>10 a 15 minutos</strong>.</p>
+            <p className="text-center text-gray-500 mb-6">⏱️ São <strong>18 grupos</strong> no total. Leva <strong>8 a 10 minutos</strong>.</p>
 
-            <div className="bg-gray-50 rounded-lg p-5 mb-6 text-base text-gray-700 space-y-3">
-              <p><strong>O que é o DISC?</strong></p>
+            {/* Bloco didatico com exemplo pratico */}
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-xl p-5 mb-5 text-base text-gray-800 space-y-3">
+              <p className="font-extrabold text-gray-900 text-lg">📋 Antes de começar, veja como é:</p>
+
+              <p>Vai aparecer um grupo com <strong>4 palavras</strong>, mais ou menos assim:</p>
+
+              {/* Exemplo visual de 4 palavras */}
+              <div className="bg-white rounded-lg border-2 border-gray-200 p-3 grid grid-cols-2 gap-2 text-center font-semibold text-gray-800 my-2">
+                <div className="bg-gray-50 rounded py-2">Determinado</div>
+                <div className="bg-emerald-100 rounded py-2 ring-2 ring-emerald-400">
+                  Alegre <span className="ml-1 text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded">+ MAIS</span>
+                </div>
+                <div className="bg-gray-50 rounded py-2">Paciente</div>
+                <div className="bg-red-100 rounded py-2 ring-2 ring-red-400">
+                  Caprichoso <span className="ml-1 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">– MENOS</span>
+                </div>
+              </div>
+
               <p>
-                É uma ferramenta que identifica 4 dimensões principais do seu comportamento:
-                <span className="text-red-600 font-bold"> Dominância (D)</span>,
-                <span className="text-yellow-700 font-bold"> Influência (I)</span>,
-                <span className="text-emerald-600 font-bold"> Estabilidade (S)</span> e
-                <span className="text-blue-600 font-bold"> Conformidade (C)</span>.
+                <strong>Pergunta:</strong> qual <strong className="text-emerald-700">MAIS</strong> se parece com você?
+                Imagina que você se acha alegre — então marca <strong className="text-emerald-700">"+MAIS"</strong> em <em>Alegre</em>.
               </p>
-              <p><strong>Como funciona?</strong></p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>24 grupos de 4 palavras/adjetivos</li>
-                <li>Em cada grupo, escolhe a palavra que <strong>MAIS</strong> te descreve</li>
-                <li>E a palavra que <strong>MENOS</strong> te descreve</li>
-                <li>Responda de forma espontânea, sem pensar demais</li>
-                <li>Não há resposta certa ou errada — cada perfil tem pontos fortes diferentes</li>
-              </ul>
+
+              <p>
+                <strong>Pergunta:</strong> qual <strong className="text-red-700">MENOS</strong> se parece com você?
+                Imagina que você não é nada caprichoso — então marca <strong className="text-red-700">"-MENOS"</strong> em <em>Caprichoso</em>.
+              </p>
+
+              <p>
+                As outras <strong>2 palavras ficam em branco</strong>. Pronto, próximo grupo! ✨
+              </p>
+
+              <div className="bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded text-sm text-gray-800 mt-3">
+                🤷 <strong>Não tem resposta certa.</strong> Cada perfil tem suas qualidades.
+              </div>
             </div>
 
             <label className="block text-sm font-semibold text-gray-700 mb-2">Seu nome completo</label>
@@ -146,9 +176,23 @@ export default function DiscPublico() {
               </div>
             </div>
 
-            <p className="text-center text-gray-700 text-lg mb-5">
-              Escolha a palavra que <span className="text-emerald-600 font-bold">MAIS</span> e a que <span className="text-red-600 font-bold">MENOS</span> te descreve:
-            </p>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 mb-5">
+              <h3 className="text-center font-extrabold text-blue-900 mb-3">📋 Como responder este grupo</h3>
+              <div className="space-y-2 text-sm text-gray-800">
+                <div className="flex items-start gap-2">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                  <p>Olhe as <strong>4 palavras</strong> e escolha <strong className="text-emerald-700">apenas UMA</strong> que <strong className="text-emerald-700">MAIS combina</strong> com você → clique em <strong className="text-emerald-700">MAIS</strong></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                  <p>Escolha <strong className="text-red-700">apenas UMA</strong> que <strong className="text-red-700">MENOS combina</strong> com você → clique em <strong className="text-red-700">MENOS</strong></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                  <p>As outras <strong>2 palavras</strong> ficam <strong>SEM marcação</strong>. ⚠️ <strong>Não marque tudo!</strong></p>
+                </div>
+              </div>
+            </div>
 
             <div className="space-y-3 mb-6">
               {DISC_GROUPS[currentGroup].options.map((opt, idx) => {
@@ -230,8 +274,100 @@ export default function DiscPublico() {
             <p className="text-sm text-gray-500">
               O RH já recebeu seu resultado. Obrigado pelo seu tempo! 🎉
             </p>
+
+            {/* Convite pra pré-entrevista (se veio do fluxo do currículo com flag setada) */}
+            <ConvitePreEntrevistaPosDisc nome={nome} curriculoId={curriculoId} />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Componente que aparece apos finalizar DISC convidando para a pre-entrevista
+// (gated pelo flag curriculo_preentrevista_habilitada — sempre oferece se habilitado)
+function ConvitePreEntrevistaPosDisc({ nome, curriculoId }) {
+  const [show, setShow] = useState(false);
+  const [dados, setDados] = useState({ nome, telefone: null, email: null, curriculo_id: curriculoId || null });
+  const [criando, setCriando] = useState(false);
+
+  useEffect(() => {
+    // Le dados extras (telefone/email/curriculo_id) que possam ter vindo do fluxo do curriculo
+    let dadosExtras = { nome, telefone: null, email: null, curriculo_id: curriculoId || null };
+    try {
+      const raw = localStorage.getItem('apos_disc_oferecer_preentrevista');
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d) dadosExtras = {
+          nome: d.nome || nome,
+          telefone: d.telefone || null,
+          email: d.email || null,
+          curriculo_id: d.curriculo_id || curriculoId || null,
+        };
+      }
+    } catch {}
+    setDados(dadosExtras);
+
+    // Checa no backend se o admin habilitou a pre-entrevista
+    (async () => {
+      try {
+        const r = await api.get('/curriculos/publico/formulario');
+        if (r.data?.config?.preentrevista_habilitada) setShow(true);
+      } catch {}
+    })();
+  }, [nome, curriculoId]);
+
+  if (!show) return null;
+
+  const aceitar = async () => {
+    setCriando(true);
+    try {
+      const r = await api.post('/recrutador/publico/criar-preentrevista', {
+        candidato_nome: dados.nome || nome,
+        candidato_telefone: dados.telefone || null,
+        candidato_email: dados.email || null,
+        curriculo_id: dados.curriculo_id || null,
+      });
+      localStorage.removeItem('apos_disc_oferecer_preentrevista');
+      window.location.href = `/recrutamento/${r.data.token}`;
+    } catch (e) {
+      alert('Erro: ' + (e.response?.data?.error || e.message));
+      setCriando(false);
+    }
+  };
+
+  const recusar = () => {
+    localStorage.removeItem('apos_disc_oferecer_preentrevista');
+    setShow(false);
+  };
+
+  return (
+    <div className="mt-6 bg-gradient-to-br from-orange-50 to-rose-50 border-2 border-orange-300 rounded-2xl p-5 text-left">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-4xl">🤖</span>
+        <div>
+          <h3 className="font-extrabold text-gray-900">Mais uma etapa, {(dados?.nome || nome).split(' ')[0]}!</h3>
+        </div>
+      </div>
+      <p className="text-sm text-gray-800 mb-2">
+        Você gostaria de responder uma <strong className="text-rose-600">Pré-Entrevista com a Recrutadora Digital</strong>? 🎯
+      </p>
+      <p className="text-sm text-gray-800 mb-3">
+        Candidatos que preenchem essa etapa têm <strong className="underline decoration-amber-400 decoration-4">muito mais chances</strong> de contratação. ✨
+      </p>
+      <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 text-xs text-rose-900 text-center mb-3">
+        ⏱️ Leva em torno de <strong>5 a 8 minutos</strong>
+      </div>
+      <p className="text-center text-sm font-bold text-gray-800 mb-3">Vamos lá?</p>
+      <div className="flex gap-2">
+        <button onClick={recusar} disabled={criando}
+          className="flex-1 px-3 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-bold text-sm disabled:opacity-50">
+          ❌ NÃO
+        </button>
+        <button onClick={aceitar} disabled={criando}
+          className="flex-1 px-3 py-2.5 bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-xl font-bold text-sm disabled:opacity-50">
+          {criando ? 'Iniciando...' : '✅ SIM, vamos lá!'}
+        </button>
       </div>
     </div>
   );

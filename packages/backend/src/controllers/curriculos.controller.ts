@@ -136,7 +136,7 @@ export class CurriculosController {
   /** Devolve as listas ativas de cargos, habilidades e lojas para o formulario publico */
   static async obterFormularioPublico(_req: Request, res: Response) {
     try {
-      const [cargos, habilidades, lojas] = await Promise.all([
+      const [cargos, habilidades, lojas, configsResult] = await Promise.all([
         AppDataSource.getRepository(CurriculoCargo).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         // Fonte: rh_empresas (cadastro local do RH, independente da tabela companies global)
@@ -145,7 +145,13 @@ export class CurriculosController {
           select: ['id', 'codLoja', 'nomeFantasia', 'apelido', 'bairro', 'cidade', 'estado', 'fotoFachadaUrl', 'isPrincipal'],
           order: { codLoja: 'ASC' } as any,
         }),
+        // Le flags do banco de configurations
+        AppDataSource.query(
+          `SELECT key, value FROM configurations WHERE key IN ('curriculo_disc_habilitado', 'curriculo_preentrevista_habilitada')`
+        ).catch(() => []),
       ]);
+      const cfgMap: Record<string, string> = {};
+      (configsResult || []).forEach((c: any) => { cfgMap[c.key] = c.value; });
       res.json({
         success: true,
         cargos: cargos.map(c => c.nome),
@@ -162,6 +168,10 @@ export class CurriculosController {
             foto_fachada_url: l.fotoFachadaUrl,
             is_principal: !!l.isPrincipal || l.codLoja == null,
           })),
+        config: {
+          disc_habilitado: String(cfgMap.curriculo_disc_habilitado || 'false') === 'true',
+          preentrevista_habilitada: String(cfgMap.curriculo_preentrevista_habilitada || 'false') === 'true',
+        },
       });
     } catch (e: any) {
       console.error('[Curriculos] obterFormularioPublico:', e);
@@ -259,6 +269,43 @@ export class CurriculosController {
       if (q) qb.andWhere('(c.nome ILIKE :q OR c.whatsapp ILIKE :q OR c.email ILIKE :q)', { q: `%${q}%` });
 
       const lista = await qb.getMany();
+      // Enriquecer com DISC + Entrevista amarrados ao curriculo (uma query cada, no maximo)
+      const ids = lista.map(c => c.id);
+      let discMap: Record<number, any> = {};
+      let entrevistaMap: Record<number, any> = {};
+      if (ids.length > 0) {
+        const discRows: any[] = await AppDataSource.query(
+          `SELECT DISTINCT ON (curriculo_id) curriculo_id, id, perfil_primario, perfil_secundario, created_at
+           FROM rh_disc_resultados
+           WHERE curriculo_id = ANY($1::int[])
+           ORDER BY curriculo_id, created_at DESC`,
+          [ids]
+        ).catch(() => []);
+        discRows.forEach(d => { discMap[d.curriculo_id] = d; });
+
+        const entRows: any[] = await AppDataSource.query(
+          `SELECT DISTINCT ON (curriculo_id) curriculo_id, id, token, status, finalizada_em, relatorio_json IS NOT NULL AS tem_relatorio, created_at
+           FROM rh_recrutador_entrevistas
+           WHERE curriculo_id = ANY($1::int[])
+           ORDER BY curriculo_id, created_at DESC`,
+          [ids]
+        ).catch(() => []);
+        entRows.forEach(e => { entrevistaMap[e.curriculo_id] = e; });
+      }
+      const listaEnriq = lista.map(cv => ({
+        ...cv,
+        disc: discMap[cv.id] ? {
+          id: discMap[cv.id].id,
+          perfil_primario: discMap[cv.id].perfil_primario,
+          perfil_secundario: discMap[cv.id].perfil_secundario,
+        } : null,
+        entrevista: entrevistaMap[cv.id] ? {
+          id: entrevistaMap[cv.id].id,
+          token: entrevistaMap[cv.id].token,
+          status: entrevistaMap[cv.id].status,
+          tem_relatorio: !!entrevistaMap[cv.id].tem_relatorio,
+        } : null,
+      }));
       // Resumo pra cards
       const resumo = {
         total: lista.length,
@@ -268,7 +315,7 @@ export class CurriculosController {
         reprovado: lista.filter(c => c.status === 'reprovado').length,
         contratado: lista.filter(c => c.status === 'contratado').length,
       };
-      res.json({ success: true, curriculos: lista, resumo });
+      res.json({ success: true, curriculos: listaEnriq, resumo });
     } catch (e: any) {
       console.error('[Curriculos] listarCurriculos:', e);
       res.status(500).json({ success: false, error: e.message });

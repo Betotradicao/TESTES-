@@ -10,6 +10,8 @@ export default function ModeloCurriculo() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [discHabilitado, setDiscHabilitado] = useState(false);
+  const [preEntrevistaHabilitada, setPreEntrevistaHabilitada] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const flash = (t) => { setSucesso(t); setTimeout(() => setSucesso(''), 2000); };
@@ -19,12 +21,24 @@ export default function ModeloCurriculo() {
 
   const carregar = async () => {
     try {
-      const [c, h] = await Promise.all([
+      const [c, h, cfg] = await Promise.all([
         api.get('/curriculos/cargos'),
         api.get('/curriculos/habilidades'),
+        api.get('/config/configurations').catch(() => ({ data: {} }))
       ]);
       setCargos(c.data?.cargos || []);
       setHabilidades(h.data?.habilidades || []);
+      // Le flags do banco (configurations)
+      const cfgs = cfg.data || {};
+      setDiscHabilitado(String(cfgs.curriculo_disc_habilitado || 'false') === 'true');
+      setPreEntrevistaHabilitada(String(cfgs.curriculo_preentrevista_habilitada || 'false') === 'true');
+    } catch (e) { setErro(e?.response?.data?.error || e.message); }
+  };
+
+  const salvarFlag = async (chave, valor) => {
+    try {
+      await api.post('/config/configurations', { [chave]: String(valor) });
+      flash(valor ? 'Habilitado' : 'Desabilitado');
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
 
@@ -217,6 +231,68 @@ export default function ModeloCurriculo() {
 
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-xs text-blue-800">
             💡 <strong>Dica:</strong> quanto mais específicas forem as habilidades e cargos, mais fácil filtrar os candidatos depois.
+          </div>
+
+          {/* Configurações extras pós-currículo */}
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-5">
+            <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
+              <span>⚙️</span> Etapas adicionais após o currículo
+            </h3>
+            <p className="text-xs text-gray-600 mb-4">
+              Quando ativados, o candidato é convidado a fazer essas etapas logo após enviar o currículo.
+            </p>
+
+            <div className="space-y-3">
+              {/* Toggle DISC */}
+              <div className="bg-white rounded-xl p-4 border border-purple-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">🎯</span>
+                      <h4 className="font-bold text-gray-900">Habilitar Teste DISC no final do currículo</h4>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      O candidato responde ~24 perguntas comportamentais. Resultado vai pro perfil dele e ajuda na seleção.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button onClick={() => { setDiscHabilitado(true); salvarFlag('curriculo_disc_habilitado', true); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${discHabilitado ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}>
+                      {discHabilitado ? '✓ SIM' : 'SIM'}
+                    </button>
+                    <button onClick={() => { setDiscHabilitado(false); salvarFlag('curriculo_disc_habilitado', false); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${!discHabilitado ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}>
+                      {!discHabilitado ? '✓ NÃO' : 'NÃO'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Toggle Pré-entrevista */}
+              <div className="bg-white rounded-xl p-4 border border-purple-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">🤖</span>
+                      <h4 className="font-bold text-gray-900">Habilitar Pré-Entrevista com Recrutador(a) IA</h4>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Após o currículo, candidato faz uma entrevista rápida com a Helen (IA). RH recebe o relatório e decide se chama.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button onClick={() => { setPreEntrevistaHabilitada(true); salvarFlag('curriculo_preentrevista_habilitada', true); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${preEntrevistaHabilitada ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}>
+                      {preEntrevistaHabilitada ? '✓ SIM' : 'SIM'}
+                    </button>
+                    <button onClick={() => { setPreEntrevistaHabilitada(false); salvarFlag('curriculo_preentrevista_habilitada', false); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${!preEntrevistaHabilitada ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}>
+                      {!preEntrevistaHabilitada ? '✓ NÃO' : 'NÃO'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

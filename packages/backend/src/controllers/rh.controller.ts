@@ -1261,14 +1261,15 @@ export class RhController {
   // Endpoint PUBLICO - sem auth. Candidato/colaborador preenche pelo link direto.
   static async salvarDiscResultadoPublico(req: any, res: Response) {
     try {
-      const { nome, scores, perfil_primario, perfil_secundario, respostas } = req.body;
+      const { nome, scores, perfil_primario, perfil_secundario, respostas, curriculo_id } = req.body;
       if (!nome || !perfil_primario || !scores) {
         return res.status(400).json({ error: 'Dados incompletos' });
       }
+      const cidNum = curriculo_id != null && curriculo_id !== '' ? Number(curriculo_id) : null;
       const result = await AppDataSource.query(
-        `INSERT INTO rh_disc_resultados (nome, colaborador_id, score_d, score_i, score_s, score_c, perfil_primario, perfil_secundario, respostas, avaliador_id)
-         VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, NULL) RETURNING id, perfil_primario, perfil_secundario`,
-        [nome, scores.D || 0, scores.I || 0, scores.S || 0, scores.C || 0, perfil_primario, perfil_secundario || null, JSON.stringify(respostas || {})]
+        `INSERT INTO rh_disc_resultados (nome, colaborador_id, curriculo_id, score_d, score_i, score_s, score_c, perfil_primario, perfil_secundario, respostas, avaliador_id)
+         VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, NULL) RETURNING id, perfil_primario, perfil_secundario`,
+        [nome, cidNum, scores.D || 0, scores.I || 0, scores.S || 0, scores.C || 0, perfil_primario, perfil_secundario || null, JSON.stringify(respostas || {})]
       );
       res.status(201).json({ success: true, resultado: result[0] });
     } catch (error: any) {

@@ -154,10 +154,11 @@ export default function RhMetodoDiscResultados() {
 
         {/* Cards de stats por perfil */}
         <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white rounded-lg border p-3">
+          <button onClick={() => setFiltroPerfil('')}
+            className={`bg-white rounded-lg border p-3 border-l-4 border-gray-300 text-left transition ${filtroPerfil === '' ? 'ring-2 ring-orange-400' : 'hover:shadow'}`}>
             <div className="text-[10px] uppercase text-gray-500 font-semibold">Total</div>
             <div className="text-2xl font-bold text-gray-800">{resultados.length}</div>
-          </div>
+          </button>
           {['D', 'I', 'S', 'C'].map(p => (
             <button key={p} onClick={() => setFiltroPerfil(filtroPerfil === p ? '' : p)}
               className={`bg-white rounded-lg border p-3 border-l-4 text-left transition ${PERFIL_COR[p].border} ${filtroPerfil === p ? 'ring-2 ring-orange-400' : 'hover:shadow'}`}>

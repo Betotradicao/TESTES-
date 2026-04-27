@@ -4,6 +4,9 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 
+// 18 grupos selecionados — adjetivos mais comuns e claros, removidos os
+// menos discriminativos (Autoritario, Dominador, Impulsivo, Audacioso,
+// Intenso, Contagiante) por ambiguidade lexical no português brasileiro.
 export const DISC_GROUPS = [
   { id: 1, options: [
     { text: 'Determinado', profile: 'D' },
@@ -54,100 +57,64 @@ export const DISC_GROUPS = [
     { text: 'Diplomatico', profile: 'C' },
   ]},
   { id: 9, options: [
-    { text: 'Dominador', profile: 'D' },
-    { text: 'Persuasivo', profile: 'I' },
-    { text: 'Compreensivo', profile: 'S' },
-    { text: 'Cauteloso', profile: 'C' },
-  ]},
-  { id: 10, options: [
     { text: 'Arrojado', profile: 'D' },
     { text: 'Popular', profile: 'I' },
     { text: 'Moderado', profile: 'S' },
     { text: 'Disciplinado', profile: 'C' },
   ]},
-  { id: 11, options: [
+  { id: 10, options: [
     { text: 'Exigente', profile: 'D' },
     { text: 'Animado', profile: 'I' },
     { text: 'Generoso', profile: 'S' },
     { text: 'Reservado', profile: 'C' },
   ]},
-  { id: 12, options: [
-    { text: 'Autoritario', profile: 'D' },
-    { text: 'Carismatico', profile: 'I' },
-    { text: 'Amigavel', profile: 'S' },
-    { text: 'Criterioso', profile: 'C' },
-  ]},
-  { id: 13, options: [
+  { id: 11, options: [
     { text: 'Aventureiro', profile: 'D' },
     { text: 'Divertido', profile: 'I' },
     { text: 'Acolhedor', profile: 'S' },
     { text: 'Meticuloso', profile: 'C' },
   ]},
-  { id: 14, options: [
+  { id: 12, options: [
     { text: 'Firme', profile: 'D' },
     { text: 'Motivador', profile: 'I' },
     { text: 'Pacificador', profile: 'S' },
     { text: 'Logico', profile: 'C' },
   ]},
-  { id: 15, options: [
+  { id: 13, options: [
     { text: 'Destemido', profile: 'D' },
     { text: 'Espontaneo', profile: 'I' },
     { text: 'Dedicado', profile: 'S' },
     { text: 'Objetivo', profile: 'C' },
   ]},
-  { id: 16, options: [
+  { id: 14, options: [
     { text: 'Autoconfiante', profile: 'D' },
     { text: 'Encantador', profile: 'I' },
     { text: 'Receptivo', profile: 'S' },
     { text: 'Pontual', profile: 'C' },
   ]},
-  { id: 17, options: [
+  { id: 15, options: [
     { text: 'Desafiador', profile: 'D' },
     { text: 'Criativo', profile: 'I' },
     { text: 'Harmonioso', profile: 'S' },
     { text: 'Exato', profile: 'C' },
   ]},
-  { id: 18, options: [
-    { text: 'Audacioso', profile: 'D' },
-    { text: 'Extrovertido', profile: 'I' },
-    { text: 'Cooperativo', profile: 'S' },
-    { text: 'Formal', profile: 'C' },
-  ]},
-  { id: 19, options: [
+  { id: 16, options: [
     { text: 'Pioneiro', profile: 'D' },
     { text: 'Influenciador', profile: 'I' },
     { text: 'Previsivel', profile: 'S' },
     { text: 'Prudente', profile: 'C' },
   ]},
-  { id: 20, options: [
+  { id: 17, options: [
     { text: 'Empreendedor', profile: 'D' },
-    { text: 'Contagiante', profile: 'I' },
+    { text: 'Carismatico', profile: 'I' },
     { text: 'Solidario', profile: 'S' },
     { text: 'Estrategico', profile: 'C' },
   ]},
-  { id: 21, options: [
-    { text: 'Impulsivo', profile: 'D' },
-    { text: 'Conversador', profile: 'I' },
-    { text: 'Tranquilo', profile: 'S' },
-    { text: 'Investigador', profile: 'C' },
-  ]},
-  { id: 22, options: [
+  { id: 18, options: [
     { text: 'Persistente', profile: 'D' },
     { text: 'Envolvente', profile: 'I' },
     { text: 'Constante', profile: 'S' },
     { text: 'Reflexivo', profile: 'C' },
-  ]},
-  { id: 23, options: [
-    { text: 'Intenso', profile: 'D' },
-    { text: 'Empolgado', profile: 'I' },
-    { text: 'Complacente', profile: 'S' },
-    { text: 'Rigoroso', profile: 'C' },
-  ]},
-  { id: 24, options: [
-    { text: 'Resoluto', profile: 'D' },
-    { text: 'Cativante', profile: 'I' },
-    { text: 'Consistente', profile: 'S' },
-    { text: 'Minucioso', profile: 'C' },
   ]},
 ];
 
@@ -444,20 +411,40 @@ export default function RhMetodoDisc() {
 
         {/* Question Card */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <p className="text-center text-gray-500 text-sm mb-6">
-            Selecione a palavra que <strong className="text-green-600">MAIS</strong> descreve voce
-            e a que <strong className="text-red-600">MENOS</strong> descreve voce
-          </p>
+          {/* Instrucao visual clara */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 mb-5">
+            <h3 className="text-center font-extrabold text-blue-900 mb-3 text-base">
+              📋 Como responder
+            </h3>
+            <div className="space-y-2 text-sm text-gray-800">
+              <div className="flex items-start gap-2">
+                <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                <p>Olhe as <strong>4 palavras</strong> abaixo e escolha <strong className="text-green-700">apenas UMA</strong> que <strong className="text-green-700">MAIS combina</strong> com você → clique em <strong className="text-green-700">+MAIS</strong></p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                <p>Escolha <strong className="text-red-700">apenas UMA</strong> que <strong className="text-red-700">MENOS combina</strong> com você → clique em <strong className="text-red-700">-MENOS</strong></p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                <p>As outras <strong>2 palavras</strong> ficam <strong>SEM marcação</strong>. ⚠️ <strong>Não marque tudo!</strong></p>
+              </div>
+            </div>
+          </div>
 
           {/* Legend */}
-          <div className="flex justify-center gap-6 mb-6">
+          <div className="flex justify-center gap-6 mb-4">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-50" />
-              <span className="text-sm text-gray-600">MAIS me descreve</span>
+              <span className="text-xs text-gray-600">1 palavra MAIS</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-50" />
-              <span className="text-sm text-gray-600">MENOS me descreve</span>
+              <span className="text-xs text-gray-600">1 palavra MENOS</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded border-2 border-gray-300 bg-white" />
+              <span className="text-xs text-gray-600">2 vazias</span>
             </div>
           </div>
 

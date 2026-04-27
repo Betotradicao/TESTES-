@@ -4,6 +4,7 @@ import axios from 'axios';
 import { AppDataSource } from '../config/database';
 import { RhRecrutadorAgentService } from '../services/rh-recrutador-agent.service';
 import { ConfigurationService } from '../services/configuration.service';
+import { minioService } from '../services/minio.service';
 
 /**
  * Controller do modulo Entrevistador Digital (RH no Radar > Recrutador IA).
@@ -330,7 +331,7 @@ export class RhRecrutadorController {
 
   static async criarEntrevista(req: Request, res: Response) {
     try {
-      const { vaga_id, candidato_nome, candidato_telefone, candidato_email, candidato_id, expira_dias, modo_entrevista, voz_recrutadora } = req.body;
+      const { vaga_id, candidato_nome, candidato_telefone, candidato_email, candidato_id, expira_dias, modo_entrevista, voz_recrutadora, provedor_tts } = req.body;
       if (!vaga_id || !candidato_nome) {
         res.status(400).json({ error: 'vaga_id e candidato_nome obrigatorios' });
         return;
@@ -339,12 +340,13 @@ export class RhRecrutadorController {
       const modo = ['texto', 'voz', 'video'].includes(modo_entrevista) ? modo_entrevista : 'texto';
       const token = crypto.randomBytes(24).toString('hex');
       const dias = Number(expira_dias) || 7;
+      const provedor = ['web_speech', 'azure', 'openai', 'elevenlabs'].includes(provedor_tts) ? provedor_tts : 'web_speech';
       const r = await AppDataSource.query(
         `INSERT INTO rh_recrutador_entrevistas
-         (token, vaga_id, candidato_nome, candidato_telefone, candidato_email, candidato_id, expira_em, modo_entrevista, voz_recrutadora)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW() + ($7 || ' days')::interval, $8, $9)
+         (token, vaga_id, candidato_nome, candidato_telefone, candidato_email, candidato_id, expira_em, modo_entrevista, voz_recrutadora, provedor_tts)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW() + ($7 || ' days')::interval, $8, $9, $10)
          RETURNING *`,
-        [token, vaga_id, candidato_nome, candidato_telefone || null, candidato_email || null, candidato_id || null, String(dias), modo, voz_recrutadora || null]
+        [token, vaga_id, candidato_nome, candidato_telefone || null, candidato_email || null, candidato_id || null, String(dias), modo, voz_recrutadora || null, provedor]
       );
       res.json(r[0]);
     } catch (e: any) {
@@ -361,6 +363,141 @@ export class RhRecrutadorController {
     } catch (e: any) {
       console.error('[Recrutador] deletarEntrevista:', e);
       res.status(500).json({ error: e.message });
+    }
+  }
+
+  /**
+   * POST /api/recrutador/entrevistas/:id/regerar-relatorio
+   * Regera o relatorio_json retroativamente a partir do transcript.
+   * Util para entrevistas que finalizaram sem relatorio (estouro de budget, etc).
+   */
+  static async regerarRelatorio(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const relatorio = await RhRecrutadorAgentService.gerarRelatorioRetroativo(id);
+      if (!relatorio) {
+        res.status(400).json({ error: 'Nao foi possivel gerar relatorio (sem respostas ou OpenAI key invalida)' });
+        return;
+      }
+      await AppDataSource.query(
+        `UPDATE rh_recrutador_entrevistas
+         SET status = 'finalizada',
+             finalizada_em = COALESCE(finalizada_em, NOW()),
+             score_final = $1, recomendacao = $2, disc_inferido = $3,
+             relatorio_json = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [relatorio.score_final || null, relatorio.recomendacao || 'reserva',
+         relatorio.disc_inferido || null, JSON.stringify(relatorio), id]
+      );
+      res.json({ success: true, relatorio });
+    } catch (e: any) {
+      console.error('[Recrutador] regerarRelatorio:', e);
+      res.status(500).json({ error: e?.message || 'Erro' });
+    }
+  }
+
+  // ===========================================================================
+  // CRIAR PRE-ENTREVISTA EXPLORATORIA (publico, sem vaga associada)
+  // POST /api/recrutador/publico/criar-preentrevista
+  // Body: { candidato_nome, candidato_telefone?, candidato_email? }
+  // Retorna: { token, url } pra abrir /recrutamento/<token>
+  // ===========================================================================
+  static async publicoCriarPreEntrevista(req: Request, res: Response) {
+    try {
+      const { candidato_nome, candidato_telefone, candidato_email, curriculo_id } = req.body;
+      if (!candidato_nome || !String(candidato_nome).trim()) {
+        res.status(400).json({ error: 'candidato_nome obrigatorio' });
+        return;
+      }
+      const cidNum = curriculo_id != null && curriculo_id !== '' ? Number(curriculo_id) : null;
+      const token = crypto.randomBytes(24).toString('hex');
+      const r = await AppDataSource.query(
+        `INSERT INTO rh_recrutador_entrevistas
+         (token, vaga_id, candidato_nome, candidato_telefone, candidato_email, curriculo_id, expira_em, modo_entrevista, tipo_entrevista)
+         VALUES ($1, NULL, $2, $3, $4, $5, NOW() + INTERVAL '7 days', 'texto', 'pre_entrevista_exploratoria')
+         RETURNING token`,
+        [token, candidato_nome.trim(), candidato_telefone || null, candidato_email || null, cidNum]
+      );
+      res.json({ success: true, token: r[0].token });
+    } catch (e: any) {
+      console.error('[Recrutador] publicoCriarPreEntrevista:', e?.message);
+      res.status(500).json({ error: e?.message || 'Erro' });
+    }
+  }
+
+  // ===========================================================================
+  // UPLOAD DE VIDEO da entrevista (modo video) — sem auth, valida pelo token
+  // POST /api/recrutador/publico/:token/video
+  // Body: multipart com campo 'video' (webm/mp4)
+  // ===========================================================================
+  static async publicoUploadVideo(req: Request, res: Response) {
+    try {
+      const token = req.params.token;
+      const file = (req as any).file;
+      if (!file) {
+        res.status(400).json({ error: 'arquivo de video obrigatorio (campo video)' });
+        return;
+      }
+      const r = await AppDataSource.query(
+        `SELECT id, expira_em FROM rh_recrutador_entrevistas WHERE token = $1`, [token]
+      );
+      if (!r || r.length === 0) {
+        res.status(404).json({ error: 'token invalido' });
+        return;
+      }
+      const ent = r[0];
+      const ext = file.mimetype && file.mimetype.includes('mp4') ? 'mp4' : 'webm';
+      const fileName = `recrutador/entrevista-${ent.id}-${Date.now()}.${ext}`;
+      const url = await minioService.uploadFile(fileName, file.buffer, file.mimetype || `video/${ext}`);
+      await AppDataSource.query(
+        `UPDATE rh_recrutador_entrevistas SET video_url = $1, updated_at = NOW() WHERE id = $2`,
+        [url, ent.id]
+      );
+      console.log(`[Recrutador] Video da entrevista ${ent.id} salvo: ${url} (${(file.buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+      res.json({ success: true, video_url: url, tamanho_mb: (file.buffer.length / 1024 / 1024).toFixed(2) });
+    } catch (e: any) {
+      console.error('[Recrutador] publicoUploadVideo:', e?.message);
+      res.status(500).json({ error: e?.message || 'Erro ao salvar video' });
+    }
+  }
+
+  // ===========================================================================
+  // TTS PUBLICO — usado pela tela do candidato (autentica pelo token)
+  // POST /api/recrutador/publico/:token/tts { texto }
+  // ===========================================================================
+  static async publicoTts(req: Request, res: Response) {
+    try {
+      const token = req.params.token;
+      const { texto } = req.body;
+      if (!texto || !texto.trim()) {
+        res.status(400).json({ error: 'texto obrigatorio' });
+        return;
+      }
+      // Carregar entrevista pelo token (valida que existe e nao expirou)
+      const r = await AppDataSource.query(
+        `SELECT e.voz_recrutadora, e.provedor_tts, e.expira_em
+         FROM rh_recrutador_entrevistas e WHERE e.token = $1`, [token]
+      );
+      if (!r || r.length === 0) {
+        res.status(404).json({ error: 'token invalido' });
+        return;
+      }
+      const ent = r[0];
+      if (ent.expira_em && new Date(ent.expira_em) < new Date()) {
+        res.status(410).json({ error: 'token expirado' });
+        return;
+      }
+      const provedor = ent.provedor_tts || 'web_speech';
+      if (provedor === 'web_speech') {
+        res.status(400).json({ error: 'modo web_speech roda no client' });
+        return;
+      }
+      // Reaproveita a logica do ttsPreview com voz da entrevista
+      req.body = { provedor, voz: ent.voz_recrutadora, texto };
+      return RhRecrutadorController.ttsPreview(req, res);
+    } catch (e: any) {
+      console.error('[Recrutador] publicoTts:', e?.message);
+      res.status(500).json({ error: e?.message || 'Erro' });
     }
   }
 
@@ -473,7 +610,7 @@ export class RhRecrutadorController {
       const token = req.params.token;
       const r = await AppDataSource.query(
         `SELECT e.id, e.token, e.candidato_nome, e.status, e.expira_em, e.modo_entrevista,
-                e.voz_recrutadora AS voz_entrevista,
+                e.voz_recrutadora AS voz_entrevista, e.provedor_tts AS provedor_entrevista,
                 v.titulo AS vaga_titulo
          FROM rh_recrutador_entrevistas e
          LEFT JOIN rh_recrutador_vagas v ON v.id = e.vaga_id
@@ -510,6 +647,8 @@ export class RhRecrutadorController {
         // Prioriza voz da ENTREVISTA, senao usa a global da config
         voz_recrutadora: e.voz_entrevista || c.voz_recrutadora || null,
         voz_genero: c.voz_genero || null,
+        // Provedor TTS (web_speech | azure | openai | elevenlabs)
+        provedor_tts: e.provedor_entrevista || c.provedor_tts || 'web_speech',
         historico: respostas
       });
     } catch (e: any) {

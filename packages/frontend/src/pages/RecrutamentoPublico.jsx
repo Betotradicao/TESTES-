@@ -21,7 +21,16 @@ export default function RecrutamentoPublico() {
   const [vozOuvindo, setVozOuvindo] = useState(false);    // candidato falando
   const recognitionRef = useRef(null);
   const ultimaIaMessageRef = useRef('');
-  const modoVoz = info?.modo_entrevista === 'voz';
+  const modoVoz = info?.modo_entrevista === 'voz' || info?.modo_entrevista === 'video';
+  const modoVideo = info?.modo_entrevista === 'video';
+
+  // === Video mode state ===
+  const [stream, setStream] = useState(null);
+  const [gravando, setGravando] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoLocalRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const videoChunksRef = useRef([]);
 
   // API base sem o /api porque este é endpoint público autenticado por token
   const API_BASE = (typeof window !== 'undefined' && window.location.origin) + '/api';
@@ -155,6 +164,13 @@ export default function RecrutamentoPublico() {
   const iniciar = async () => {
     setAceitouTermos(true);
     setAguardandoIA(true);
+    // Se modo video, pede webcam + mic ANTES de comecar
+    if (modoVideo) {
+      try { await iniciarGravacaoVideo(); }
+      catch (err) {
+        alert('Não conseguimos acessar sua câmera/microfone: ' + err.message + '\n\nA entrevista vai continuar sem gravação.');
+      }
+    }
     try {
       const r = await fetch(`${API_BASE}/recrutador/publico/${token}/responder`, {
         method: 'POST',
@@ -166,13 +182,106 @@ export default function RecrutamentoPublico() {
       setMensagens([{ role: 'ia', content: d.iaMessage }]);
       ultimaIaMessageRef.current = d.iaMessage;
       if (d.finalizada) setEstado('finalizada');
-      // Se modo voz, IA fala a primeira mensagem
+      // Se modo voz/video, IA fala a primeira mensagem
       if (modoVoz && d.iaMessage) {
         setTimeout(() => falarTTS(d.iaMessage), 300);
       }
     } catch (e) { setErro(e.message); }
     finally { setAguardandoIA(false); }
   };
+
+  // ==================== VIDEO RECORDING ====================
+  const iniciarGravacaoVideo = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error(
+        'Acesso à câmera bloqueado.\n\n' +
+        'Esta página precisa de HTTPS ou ser aberta em "localhost" pra liberar a webcam.\n\n' +
+        'Soluções:\n' +
+        '1) Acesse via localhost (se for na mesma máquina)\n' +
+        '2) Use Chrome com flag "unsafely-treat-insecure-origin-as-secure"\n' +
+        '3) Em produção (https://tradicao.prevencaonoradar.com.br) funciona normal'
+      );
+    }
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 720 }, height: { ideal: 480 }, facingMode: 'user' },
+      audio: true
+    });
+    setStream(s);
+    if (videoLocalRef.current) {
+      videoLocalRef.current.srcObject = s;
+    }
+    // MediaRecorder grava continuo. Tenta MP4 (iOS), fallback webm
+    let mimeType = 'video/webm;codecs=vp9,opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/mp4';
+    const mr = new MediaRecorder(s, { mimeType, videoBitsPerSecond: 800_000, audioBitsPerSecond: 96_000 });
+    videoChunksRef.current = [];
+    mr.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) videoChunksRef.current.push(e.data);
+    };
+    mr.start(2000); // chunk a cada 2s pra nao perder se travar
+    mediaRecorderRef.current = mr;
+    setGravando(true);
+  };
+
+  const pararEUploadVideo = async () => {
+    return new Promise((resolve) => {
+      const mr = mediaRecorderRef.current;
+      if (!mr || mr.state === 'inactive') { resolve(null); return; }
+      mr.onstop = async () => {
+        setGravando(false);
+        // Para a stream
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+          setStream(null);
+        }
+        if (videoChunksRef.current.length === 0) { resolve(null); return; }
+        const blob = new Blob(videoChunksRef.current, { type: mr.mimeType || 'video/webm' });
+        videoChunksRef.current = [];
+        if (blob.size < 1024) { resolve(null); return; }
+        // Upload
+        try {
+          setUploadingVideo(true);
+          const fd = new FormData();
+          const ext = (mr.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+          fd.append('video', blob, `entrevista.${ext}`);
+          const r = await fetch(`${API_BASE}/recrutador/publico/${token}/video`, {
+            method: 'POST', body: fd
+          });
+          const d = await r.json();
+          console.log('[upload video]', d);
+          resolve(d);
+        } catch (err) {
+          console.error('Erro upload video:', err);
+          resolve(null);
+        } finally {
+          setUploadingVideo(false);
+        }
+      };
+      mr.stop();
+    });
+  };
+
+  // Se entrevista finalizar, para gravacao e faz upload
+  useEffect(() => {
+    if (estado === 'finalizada' && modoVideo && gravando) {
+      pararEUploadVideo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado]);
+
+  // Se usuário sair da página, tenta parar e upload (best effort)
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [stream]);
 
   const enviar = async () => {
     if (!input.trim() || aguardandoIA) return;
@@ -218,12 +327,28 @@ export default function RecrutamentoPublico() {
       <header className="bg-white shadow-sm p-4 border-b border-gray-200">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <span className="text-3xl">👩‍💼</span>
-          <div>
+          <div className="flex-1">
             <h1 className="font-bold text-gray-900">Entrevista — {info?.vaga_titulo}</h1>
             <p className="text-xs text-gray-500">Candidato: {info?.candidato_nome}</p>
           </div>
+          {gravando && (
+            <div className="flex items-center gap-1 text-red-600 font-medium text-xs">
+              <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span> REC
+            </div>
+          )}
+          {uploadingVideo && (
+            <div className="text-xs text-orange-600 font-medium">📤 Salvando vídeo...</div>
+          )}
         </div>
       </header>
+
+      {/* Webcam local (canto inferior direito) - só aparece em modo video */}
+      {modoVideo && stream && (
+        <div className="fixed bottom-24 right-4 z-50 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-white" style={{ width: 160, height: 120 }}>
+          <video ref={videoLocalRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+          <div className="absolute top-1 left-1 bg-red-600 text-white text-[9px] px-1 rounded animate-pulse">● REC</div>
+        </div>
+      )}
 
       {/* Termos / Início */}
       {!aceitouTermos && (
@@ -254,6 +379,21 @@ export default function RecrutamentoPublico() {
                   <li>Permita o acesso ao microfone quando o navegador pedir</li>
                   <li>Esteja num ambiente silencioso pra a IA entender bem</li>
                   <li>Se preferir, dá pra digitar também (botão "Preferir digitar?")</li>
+                </ul>
+              </div>
+            )}
+
+            {info?.modo_entrevista === 'video' && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded text-sm text-red-900 mb-4">
+                <strong>📹 Esta entrevista vai ser GRAVADA em VÍDEO:</strong>
+                <ul className="list-disc ml-5 mt-1">
+                  <li>Sua câmera e microfone vão ser ligados quando você clicar em começar</li>
+                  <li>O vídeo será gravado do início ao fim e enviado pra equipe de RH</li>
+                  <li>Você vai conversar com a {info?.nome_recrutadora || 'Helen'} pela voz dela</li>
+                  <li>Pode usar celular ou computador — qualquer dispositivo com câmera serve</li>
+                  <li>Esteja num ambiente bem iluminado e silencioso</li>
+                  <li>Permita o acesso quando o navegador pedir</li>
+                  <li><strong>Ao começar, você concorda com a gravação do vídeo nos termos da LGPD</strong></li>
                 </ul>
               </div>
             )}
