@@ -123,6 +123,9 @@ import RhEscalaEventos from './pages/RhEscalaEventos';
 import RhFolhaPagamento from './pages/RhFolhaPagamento';
 import RhRecrutadorIA from './pages/RhRecrutadorIA';
 import RecrutamentoPublico from './pages/RecrutamentoPublico';
+import PesquisaClimaCriar from './pages/rh/PesquisaClimaCriar';
+import PesquisaClimaAnalise from './pages/rh/PesquisaClimaAnalise';
+import PesquisaPublica from './pages/PesquisaPublica';
 
 function App() {
   return (
@@ -140,6 +143,7 @@ function App() {
             <Route path="/alerta/:token" element={<AlertaResolucao />} />
             <Route path="/curriculo" element={<CurriculoPublico />} />
             <Route path="/disc" element={<DiscPublico />} />
+            <Route path="/pesquisa-publica/:token" element={<PesquisaPublica />} />
 
             {/* Protected Routes */}
             <Route
@@ -691,6 +695,8 @@ function App() {
             <Route path="/rh/recrutador/:tab" element={<ProtectedRoute><RhRecrutadorIA /></ProtectedRoute>} />
             {/* Rota PUBLICA (sem auth) - candidato abre via link único */}
             <Route path="/recrutamento/:token" element={<RecrutamentoPublico />} />
+            <Route path="/rh/pesquisa-clima/criar" element={<ProtectedRoute><PesquisaClimaCriar /></ProtectedRoute>} />
+            <Route path="/rh/pesquisa-clima/analise" element={<ProtectedRoute><PesquisaClimaAnalise /></ProtectedRoute>} />
             <Route path="/rh/beneficios" element={<ProtectedRoute><RhPlaceholder title="Beneficios" subtitle="Gestao de beneficios dos colaboradores" features={['Vale transporte', 'Vale refeicao', 'Plano de saude', 'Outros beneficios']} /></ProtectedRoute>} />
             <Route path="/rh/rotatividade" element={<ProtectedRoute><RhPlaceholder title="Rotatividade (Turnover)" subtitle="Indicadores de rotatividade" features={['Taxa de turnover', 'Evolucao mensal', 'Por departamento', 'Motivos de saida']} /></ProtectedRoute>} />
             <Route path="/rh/perfil" element={<ProtectedRoute><RhPlaceholder title="Perfil Demografico" subtitle="Analise do perfil dos colaboradores" features={['Distribuicao por idade', 'Genero', 'Escolaridade', 'Tempo de casa']} /></ProtectedRoute>} />

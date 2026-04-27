@@ -777,7 +777,8 @@
       "Bash(PGCLIENTENCODING=UTF8 PGPASSWORD='TveEWnoTmocDb8N5m7Vrt4tTa2azcU' psql -h 46.202.150.64 -p 6303 -U postgres -d postgres_tradicao -f update_helen_lgpd.sql)",
       "PowerShell(Stop-Process -Id 22872 -Force -ErrorAction SilentlyContinue)",
       "PowerShell(netstat -ano)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "PowerShell(ssh vps2-hostinger \"docker exec prevencao-maxvale-postgres bash -c 'psql -U postgres -d postgres_maxvale -tAc `\"SELECT name FROM migrations ORDER BY id DESC LIMIT 5`\"'\")"
     ],
     "deny": [],
     "ask": []
