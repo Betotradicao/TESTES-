@@ -69,10 +69,11 @@ const SECTIONS = [
         { id: 'producao-sugestao', name: 'Sugestão de Produção' },
         { id: 'producao-resultados', name: 'Resultados' },
       ]},
-      { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', subs: [
-        { id: 'hortfrut-lancador', name: 'Lançar HortFruti' },
-        { id: 'hortfrut-resultados', name: 'Resultados' },
-      ]},
+      // PREVENÇÃO HORTFRUTI — desativado temporariamente (descomentar pra reativar)
+      // { id: 'hortfrut', name: 'Prevenção HortFruti', icon: '🥬', subs: [
+      //   { id: 'hortfrut-lancador', name: 'Lançar HortFruti' },
+      //   { id: 'hortfrut-resultados', name: 'Resultados' },
+      // ]},
       { id: 'controle-recebimento', name: 'Prevenção Recebimento', icon: '📄', subs: [
         { id: 'nf-a-chegar', name: 'Notas a Chegar' },
         { id: 'nf-recebimento', name: 'Notas Entregue' },
@@ -133,6 +134,7 @@ const SECTIONS = [
         { id: 'bipagens-ao-vivo', name: 'Bipagens' },
         { id: 'bipagens-resultados', name: 'Resultados do Dia' },
         { id: 'bipagens-rankings', name: 'Rankings' },
+        { id: 'vision-bipagens-ativar-produtos', name: 'Ativar Produtos' },
       ]},
     ]
   },

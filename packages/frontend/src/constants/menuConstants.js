@@ -171,6 +171,7 @@ export const MENU_SUBMENUS = {
   VISION_BIPAGENS_LISTA: 'vision-bipagens-lista',
   VISION_RESULTADOS_DIA: 'vision-resultados-dia',
   VISION_RANKINGS: 'vision-rankings',
+  VISION_BIPAGENS_ATIVAR_PRODUTOS: 'vision-bipagens-ativar-produtos',
 
   // Ecommerce
   GARIMPA_ECOMMERCE: 'garimpa-ecommerce',
@@ -538,24 +539,26 @@ export const MENU_STRUCTURE = [
       }
     ]
   },
-  {
-    id: MENU_MODULES.HORTFRUT,
-    title: 'Prevenção HortFruti',
-    icon: 'hortfrut',
-    section: 'prevencao',
-    submenus: [
-      {
-        id: MENU_SUBMENUS.HORTFRUT_LANCADOR,
-        title: 'Lançador de Itens',
-        path: '/hortfrut-lancador'
-      },
-      {
-        id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
-        title: 'Resultado dos Lançamentos',
-        path: '/hortfrut-resultados'
-      }
-    ]
-  },
+  // ============ PREVENÇÃO HORTFRUTI — DESATIVADO TEMPORARIAMENTE ============
+  // Mantido aqui pra reativacao futura: e so descomentar este bloco.
+  // {
+  //   id: MENU_MODULES.HORTFRUT,
+  //   title: 'Prevenção HortFruti',
+  //   icon: 'hortfrut',
+  //   section: 'prevencao',
+  //   submenus: [
+  //     {
+  //       id: MENU_SUBMENUS.HORTFRUT_LANCADOR,
+  //       title: 'Lançador de Itens',
+  //       path: '/hortfrut-lancador'
+  //     },
+  //     {
+  //       id: MENU_SUBMENUS.HORTFRUT_RESULTADOS,
+  //       title: 'Resultado dos Lançamentos',
+  //       path: '/hortfrut-resultados'
+  //     }
+  //   ]
+  // },
   {
     id: MENU_MODULES.CONTROLE_RECEBIMENTO,
     title: 'Prevenção Recebimento',
@@ -725,6 +728,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.VISION_RANKINGS,
         title: 'Rankings',
         path: '/rankings'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_BIPAGENS_ATIVAR_PRODUTOS,
+        title: 'Ativar Produtos',
+        path: '/ativar-produtos'
       }
     ]
   },

@@ -14,8 +14,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     return {
       'metas-radar': false,
       'gestao-radar': false,
-      'prevencao-radar': false,
-      'financas-radar': false,
       'marketing-radar': false,
       'ia-radar': false,
       'vision-360': false
@@ -202,23 +200,23 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/bipagens': 'vision-360',
       '/resultados-do-dia': 'vision-360',
       '/rankings': 'vision-360',
-      '/ruptura-lancador': 'prevencao-radar',
-      '/ruptura-auditorias': 'prevencao-radar',
-      '/etiquetas/lancar': 'prevencao-radar',
-      '/etiquetas/resultados': 'prevencao-radar',
-      '/perdas-lancador': 'prevencao-radar',
-      '/perdas-resultados': 'prevencao-radar',
-      '/prevencao-trocas': 'prevencao-radar',
-      '/producao-lancador': 'prevencao-radar',
-      '/producao-sugestao': 'prevencao-radar',
-      '/producao/resultados': 'prevencao-radar',
-      '/hortfrut-lancador': 'prevencao-radar',
-      '/hortfrut-resultados': 'prevencao-radar',
-      '/frente-caixa': 'prevencao-radar',
-      '/prevencao-caixa': 'prevencao-radar',
-      '/gestao-trocas': 'prevencao-radar',
-      '/controle-pdv': 'prevencao-radar',
-      '/prevencao-tributaria': 'prevencao-radar',
+      '/ruptura-lancador': 'gestao-radar:prevencao',
+      '/ruptura-auditorias': 'gestao-radar:prevencao',
+      '/etiquetas/lancar': 'gestao-radar:prevencao',
+      '/etiquetas/resultados': 'gestao-radar:prevencao',
+      '/perdas-lancador': 'gestao-radar:prevencao',
+      '/perdas-resultados': 'gestao-radar:prevencao',
+      '/prevencao-trocas': 'gestao-radar:prevencao',
+      '/producao-lancador': 'gestao-radar:prevencao',
+      '/producao-sugestao': 'gestao-radar:prevencao',
+      '/producao/resultados': 'gestao-radar:prevencao',
+      '/hortfrut-lancador': 'gestao-radar:prevencao',
+      '/hortfrut-resultados': 'gestao-radar:prevencao',
+      '/frente-caixa': 'gestao-radar:prevencao',
+      '/prevencao-caixa': 'gestao-radar:prevencao',
+      '/gestao-trocas': 'gestao-radar:prevencao',
+      '/controle-pdv': 'gestao-radar:prevencao',
+      '/prevencao-tributaria': 'gestao-radar:prevencao',
       '/oferta-radar': 'oferta-radar',
       '/garimpa-fornecedores': 'oferta-radar',
       '/garimpador-ranking': 'oferta-radar',
@@ -229,15 +227,15 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/garimpador-ecommerce': 'oferta-radar',
       '/marketing-whatsapp': 'marketing-radar',
       '/disparo-whatsapp': 'marketing-radar',
-      '/nota-fiscal-recebimento': 'financas-radar',
-      '/notas-a-chegar': 'financas-radar',
-      '/demonstrativo-caixa': 'financas-radar',
-      '/entradas-saidas': 'financas-radar',
-      '/extrato-santander': 'financas-radar',
-      '/extrato-tribanco': 'financas-radar',
-      '/extrato-banco24h': 'financas-radar',
-      '/boletos-dda': 'financas-radar',
-      '/conciliacao-bancaria': 'financas-radar',
+      '/nota-fiscal-recebimento': 'gestao-radar:financas',
+      '/notas-a-chegar': 'gestao-radar:financas',
+      '/demonstrativo-caixa': 'gestao-radar:financas',
+      '/entradas-saidas': 'gestao-radar:financas',
+      '/extrato-santander': 'gestao-radar:financas',
+      '/extrato-tribanco': 'gestao-radar:financas',
+      '/extrato-banco24h': 'gestao-radar:financas',
+      '/boletos-dda': 'gestao-radar:financas',
+      '/conciliacao-bancaria': 'gestao-radar:financas',
       '/vision-pdv': 'vision-360',
       '/vision-operacoes-risco': 'vision-360',
       '/vision-palavra-chave-2': 'vision-360',
@@ -246,12 +244,22 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     };
 
     // Auto-expandir a seção principal
+    // Suporte a ID composto "gestao-radar:prevencao" -> abre gestao-radar (secao) + expande
+    // o bloco aninhado "prevencao-radar-nested" (item dentro da secao)
     const sectionId = routeToSection[currentPath];
     if (sectionId) {
+      const [mainSection, nested] = sectionId.split(':');
       setExpandedSections(prev => {
-        if (prev[sectionId]) return prev;
-        return { ...prev, [sectionId]: true };
+        if (prev[mainSection]) return prev;
+        return { ...prev, [mainSection]: true };
       });
+      if (nested) {
+        const nestedId = `${nested}-radar-nested`;
+        setExpandedItems(prev => {
+          if (prev[nestedId]) return prev;
+          return { ...prev, [nestedId]: true };
+        });
+      }
     }
 
     // Auto-expandir o item (submenu) dentro da seção
@@ -393,32 +401,33 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'simulador-venda', submenuId: 'simulador-venda', title: 'SIMULADOR DE VENDA', path: '/gestao-ofertas/simulador-venda' }
           ]
         },
-      ]
-    },
-    {
-      id: 'prevencao-radar',
-      title: 'PREVENÇÃO NO RADAR',
-      titleComponent: (
-        <span>
-          <span className="text-gray-700">PREVENÇÃO NO </span>
-          <span className="text-orange-500 font-bold">RADAR</span>
-        </span>
-      ),
-      icon: (
-        <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
-          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 6c-3.31 0-6 2.69-6 6h2c0-2.21 1.79-4 4-4V6z"/>
-            <path d="M12 2c-5.52 0-10 4.48-10 10h2c0-4.42 3.58-8 8-8V2z"/>
-          </svg>
-        </div>
-      ),
-      expandable: true,
-      items: [
+        // ==========================================================================
+        // PREVENÇÃO NO RADAR — bloco aninhado dentro de Gestão (mantem visual proprio)
+        // ==========================================================================
         {
-          id: 'pdv',
-          moduleId: 'pdv',
-          title: 'PREVENÇÃO PDV',
+          id: 'prevencao-radar-nested',
+          nestedSection: true,
+          title: 'PREVENÇÃO NO RADAR',
+          titleComponent: (
+            <span>
+              <span className="text-gray-700">PREVENÇÃO NO </span>
+              <span className="text-orange-500 font-bold">RADAR</span>
+            </span>
+          ),
+          icon: (
+            <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 6c-3.31 0-6 2.69-6 6h2c0-2.21 1.79-4 4-4V6z"/>
+                <path d="M12 2c-5.52 0-10 4.48-10 10h2c0-4.42 3.58-8 8-8V2z"/>
+              </svg>
+            </div>
+          ),
+          items: [
+            {
+              id: 'pdv',
+              moduleId: 'pdv',
+              title: 'PREVENÇÃO PDV',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
@@ -502,21 +511,24 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'producao-resultados', submenuId: 'producao-resultados', title: 'RESULTADOS', path: '/producao/resultados' }
           ]
         },
-        {
-          id: 'hortfruti',
-          moduleId: 'hortfrut',
-          title: 'PREVENÇÃO HORTFRUTI',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-            </svg>
-          ),
-          expandable: true,
-          subItems: [
-            { id: 'hortfrut-lancador', submenuId: 'hortfrut-lancador', title: 'LANÇAR HORTFRUTI', path: '/hortfrut-lancador' },
-            { id: 'hortfrut-resultados', submenuId: 'hortfrut-resultados', title: 'RESULTADOS', path: '/hortfrut-resultados' }
-          ]
-        },
+        // ============ PREVENÇÃO HORTFRUTI — DESATIVADO TEMPORARIAMENTE ============
+        // Mantido aqui pra reativacao futura: e so descomentar este bloco.
+        // Nao deletar — codigo intacto, rotas /hortfrut-lancador e /hortfrut-resultados continuam ativas.
+        // {
+        //   id: 'hortfruti',
+        //   moduleId: 'hortfrut',
+        //   title: 'PREVENÇÃO HORTFRUTI',
+        //   icon: (
+        //     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+        //     </svg>
+        //   ),
+        //   expandable: true,
+        //   subItems: [
+        //     { id: 'hortfrut-lancador', submenuId: 'hortfrut-lancador', title: 'LANÇAR HORTFRUTI', path: '/hortfrut-lancador' },
+        //     { id: 'hortfrut-resultados', submenuId: 'hortfrut-resultados', title: 'RESULTADOS', path: '/hortfrut-resultados' }
+        //   ]
+        // },
         {
           id: 'controle-recebimento',
           moduleId: 'controle-recebimento',
@@ -574,66 +586,71 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ]
         }
       ]
-    },
-    {
-      id: 'financas-radar',
-      title: 'FINANÇAS NO RADAR',
-      titleComponent: (
-        <span>
-          <span className="text-gray-700">FINANÇAS NO </span>
-          <span className="text-orange-500 font-bold">RADAR</span>
-        </span>
-      ),
-      icon: (
-        <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
-          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-          </svg>
-        </div>
-      ),
-      expandable: true,
-      items: [
+        }, // fim do prevencao-radar-nested
+        // ==========================================================================
+        // FINANÇAS NO RADAR — bloco aninhado dentro de Gestão (mantem visual proprio)
+        // ==========================================================================
         {
-          id: 'demonstrativo-caixa',
-          moduleId: 'demonstrativo-caixa',
-          title: 'DEMONSTRATIVO DE CAIXA',
-          path: '/demonstrativo-caixa',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3v-6m-3 6v-1m6-9a2 2 0 012 2v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2"/>
-            </svg>
-          )
-        },
-        {
-          id: 'entradas-saidas',
-          moduleId: 'entradas-saidas',
-          title: 'ENTRADAS E SAÍDAS',
-          path: '/entradas-saidas',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
-            </svg>
-          )
-        },
-        {
-          id: 'bancos',
-          moduleId: 'bancos',
-          title: 'BANCOS',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
-            </svg>
+          id: 'financas-radar-nested',
+          nestedSection: true,
+          title: 'FINANÇAS NO RADAR',
+          titleComponent: (
+            <span>
+              <span className="text-gray-700">FINANÇAS NO </span>
+              <span className="text-orange-500 font-bold">RADAR</span>
+            </span>
           ),
-          expandable: true,
-          subItems: [
-            { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'EXTRATO BANCÁRIO', path: '/extrato-santander' },
-            { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' },
-            { id: 'boletos-dda', submenuId: 'boletos-dda', title: 'BOLETOS DDA', path: '/boletos-dda' },
-            { id: 'conciliacao-bancaria', submenuId: 'conciliacao-bancaria', title: 'CONCILIAÇÃO BANCÁRIA', path: '/conciliacao-bancaria' }
+          icon: (
+            <div className="w-5 h-5 bg-orange-500 rounded-md flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+              </svg>
+            </div>
+          ),
+          items: [
+            {
+              id: 'demonstrativo-caixa',
+              moduleId: 'demonstrativo-caixa',
+              title: 'DEMONSTRATIVO DE CAIXA',
+              path: '/demonstrativo-caixa',
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3v-6m-3 6v-1m6-9a2 2 0 012 2v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2"/>
+                </svg>
+              )
+            },
+            {
+              id: 'entradas-saidas',
+              moduleId: 'entradas-saidas',
+              title: 'ENTRADAS E SAÍDAS',
+              path: '/entradas-saidas',
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                </svg>
+              )
+            },
+            {
+              id: 'bancos',
+              moduleId: 'bancos',
+              title: 'BANCOS',
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+                </svg>
+              ),
+              expandable: true,
+              subItems: [
+                { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'EXTRATO BANCÁRIO', path: '/extrato-santander' },
+                { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' },
+                { id: 'boletos-dda', submenuId: 'boletos-dda', title: 'BOLETOS DDA', path: '/boletos-dda' },
+                { id: 'conciliacao-bancaria', submenuId: 'conciliacao-bancaria', title: 'CONCILIAÇÃO BANCÁRIA', path: '/conciliacao-bancaria' }
+              ]
+            }
           ]
-        }
-      ]
-    },
+        }, // fim do financas-radar-nested
+      ]   // fim de gestao-radar.items
+    },    // fim de gestao-radar
     {
       id: 'marketing-radar',
       title: 'MARKETING NO RADAR',
@@ -731,7 +748,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'BIPAGENS', path: '/bipagens' },
             { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'RESULTADOS DO DIA', path: '/resultados-do-dia' },
-            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' }
+            { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' },
+            { id: 'ativar-produtos', submenuId: 'vision-bipagens-ativar-produtos', title: 'ATIVAR PRODUTOS', path: '/ativar-produtos' }
           ]
         }
       ]
@@ -1286,6 +1304,106 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
               <div className="pl-14 pr-6 pb-2">
                 {filteredItems.map((subItem, index) => {
                   const subModuleActive = subItem.moduleId ? isModuleActive(subItem.moduleId) : (subItem.submenuId ? isModuleActive(subItem.submenuId) : (subItem.id ? isModuleActive(subItem.id) : moduleActive));
+
+                  // ==========================================================================
+                  // BLOCO ANINHADO (ex: "PREVENÇÃO NO RADAR" dentro de "GESTÃO NO RADAR")
+                  // Renderiza como uma sub-seção com titulo destacado + lista de modulos
+                  // que cada um pode ter seus proprios subItems (nivel 4 efetivo).
+                  // ==========================================================================
+                  if (subItem.nestedSection) {
+                    const nestedItems = (subItem.items || []).filter(ni => {
+                      if (user?.type === 'employee' && ni.moduleId) return hasPermission(ni.moduleId);
+                      return true;
+                    });
+                    const isOpen = expandedItems[subItem.id];
+                    return (
+                      <div key={index} className="my-1">
+                        <button
+                          onClick={() => toggleItem(subItem.id)}
+                          className="flex items-center justify-between w-full text-left py-2 text-sm transition-colors text-gray-700 hover:bg-gray-50 rounded -ml-3 pl-3"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <span>{subItem.icon}</span>
+                            <span className="font-medium">{subItem.titleComponent || subItem.title}</span>
+                          </div>
+                          <svg
+                            className={`w-3 h-3 text-gray-400 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <div className="pl-4 border-l border-orange-100 ml-1">
+                            {nestedItems.map((ni, niIdx) => {
+                              const niActive = ni.moduleId ? isModuleActive(ni.moduleId) : true;
+                              const niKey = `nested-${ni.id}`;
+                              const niOpen = expandedItems[niKey];
+                              const niLeafs = ni.subItems ? (
+                                user?.type === 'employee' && ni.moduleId
+                                  ? ni.subItems.filter(l => hasPermission(ni.moduleId, l.submenuId || l.id))
+                                  : ni.subItems
+                              ) : null;
+                              return (
+                                <div key={niIdx}>
+                                  <button
+                                    onClick={() => {
+                                      if (!niActive) return;
+                                      if (ni.expandable && ni.subItems) toggleItem(niKey);
+                                      else if (ni.path) { navigate(ni.path); setIsMobileMenuOpen(false); }
+                                    }}
+                                    className={`flex items-center justify-between w-full text-left py-1.5 text-sm transition-colors ${
+                                      !niActive
+                                        ? 'text-gray-400 cursor-not-allowed opacity-60'
+                                        : ni.path && location.pathname === ni.path
+                                        ? 'text-orange-500 font-medium'
+                                        : 'text-gray-600 hover:text-orange-500'
+                                    }`}
+                                    disabled={!niActive}
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <span className={niActive ? 'text-gray-400' : 'text-gray-300'}>{ni.icon}</span>
+                                      <span>{ni.title}</span>
+                                    </div>
+                                    {ni.expandable && ni.subItems && (
+                                      <svg
+                                        className={`w-3 h-3 text-gray-400 transform transition-transform ${niOpen ? 'rotate-180' : ''}`}
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+                                      </svg>
+                                    )}
+                                  </button>
+                                  {ni.expandable && niLeafs && niOpen && (
+                                    <div className="pl-6 pb-1">
+                                      {niLeafs.filter(leaf => isModuleActive(leaf.submenuId || leaf.id)).map((leaf, lIdx) => (
+                                        <button
+                                          key={lIdx}
+                                          onClick={() => { if (leaf.path) { navigate(leaf.path); setIsMobileMenuOpen(false); } }}
+                                          className={`flex items-center space-x-2 w-full text-left py-1.5 text-xs transition-colors ${
+                                            leaf.path && location.pathname === leaf.path
+                                              ? 'text-orange-500 font-medium'
+                                              : 'text-gray-500 hover:text-orange-500'
+                                          }`}
+                                        >
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
+                                          </svg>
+                                          <span>{leaf.title}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  // ==========================================================================
+
                   return (
                   <div key={index}>
                     <button

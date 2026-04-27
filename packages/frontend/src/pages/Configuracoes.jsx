@@ -4,12 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TabsNavigation from '../components/configuracoes/TabsNavigation';
 import EmpresaConfigTab from '../components/configuracoes/EmpresaConfigTab';
-import AtivarProdutos from './AtivarProdutos';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
-import HortFrutBoxesTab from '../components/configuracoes/HortFrutBoxesTab';
-import SuppliersTab from '../components/configuracoes/SuppliersTab';
 import HolidaysTab from '../components/configuracoes/HolidaysTab';
 
 export default function Configuracoes() {
@@ -17,12 +14,22 @@ export default function Configuracoes() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
-    return searchParams.get('tab') || 'empresa';
+    const t = searchParams.get('tab');
+    // Compat: link antigo '?tab=ativar-produtos' redireciona pra nova rota
+    if (t === 'ativar-produtos') {
+      window.location.replace('/ativar-produtos');
+      return 'empresa';
+    }
+    return t || 'empresa';
   });
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'ativar-produtos' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'hortfrut-boxes' || tabFromUrl === 'suppliers' || tabFromUrl === 'holidays')) {
+    if (tabFromUrl === 'ativar-produtos') {
+      window.location.replace('/ativar-produtos');
+      return;
+    }
+    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'holidays')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -84,12 +91,9 @@ export default function Configuracoes() {
 
           <div className="mt-6">
             {activeTab === 'empresa' && <EmpresaConfigTab />}
-            {activeTab === 'ativar-produtos' && <AtivarProdutos embedded />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}
             {activeTab === 'prevention' && <PreventionTab />}
-            {activeTab === 'hortfrut-boxes' && <HortFrutBoxesTab />}
-            {activeTab === 'suppliers' && <SuppliersTab />}
             {activeTab === 'holidays' && <HolidaysTab />}
           </div>
         </div>
