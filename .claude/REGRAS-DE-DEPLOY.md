@@ -108,6 +108,39 @@ Se a funcionalidade consulta Oracle, verificar ANTES do deploy:
 
 > Consulte `.claude/REGRAS-MAPEAMENTO-TABELAS.md` para detalhes completos.
 
+## Tuneis SSH Caem Apos Deploy (Conhecido)
+
+Apos cada deploy de backend, os tuneis SSH dos clientes podem cair (em
+~30s a 2min). NAO e o deploy que derruba — e o `tunnel-service.ps1`
+instalado nos PCs cliente que tem bug:
+
+1. Backend reinicia (rapido, segundos)
+2. Cliente detecta "perda" e o servico PS mata o ssh.exe
+3. Servico tenta reabrir o ssh via `[System.Diagnostics.Process]::Start`
+   com stdin fechado — bug que mata ssh em ~2s
+4. Loop infinito. Tunel offline ate intervencao manual.
+
+**Workaround imediato (apos cada deploy):**
+- Cliente abre tela "Configuracoes de Tabelas > Instalador de Tunel"
+- Clica em **Baixar Reconectar.bat** (ou o botao "Reconectar" no card
+  individual do tunel offline)
+- Roda o .bat na maquina do cliente como admin
+- Tuneis voltam (modo hidden, sem janela visivel)
+
+**Solucao definitiva (futura):**
+- Reinstalar tunel em cada cliente com versao corrigida do servico
+  (que nao usa `Process::Start` com stdin fechado).
+- Ate la, o `Reconectar.bat` resolve.
+
+**Diagnostico na VPS:**
+```bash
+# Ver se portas de tunel estao listening
+ss -tlnp | grep sshd
+
+# Conexoes SSH estabelecidas (clientes ativos)
+ss -tn state established '( sport = :22 )'
+```
+
 ## Limpeza de Cache (OBRIGATORIA)
 
 Docker acumula cache a cada build. Limpar sempre apos deploy:

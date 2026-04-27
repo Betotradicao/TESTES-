@@ -995,7 +995,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'MÉTODO DISC', path: '/rh/metodo-disc' },
             { id: 'rh-metodo-disc-resultados', submenuId: 'rh-metodo-disc-resultados', title: '↳ RESULTADOS DISC', path: '/rh/metodo-disc/resultados' },
             { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
-            { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' }
+            { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' },
+            { id: 'rh-recrutador-ia', submenuId: 'rh-recrutador-ia', title: '🤖 RECRUTADOR(A) INTELIGENTE', path: '/rh/recrutador/vagas' }
           ]
         },
         {

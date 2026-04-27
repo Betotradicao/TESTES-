@@ -203,6 +203,12 @@ export const MENU_SUBMENUS = {
   RH_CANDIDATOS: 'rh-candidatos',
   RH_PROCESSO_SELETIVO: 'rh-processo-seletivo',
   RH_METODO_DISC: 'rh-metodo-disc',
+  // RH - Entrevistador Digital (IA)
+  RH_RECRUTADOR_VAGAS: 'rh-recrutador-vagas',
+  RH_RECRUTADOR_PERGUNTAS: 'rh-recrutador-perguntas',
+  RH_RECRUTADOR_TREINAR: 'rh-recrutador-treinar',
+  RH_RECRUTADOR_ENVIAR: 'rh-recrutador-enviar',
+  RH_RECRUTADOR_ENTREVISTAS: 'rh-recrutador-entrevistas',
   // RH - Treinamentos
   RH_CADASTRO_TREINAMENTO: 'rh-cadastro-treinamento',
   RH_PRESENCA: 'rh-presenca',
@@ -830,6 +836,11 @@ export const MENU_STRUCTURE = [
       { id: MENU_SUBMENUS.RH_CANDIDATOS, title: 'Cadastro de Candidatos', path: '/rh/candidatos' },
       { id: MENU_SUBMENUS.RH_PROCESSO_SELETIVO, title: 'Processo Seletivo', path: '/rh/processo-seletivo' },
       { id: MENU_SUBMENUS.RH_METODO_DISC, title: 'Metodo DISC', path: '/rh/metodo-disc' },
+      { id: MENU_SUBMENUS.RH_RECRUTADOR_VAGAS, title: '🤖 Entrevistador IA - Vagas', path: '/rh/recrutador/vagas' },
+      { id: MENU_SUBMENUS.RH_RECRUTADOR_PERGUNTAS, title: '🤖 Entrevistador IA - Banco de Perguntas', path: '/rh/recrutador/perguntas' },
+      { id: MENU_SUBMENUS.RH_RECRUTADOR_TREINAR, title: '🤖 Treinar Entrevistadora', path: '/rh/recrutador/treinar' },
+      { id: MENU_SUBMENUS.RH_RECRUTADOR_ENVIAR, title: '🤖 Enviar Entrevista', path: '/rh/recrutador/enviar' },
+      { id: MENU_SUBMENUS.RH_RECRUTADOR_ENTREVISTAS, title: '🤖 Entrevistas Realizadas', path: '/rh/recrutador/entrevistas' },
     ]
   },
   {
