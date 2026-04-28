@@ -22,9 +22,16 @@ router.delete('/colaboradores/:id', authenticateToken, RhController.deleteColabo
 
 // Configuracoes - Cargos
 router.get('/configuracoes/cargos', authenticateToken, RhController.listarCargos);
+router.get('/configuracoes/cargos/sugestao-salarios', authenticateToken, RhController.sugestaoSalariosCargos);
 router.post('/configuracoes/cargos', authenticateToken, RhController.criarCargo);
 router.put('/configuracoes/cargos/:id', authenticateToken, RhController.atualizarCargo);
 router.delete('/configuracoes/cargos/:id', authenticateToken, RhController.deletarCargo);
+
+// Configuracoes - EPIs e EPCs
+router.get('/configuracoes/epis-epcs', authenticateToken, RhController.listarEpisEpcs);
+router.post('/configuracoes/epis-epcs', authenticateToken, RhController.criarEpiEpc);
+router.put('/configuracoes/epis-epcs/:id', authenticateToken, RhController.atualizarEpiEpc);
+router.delete('/configuracoes/epis-epcs/:id', authenticateToken, RhController.deletarEpiEpc);
 
 // Empresas do RH (tabela propria rh_empresas, independente de companies)
 router.get('/empresas', authenticateToken, RhEmpresasController.listar);

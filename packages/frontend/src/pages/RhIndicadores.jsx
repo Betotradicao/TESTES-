@@ -1,262 +1,1140 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
 
+// Abas espelhando os modulos do menu RH (cada uma vai consumir dados da sua tela origem)
+const ABAS = [
+  { id: 'geral', label: 'Geral', icon: '📊',
+    desc: 'Visão executiva consolidada — KPIs principais de todas as áreas',
+    origem: 'Resumo de todos os módulos abaixo' },
+  { id: 'colaboradores', label: 'Colaboradores', icon: '👥',
+    desc: 'Perfil demográfico, distribuição, evolução do quadro',
+    origem: 'RH > Colaboradores (Cadastro Geral)' },
+  { id: 'ponto-ausencias', label: 'Ponto e Ausências', icon: '⏰',
+    desc: 'Absenteísmo, gravidade, atestados, faltas',
+    origem: 'RH > Ponto e Ausências' },
+  { id: 'recrutamento', label: 'Recrutamento', icon: '💼',
+    desc: 'Tempo de contratação, vagas abertas/preenchidas, funil de seleção',
+    origem: 'RH > Recrutamento' },
+  { id: 'pesquisa-clima', label: 'Pesquisa de Clima', icon: '😊',
+    desc: 'eNPS, satisfação, evolução entre rodadas',
+    origem: 'RH > Pesquisa de Clima' },
+  { id: 'treinamentos', label: 'Treinamentos', icon: '📚',
+    desc: 'Horas, custos, certificações, avaliação',
+    origem: 'RH > Treinamentos' },
+  { id: 'financeiro', label: 'Financeiro RH', icon: '💵',
+    desc: 'Folha mensal, evolução salarial, custo por setor',
+    origem: 'RH > Financeiro RH (Lançamentos + Folha)' },
+  { id: 'escala', label: 'Escala de Trabalho', icon: '📅',
+    desc: 'Cobertura, horas extras, banco de horas, férias',
+    origem: 'RH > Escala de Trabalho' },
+  { id: 'dp', label: 'Departamento Pessoal', icon: '📂',
+    desc: 'Documentos vencidos, pastas, conformidade',
+    origem: 'RH > Departamento Pessoal' },
+];
+
 export default function RhIndicadores() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [aba, setAba] = useState('geral');
+  const [ano, setAno] = useState(new Date().getFullYear());
+  const [empresas, setEmpresas] = useState([]);
+  const [empresaId, setEmpresaId] = useState(''); // '' = todas
+
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, ativos: 0, desligados: 0, admissoes_ano: 0, desligamentos_ano: 0 });
+  const [stats, setStats] = useState({ total: 0, ativos: 0, desligados: 0, clts: 0, aprendizes: 0 });
   const [colaboradores, setColaboradores] = useState([]);
 
+  // Carrega empresas uma vez
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get('/rh/empresas/stores/list');
+        const data = Array.isArray(r.data) ? r.data : (r.data?.companies || []);
+        setEmpresas(data);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Recarrega dados quando troca empresa
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line
+  }, [empresaId]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      const params = new URLSearchParams();
+      params.set('limit', '500');
+      if (empresaId) params.set('company_id', empresaId);
+      const statsParams = empresaId ? `?empresa_id=${empresaId}` : '';
       const [statsRes, colabRes] = await Promise.all([
-        api.get('/rh/colaboradores/stats'),
-        api.get('/rh/colaboradores?limit=500'),
+        api.get(`/rh/colaboradores/stats${statsParams}`).catch(() => ({ data: {} })),
+        api.get(`/rh/colaboradores?${params.toString()}`).catch(() => ({ data: [] })),
       ]);
-      setStats(statsRes.data || { total: 0, ativos: 0, desligados: 0, admissoes_ano: 0, desligamentos_ano: 0 });
-      setColaboradores(colabRes.data.colaboradores || colabRes.data || []);
+      setStats({
+        total: statsRes.data?.total || 0,
+        ativos: statsRes.data?.ativos || 0,
+        desligados: statsRes.data?.desligados || 0,
+        clts: statsRes.data?.clts || 0,
+        aprendizes: statsRes.data?.aprendizes || 0,
+      });
+      setColaboradores(colabRes.data?.colaboradores || colabRes.data?.data || colabRes.data || []);
     } catch (err) {
       toast.error('Erro ao carregar indicadores');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (d) => {
-    if (!d) return '-';
-    return new Date(d).toLocaleDateString('pt-BR');
-  };
+  const abaAtual = ABAS.find(a => a.id === aba);
 
-  // Gender distribution
-  const masculino = colaboradores.filter((c) => (c.sexo || '').toUpperCase() === 'M').length;
-  const feminino = colaboradores.filter((c) => (c.sexo || '').toUpperCase() === 'F').length;
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+      <div className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-bold">📊 Indicadores RH</h1>
+              <p className="text-pink-100 text-sm">Dashboards consolidados — todos os KPIs em uma única tela</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                <label className="text-xs font-bold">🏪 EMPRESA:</label>
+                <select value={empresaId} onChange={e => setEmpresaId(e.target.value)}
+                  className="bg-white text-gray-800 rounded px-2 py-1 text-sm font-bold cursor-pointer min-w-[180px]">
+                  <option value="">Todas as lojas</option>
+                  {empresas.map(e => (
+                    <option key={e.id} value={e.id}>
+                      {e.apelido ? `Loja ${e.cod_loja} - ${e.apelido}` : (e.label || e.nome_fantasia || `Loja ${e.cod_loja}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                <label className="text-xs font-bold">📅 ANO:</label>
+                <select value={ano} onChange={e => setAno(Number(e.target.value))}
+                  className="bg-white text-gray-800 rounded px-2 py-1 text-sm font-bold cursor-pointer">
+                  {[2024, 2025, 2026, 2027].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Abas */}
+        <div className="bg-white border-b shadow-sm sticky top-0 z-20">
+          <div className="flex overflow-x-auto px-2">
+            {ABAS.map(a => (
+              <button key={a.id} onClick={() => setAba(a.id)}
+                className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex items-center gap-2 ${
+                  aba === a.id
+                    ? 'border-rose-500 text-rose-600 bg-rose-50/50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}>
+                <span>{a.icon}</span>
+                <span>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Conteudo */}
+        <div className="p-4 md:p-6">
+          {/* Descricao da aba */}
+          <div className="bg-white rounded-lg border p-4 mb-4 flex items-start gap-3">
+            <span className="text-3xl">{abaAtual?.icon}</span>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-800">{abaAtual?.label}</h2>
+              <p className="text-sm text-gray-600">{abaAtual?.desc}</p>
+              <p className="text-[11px] text-rose-600 mt-1">📍 Dados de: <strong>{abaAtual?.origem}</strong></p>
+            </div>
+          </div>
+
+          {/* Aba Geral — funcional (consome /rh/colaboradores/stats) */}
+          {aba === 'geral' && <AbaGeral loading={loading} stats={stats} colaboradores={colaboradores} ano={ano} />}
+
+          {/* Aba Colaboradores — funcional (calcula tudo a partir do cadastro) */}
+          {aba === 'colaboradores' && <AbaColaboradores loading={loading} colaboradores={colaboradores} ano={ano} />}
+
+          {/* Outras abas — esqueleto que vai ser conectado conforme cada tela origem fica pronta */}
+          {aba !== 'geral' && aba !== 'colaboradores' && <Esqueleto aba={aba} ano={ano} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AbaGeral({ loading, stats, colaboradores, ano }) {
+  if (loading) return <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>;
+
+  const masculino = colaboradores.filter(c => (c.sexo || '').toUpperCase() === 'M').length;
+  const feminino = colaboradores.filter(c => (c.sexo || '').toUpperCase() === 'F').length;
   const totalGenero = masculino + feminino || 1;
   const percMasc = Math.round((masculino / totalGenero) * 100);
   const percFem = Math.round((feminino / totalGenero) * 100);
 
-  // Status distribution
-  const ativos = stats.ativos || 0;
-  const desligados = stats.desligados || 0;
-  const totalStatus = ativos + desligados || 1;
-  const percAtivos = Math.round((ativos / totalStatus) * 100);
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
 
-  // Turnover rate
-  const taxaRotatividade = stats.total > 0
-    ? (((stats.admissoes_ano || 0) + (stats.desligamentos_ano || 0)) / 2 / stats.total * 100).toFixed(1)
-    : '0.0';
-
-  // Recent admissions & dismissals
-  const anoAtual = new Date().getFullYear();
   const admissoesRecentes = colaboradores
-    .filter((c) => c.status === 'ativo' && c.data_admissao)
+    .filter(c => c.status === 'ativo' && c.data_admissao)
     .sort((a, b) => new Date(b.data_admissao) - new Date(a.data_admissao))
-    .slice(0, 10);
+    .slice(0, 8);
 
   const desligamentosRecentes = colaboradores
-    .filter((c) => c.status === 'desligado' && c.data_desligamento)
+    .filter(c => c.status === 'desligado' && c.data_desligamento)
     .sort((a, b) => new Date(b.data_desligamento) - new Date(a.data_desligamento))
-    .slice(0, 10);
+    .slice(0, 8);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-gray-100">
-        <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-        <div className="flex-1 flex items-center justify-center">
-          <RadarLoading />
+  return (
+    <>
+      {/* KPIs principais */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <Kpi label="Total Colaboradores" valor={stats.total} cor="slate" />
+        <Kpi label="Ativos" valor={stats.ativos} cor="emerald" />
+        <Kpi label="Desligados" valor={stats.desligados} cor="rose" />
+        <Kpi label="CLTs Ativos" valor={stats.clts} cor="blue" />
+        <Kpi label="Aprendizes Ativos" valor={stats.aprendizes} cor="amber" />
+      </div>
+
+      {/* Distribuicao Genero + Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border p-5">
+          <h3 className="text-sm font-bold text-gray-700 mb-3">Distribuição por Gênero</h3>
+          <Barra cor="bg-blue-500" label="Masculino" valor={masculino} pct={percMasc} />
+          <Barra cor="bg-pink-500" label="Feminino" valor={feminino} pct={percFem} />
         </div>
+        <div className="bg-white rounded-xl shadow-sm border p-5">
+          <h3 className="text-sm font-bold text-gray-700 mb-3">Distribuição por Regime</h3>
+          <Barra cor="bg-blue-500" label="CLT" valor={stats.clts} pct={Math.round((stats.clts / (stats.ativos || 1)) * 100)} />
+          <Barra cor="bg-amber-500" label="Aprendiz" valor={stats.aprendizes} pct={Math.round((stats.aprendizes / (stats.ativos || 1)) * 100)} />
+        </div>
+      </div>
+
+      {/* Tabelas mensais (formato planilha): admissoes e desligamentos por cargo / mes */}
+      <div className="space-y-4 mb-4">
+        <TabelaMovimentacao
+          titulo="✅ ADMISSÕES POR MÊS"
+          colaboradores={colaboradores}
+          ano={ano}
+          campo="data_admissao"
+          cor="emerald"
+        />
+        <TabelaMovimentacao
+          titulo="❌ DESLIGAMENTOS POR MÊS"
+          colaboradores={colaboradores}
+          ano={ano}
+          campo="data_desligamento"
+          cor="rose"
+        />
+      </div>
+
+      <div className="text-xs text-gray-400 mt-4 text-center mb-4">Ano-base: {ano}</div>
+
+      {/* Graficos visuais (pizza + barras) */}
+      <GraficosGeral colaboradores={colaboradores} />
+    </>
+  );
+}
+
+// ============================================================================
+// Graficos visuais consolidados (Geral)
+// ============================================================================
+function GraficosGeral({ colaboradores }) {
+  const ativos = colaboradores.filter(c => c.status === 'ativo');
+  const hoje = new Date();
+
+  // Generos
+  const genero = { Masculino: 0, Feminino: 0, 'Não informado': 0 };
+  ativos.forEach(c => {
+    const s = (c.sexo || '').toUpperCase();
+    if (s === 'M') genero.Masculino++;
+    else if (s === 'F') genero.Feminino++;
+    else genero['Não informado']++;
+  });
+
+  // Setores
+  const setores = {};
+  ativos.forEach(c => {
+    const k = c.setor_nome || 'Sem setor';
+    setores[k] = (setores[k] || 0) + 1;
+  });
+
+  // Faixa etaria
+  const faixas = { '16-20': 0, '21-25': 0, '26-30': 0, '31-35': 0, '36-40': 0, '41-50': 0, '51-60': 0, '61+': 0 };
+  ativos.forEach(c => {
+    if (!c.data_nascimento) return;
+    const idade = Math.floor((hoje - new Date(c.data_nascimento)) / (365.25 * 24 * 60 * 60 * 1000));
+    let f;
+    if (idade <= 20) f = '16-20';
+    else if (idade <= 25) f = '21-25';
+    else if (idade <= 30) f = '26-30';
+    else if (idade <= 35) f = '31-35';
+    else if (idade <= 40) f = '36-40';
+    else if (idade <= 50) f = '41-50';
+    else if (idade <= 60) f = '51-60';
+    else f = '61+';
+    faixas[f]++;
+  });
+
+  // Tempo de empresa
+  const tempos = { '< 6 meses': 0, '6-12 meses': 0, '1-2 anos': 0, '2-3 anos': 0, '3-5 anos': 0, '5-10 anos': 0, '10+ anos': 0 };
+  ativos.forEach(c => {
+    if (!c.data_admissao) return;
+    const meses = (hoje - new Date(c.data_admissao)) / (30.44 * 24 * 60 * 60 * 1000);
+    let t;
+    if (meses < 6) t = '< 6 meses';
+    else if (meses < 12) t = '6-12 meses';
+    else if (meses < 24) t = '1-2 anos';
+    else if (meses < 36) t = '2-3 anos';
+    else if (meses < 60) t = '3-5 anos';
+    else if (meses < 120) t = '5-10 anos';
+    else t = '10+ anos';
+    tempos[t]++;
+  });
+
+  // Tipo de cargo
+  const PALAVRAS_ESTRATEGICO = /(GERENTE|DIRETOR|COORDENADOR|GESTOR|SUPERVISOR|LIDER|LÍDER|CHEFE|CEO|CFO|CTO|HEAD|ENCARREGADO)/i;
+  const tipoCargo = { Operacional: 0, Estratégico: 0 };
+  ativos.forEach(c => {
+    if (PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '')) tipoCargo['Estratégico']++;
+    else tipoCargo['Operacional']++;
+  });
+
+  // Cargos (todos, ordenados do maior pro menor)
+  const cargos = {};
+  ativos.forEach(c => {
+    const k = c.cargo_nome || 'Sem cargo';
+    cargos[k] = (cargos[k] || 0) + 1;
+  });
+  const topCargos = Object.entries(cargos).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Pizza titulo="Distribuição por Gênero" dados={genero} cores={['#3b82f6', '#ec4899', '#9ca3af']} />
+      <Pizza titulo="Operacional vs Estratégico" dados={tipoCargo} cores={['#f59e0b', '#a855f7']} />
+      <BlocoBarras titulo="Tempo de Empresa" dados={tempos} cor="bg-emerald-500"
+        ordem={['10+ anos', '5-10 anos', '3-5 anos', '2-3 anos', '1-2 anos', '6-12 meses', '< 6 meses']} />
+      <BlocoBarras titulo="Faixa Etária" dados={faixas} cor="bg-purple-500"
+        ordem={['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+']} />
+      <BlocoBarras titulo="Distribuição por Setor" dados={setores} cor="bg-amber-500" />
+      <div className="bg-white rounded-lg border shadow-sm p-5">
+        <h3 className="font-bold text-gray-800 text-base mb-3">🏆 Cargos ({topCargos.length})</h3>
+        {topCargos.length === 0 ? (
+          <div className="text-center text-gray-400 py-8 text-sm">Sem dados</div>
+        ) : (
+          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+            {topCargos.map(([cargo, qtd], i) => (
+              <div key={cargo} className="flex items-center gap-3 text-sm">
+                <span className="w-8 text-right font-bold text-gray-400 text-base">#{i + 1}</span>
+                <span className="flex-1 truncate font-semibold text-gray-700">{cargo}</span>
+                <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-bold">{qtd}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Tabela mensal de movimentacao (admissoes ou desligamentos)
+// Linhas = cargos, colunas = meses do ano-base, celulas = qtd que admitiu/desligou daquele cargo naquele mes
+function TabelaMovimentacao({ titulo, colaboradores, ano, campo, cor }) {
+  const corMap = {
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', cell: 'text-emerald-700' },
+    rose: { bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200', cell: 'text-rose-700' },
+  };
+  const cs = corMap[cor] || corMap.emerald;
+
+  const hoje = new Date();
+  const mesLimite = (hoje.getFullYear() === ano) ? hoje.getMonth() + 1 : 12;
+
+  // Agrupa: pra cada cargo, conta movimentacao por mes do ano-base
+  const porCargoMes = {}; // { cargo: [12 meses] }
+  let totalGeral = 0;
+  const totaisMes = Array(12).fill(0);
+
+  colaboradores.forEach(c => {
+    const data = c[campo];
+    if (!data) return;
+    const d = new Date(data);
+    if (d.getFullYear() !== ano) return;
+    const mes = d.getMonth(); // 0..11
+    const cargo = c.cargo_nome || 'Sem cargo';
+    if (!porCargoMes[cargo]) porCargoMes[cargo] = Array(12).fill(0);
+    porCargoMes[cargo][mes]++;
+    totaisMes[mes]++;
+    totalGeral++;
+  });
+
+  const cargos = Object.entries(porCargoMes)
+    .map(([nome, meses]) => ({ nome, meses, total: meses.reduce((s, x) => s + x, 0) }))
+    .sort((a, b) => b.total - a.total);
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="text-sm border-collapse table-fixed" style={{ width: '2180px' }}>
+          <colgroup>
+            <col style={{ width: '115px' }} />
+            <col style={{ width: '115px' }} />
+            {MESES.map(m => <col key={m} style={{ width: '150px' }} />)}
+            <col style={{ width: '150px' }} />
+          </colgroup>
+          <thead>
+            <tr className={`${cs.bg} border-b-2 ${cs.border}`}>
+              <th className={`text-left px-3 py-2 font-bold uppercase text-sm tracking-wide ${cs.text}`} colSpan={2}>{titulo}</th>
+              {MESES.map((m, i) => (
+                <th key={m} className={`text-center px-2 py-2 text-xs font-bold border-l border-gray-200 ${i + 1 > mesLimite ? 'text-gray-300' : 'text-gray-600'}`}>{m}</th>
+              ))}
+              <th className={`text-center px-2 py-2 text-xs font-bold ${cs.text} ${cs.bg} border-l ${cs.border}`}>Total {ano}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {cargos.length === 0 ? (
+              <tr>
+                <td colSpan={15} className="px-3 py-6 text-center text-gray-400 text-sm">
+                  Nenhuma movimentação no ano de {ano}
+                </td>
+              </tr>
+            ) : cargos.map(c => (
+              <tr key={c.nome} className="hover:bg-gray-50">
+                <td className="px-3 py-1.5 text-sm font-medium text-gray-700" colSpan={2}>{c.nome}</td>
+                {c.meses.map((q, i) => (
+                  <td key={i} className="px-2 py-1.5 text-center text-sm">
+                    {i + 1 > mesLimite ? <span className="text-gray-300">—</span> :
+                     q === 0 ? <span className="text-gray-300">—</span> :
+                     <span className={`font-bold ${cs.cell}`}>{q}</span>}
+                  </td>
+                ))}
+                <td className={`px-2 py-1.5 text-center text-sm font-bold ${cs.text} ${cs.bg}`}>{c.total}</td>
+              </tr>
+            ))}
+            {cargos.length > 0 && (
+              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                <td className="px-3 py-1.5 text-sm uppercase tracking-wide text-gray-700" colSpan={2}>TOTAL</td>
+                {totaisMes.map((q, i) => (
+                  <td key={i} className="px-2 py-1.5 text-center text-sm">
+                    {i + 1 > mesLimite ? <span className="text-gray-300">—</span> :
+                     q === 0 ? <span className="text-gray-300">—</span> :
+                     <span className="text-gray-800">{q}</span>}
+                  </td>
+                ))}
+                <td className={`px-2 py-1.5 text-center text-sm font-bold ${cs.text} ${cs.bg}`}>{totalGeral}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Pizza chart com SVG puro (sem dependencias)
+function Pizza({ titulo, dados, cores }) {
+  const entries = Object.entries(dados).filter(([, v]) => v > 0);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  if (total === 0) {
+    return (
+      <div className="bg-white rounded-lg border shadow-sm p-5">
+        <h3 className="font-bold text-gray-800 text-base mb-3">{titulo}</h3>
+        <div className="text-center text-gray-400 py-8 text-sm">Sem dados</div>
       </div>
     );
   }
 
+  const radius = 80;
+  const cx = 100, cy = 100;
+  let startAngle = -90;
+  const slices = entries.map(([label, qtd], i) => {
+    const pct = (qtd / total) * 100;
+    const angle = (qtd / total) * 360;
+    const endAngle = startAngle + angle;
+    const sa = (startAngle * Math.PI) / 180;
+    const ea = (endAngle * Math.PI) / 180;
+    const x1 = cx + radius * Math.cos(sa);
+    const y1 = cy + radius * Math.sin(sa);
+    const x2 = cx + radius * Math.cos(ea);
+    const y2 = cy + radius * Math.sin(ea);
+    const largeArc = angle > 180 ? 1 : 0;
+    const path = entries.length === 1
+      ? `M ${cx - radius} ${cy} A ${radius} ${radius} 0 1 1 ${cx + radius} ${cy} A ${radius} ${radius} 0 1 1 ${cx - radius} ${cy} Z`
+      : `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    // Posicao do label (no meio do arco)
+    const midAngle = (startAngle + endAngle) / 2;
+    const ma = (midAngle * Math.PI) / 180;
+    const labelR = radius * 0.65;
+    const lx = cx + labelR * Math.cos(ma);
+    const ly = cy + labelR * Math.sin(ma);
+    const slice = { path, cor: cores[i % cores.length], label, qtd, pct: Math.round(pct), lx, ly };
+    startAngle = endAngle;
+    return slice;
+  });
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-      <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Indicadores de RH</h1>
-              <p className="text-orange-100 text-sm mt-1">Metricas e indicadores do quadro de colaboradores</p>
+    <div className="bg-white rounded-lg border shadow-sm p-5">
+      <h3 className="font-bold text-gray-800 text-base mb-3">{titulo}</h3>
+      <div className="flex items-center gap-4 flex-wrap">
+        <svg width="200" height="200" viewBox="0 0 200 200" className="flex-shrink-0">
+          {slices.map((s, i) => (
+            <g key={i}>
+              <path d={s.path} fill={s.cor} stroke="white" strokeWidth="2" />
+              {s.pct >= 5 && (
+                <text x={s.lx} y={s.ly} textAnchor="middle" dominantBaseline="middle"
+                  fill="white" fontSize="14" fontWeight="bold">{s.pct}%</text>
+              )}
+            </g>
+          ))}
+        </svg>
+        <div className="flex-1 space-y-1.5 min-w-[140px]">
+          {slices.map((s, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: s.cor }}></span>
+              <span className="flex-1 font-medium text-gray-700">{s.label}</span>
+              <span className="text-gray-600 font-semibold">{s.qtd}</span>
+              <span className="text-xs text-gray-400 w-10 text-right">{s.pct}%</span>
             </div>
-            <button
-              className="md:hidden text-white"
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <p className="text-sm text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-              <p className="text-sm text-gray-600">Ativos</p>
-              <p className="text-2xl font-bold text-green-600">{stats.ativos || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
-              <p className="text-sm text-gray-600">Desligados</p>
-              <p className="text-2xl font-bold text-red-600">{stats.desligados || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-              <p className="text-sm text-gray-600">Admissoes no Ano</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.admissoes_ano || 0}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-orange-200">
-              <p className="text-sm text-gray-600">Taxa Rotatividade</p>
-              <p className="text-2xl font-bold text-orange-600">{taxaRotatividade}%</p>
-            </div>
-          </div>
-
-          {/* Visual Indicators */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Gender Distribution */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribuicao por Genero</h3>
-              <div className="flex items-center gap-4 mb-3">
-                <span className="text-sm text-gray-600 w-24">Masculino</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-blue-500 h-full rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: `${percMasc}%`, minWidth: percMasc > 0 ? '2rem' : '0' }}
-                  >
-                    {percMasc > 10 && <span className="text-xs text-white font-medium">{percMasc}%</span>}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 w-12 text-right">{masculino}</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 w-24">Feminino</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-pink-500 h-full rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: `${percFem}%`, minWidth: percFem > 0 ? '2rem' : '0' }}
-                  >
-                    {percFem > 10 && <span className="text-xs text-white font-medium">{percFem}%</span>}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 w-12 text-right">{feminino}</span>
-              </div>
-            </div>
-
-            {/* Status Distribution */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribuicao por Status</h3>
-              <div className="flex items-center gap-4 mb-3">
-                <span className="text-sm text-gray-600 w-24">Ativos</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-green-500 h-full rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: `${percAtivos}%`, minWidth: percAtivos > 0 ? '2rem' : '0' }}
-                  >
-                    {percAtivos > 10 && <span className="text-xs text-white font-medium">{percAtivos}%</span>}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 w-12 text-right">{ativos}</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 w-24">Desligados</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
-                  <div
-                    className="bg-red-500 h-full rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: `${100 - percAtivos}%`, minWidth: (100 - percAtivos) > 0 ? '2rem' : '0' }}
-                  >
-                    {(100 - percAtivos) > 10 && <span className="text-xs text-white font-medium">{100 - percAtivos}%</span>}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 w-12 text-right">{desligados}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Tables */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Recent Admissions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 bg-green-50">
-                <h3 className="text-sm font-semibold text-green-800">Admissoes Recentes</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {admissoesRecentes.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-4 text-center text-sm text-gray-500">Nenhuma admissao recente</td>
-                      </tr>
-                    ) : (
-                      admissoesRecentes.map((c) => (
-                        <tr key={c.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-900">{c.nome}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{c.cargo_nome || '-'}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{formatDate(c.data_admissao)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Recent Dismissals */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 bg-red-50">
-                <h3 className="text-sm font-semibold text-red-800">Desligamentos Recentes</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {desligamentosRecentes.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-4 text-center text-sm text-gray-500">Nenhum desligamento recente</td>
-                      </tr>
-                    ) : (
-                      desligamentosRecentes.map((c) => (
-                        <tr key={c.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-900">{c.nome}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{c.cargo_nome || '-'}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{formatDate(c.data_desligamento)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function Kpi({ label, valor, cor }) {
+  const cores = {
+    slate: { border: 'border-slate-300', text: 'text-slate-700' },
+    emerald: { border: 'border-emerald-300', text: 'text-emerald-700' },
+    rose: { border: 'border-rose-300', text: 'text-rose-700' },
+    blue: { border: 'border-blue-300', text: 'text-blue-700' },
+    amber: { border: 'border-amber-300', text: 'text-amber-700' },
+    purple: { border: 'border-purple-300', text: 'text-purple-700' },
+    pink: { border: 'border-pink-300', text: 'text-pink-700' },
+  };
+  const c = cores[cor] || cores.slate;
+  return (
+    <div className={`bg-white rounded-lg border-l-4 ${c.border} shadow-sm p-5`}>
+      <p className="text-sm uppercase font-bold text-gray-500">{label}</p>
+      <p className={`text-4xl font-bold ${c.text} mt-2`}>{valor || 0}</p>
+    </div>
+  );
+}
+
+function Barra({ cor, label, valor, pct }) {
+  return (
+    <div className="flex items-center gap-3 mb-2">
+      <span className="text-sm text-gray-600 w-24">{label}</span>
+      <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+        <div className={`${cor} h-full rounded-full flex items-center justify-end pr-2`} style={{ width: `${pct || 0}%`, minWidth: pct > 0 ? '2rem' : '0' }}>
+          {pct > 10 && <span className="text-xs text-white font-medium">{pct}%</span>}
+        </div>
+      </div>
+      <span className="text-sm font-semibold text-gray-700 w-10 text-right">{valor || 0}</span>
+    </div>
+  );
+}
+
+// ============================================================================
+// Aba Colaboradores — metricas mes a mes (formato planilha)
+// Cada bloco e uma tabela com linhas=faixas e colunas=meses do ano
+// ============================================================================
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+// Retorna os colaboradores que estavam ATIVOS no ULTIMO dia do mes/ano
+function ativosNoMes(colaboradores, ano, mes) {
+  // mes: 1-12 (Jan=1)
+  const ultimoDia = new Date(ano, mes, 0); // dia 0 do mes seguinte = ultimo do mes atual
+  return colaboradores.filter(c => {
+    if (!c.data_admissao) return false;
+    const adm = new Date(c.data_admissao);
+    if (adm > ultimoDia) return false;
+    if (c.data_desligamento) {
+      const desl = new Date(c.data_desligamento);
+      if (desl <= ultimoDia) return false;
+    }
+    return true;
+  });
+}
+
+// Calcula faixa etaria com base na idade NAQUELE mes
+function faixaEtaria(c, ano, mes) {
+  if (!c.data_nascimento) return null;
+  const ref = new Date(ano, mes, 0);
+  const nasc = new Date(c.data_nascimento);
+  const idade = Math.floor((ref - nasc) / (365.25 * 24 * 60 * 60 * 1000));
+  if (idade <= 20) return '16-20';
+  if (idade <= 25) return '21-25';
+  if (idade <= 30) return '26-30';
+  if (idade <= 35) return '31-35';
+  if (idade <= 40) return '36-40';
+  if (idade <= 50) return '41-50';
+  if (idade <= 60) return '51-60';
+  return '61+';
+}
+
+function faixaTempo(c, ano, mes) {
+  if (!c.data_admissao) return null;
+  const ref = new Date(ano, mes, 0);
+  const adm = new Date(c.data_admissao);
+  const meses = (ref - adm) / (30.44 * 24 * 60 * 60 * 1000);
+  if (meses < 6) return '< 6 meses';
+  if (meses < 12) return '6-12 meses';
+  if (meses < 24) return '1-2 anos';
+  if (meses < 36) return '2-3 anos';
+  if (meses < 60) return '3-5 anos';
+  if (meses < 120) return '5-10 anos';
+  return '10+ anos';
+}
+
+const PALAVRAS_ESTRATEGICO = /(GERENTE|DIRETOR|COORDENADOR|GESTOR|SUPERVISOR|LIDER|LÍDER|CHEFE|CEO|CFO|CTO|HEAD|ENCARREGADO)/i;
+
+// Recem contratados POR MES: admitidos NAQUELE mes (qtd nova)
+function admitidosNoMes(colaboradores, ano, mes) {
+  return colaboradores.filter(c => {
+    if (!c.data_admissao) return false;
+    const adm = new Date(c.data_admissao);
+    return adm.getFullYear() === ano && (adm.getMonth() + 1) === mes;
+  });
+}
+
+function AbaColaboradores({ loading, colaboradores, ano }) {
+  if (loading) return <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>;
+
+  const hoje = new Date();
+  const mesAtual = (hoje.getFullYear() === ano) ? hoje.getMonth() + 1 : 12;
+
+  // KPIs do mes atual
+  const fimMesAnt = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+  const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 6, hoje.getDate());
+  const quadroInicial = colaboradores.filter(c => {
+    if (!c.data_admissao) return false;
+    const adm = new Date(c.data_admissao);
+    if (adm > fimMesAnt) return false;
+    if (c.data_desligamento && new Date(c.data_desligamento) <= fimMesAnt) return false;
+    return true;
+  }).length;
+  const quadroFinal = colaboradores.filter(c => c.status === 'ativo').length;
+  const variacao = quadroFinal - quadroInicial;
+  const recemContratados = colaboradores.filter(c => {
+    if (!c.data_admissao || c.status !== 'ativo') return false;
+    return new Date(c.data_admissao) >= seisMesesAtras;
+  }).length;
+
+  return (
+    <>
+      {/* KPIs do mes atual */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <Kpi label="Quadro Inicial do Mês" valor={quadroInicial} cor="blue" />
+        <Kpi label="Quadro Final do Mês" valor={quadroFinal} cor="emerald" />
+        <Kpi label="Variação Mensal" valor={(variacao >= 0 ? '+' : '') + variacao} cor={variacao >= 0 ? 'emerald' : 'rose'} />
+        <Kpi label="Recém Contratados (6m)" valor={recemContratados} cor="pink" />
+      </div>
+
+      {/* Tabelas mes a mes */}
+      <div className="space-y-4">
+        <TabelaMensal
+          titulo="ESCOLARIDADE"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={c => c.escolaridade_nome || 'Sem informação'}
+          ordemFaixas={null}
+        />
+        <TabelaMensal
+          titulo="GÊNERO"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={c => {
+            const s = (c.sexo || '').toUpperCase();
+            return s === 'M' ? 'Masculino' : s === 'F' ? 'Feminino' : 'Não informado';
+          }}
+          ordemFaixas={['Masculino', 'Feminino', 'Não informado']}
+        />
+        <TabelaMensal
+          titulo="FAIXA ETÁRIA"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={(c, ano, mes) => faixaEtaria(c, ano, mes)}
+          ordemFaixas={['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+']}
+          dependeMes
+        />
+        <TabelaMensal
+          titulo="TEMPO DE EMPRESA"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={(c, ano, mes) => faixaTempo(c, ano, mes)}
+          ordemFaixas={['< 6 meses', '6-12 meses', '1-2 anos', '2-3 anos', '3-5 anos', '5-10 anos', '10+ anos']}
+          dependeMes
+        />
+        <TabelaMensal
+          titulo="POR SETOR"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={c => c.setor_nome || 'Sem setor'}
+          ordemFaixas={null}
+        />
+        <TabelaMensal
+          titulo="TIPO DE CARGO"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+          classificar={c => PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '') ? 'Estratégico' : 'Operacional'}
+          ordemFaixas={['Operacional', 'Estratégico']}
+        />
+        <TabelaMensalContratados
+          titulo="RECÉM CONTRATADOS (6 meses)"
+          colaboradores={colaboradores}
+          ano={ano} mesLimite={mesAtual}
+        />
+      </div>
+
+      <div className="text-xs text-gray-400 mt-4 text-center">
+        Ano-base: {ano} · Quantidade representa colaboradores ativos no último dia de cada mês · % calculado sobre o total daquele mês
+      </div>
+    </>
+  );
+}
+
+// Tabela com formato planilha: linhas=faixas, colunas=meses + total
+function TabelaMensal({ titulo, colaboradores, ano, mesLimite, classificar, ordemFaixas, dependeMes }) {
+  // Pra cada mes, classifica os ativos e conta por faixa
+  const dadosPorMes = []; // [{ totais: {faixa: qtd}, total: N }] indexado por mes 0..11
+  for (let m = 1; m <= 12; m++) {
+    if (m > mesLimite) {
+      dadosPorMes.push(null); // mes futuro
+      continue;
+    }
+    const ativos = ativosNoMes(colaboradores, ano, m);
+    const totais = {};
+    for (const c of ativos) {
+      const faixa = dependeMes ? classificar(c, ano, m) : classificar(c);
+      if (!faixa) continue;
+      totais[faixa] = (totais[faixa] || 0) + 1;
+    }
+    dadosPorMes.push({ totais, total: ativos.length });
+  }
+
+  // Lista de faixas: usa ordemFaixas se fornecido, senao pega tudo que apareceu (sorted desc por total)
+  let faixas = ordemFaixas;
+  if (!faixas) {
+    const todas = new Set();
+    dadosPorMes.forEach(d => d && Object.keys(d.totais).forEach(k => todas.add(k)));
+    faixas = Array.from(todas).sort((a, b) => {
+      const totA = dadosPorMes.reduce((s, d) => s + (d?.totais[a] || 0), 0);
+      const totB = dadosPorMes.reduce((s, d) => s + (d?.totais[b] || 0), 0);
+      return totB - totA;
+    });
+  }
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="text-sm border-collapse table-fixed" style={{ width: '2030px' }}>
+          <colgroup>
+            <col style={{ width: '115px' }} />
+            <col style={{ width: '115px' }} />
+            {MESES.map(m => (
+              <Fragment key={m}>
+                <col style={{ width: '75px' }} />
+                <col style={{ width: '75px' }} />
+              </Fragment>
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="bg-slate-300 border-b border-slate-400">
+              <th className="text-left px-3 py-2 font-bold text-slate-800 uppercase text-sm tracking-wide" colSpan={2} rowSpan={2}>{titulo}</th>
+              {MESES.map((m, i) => (
+                <th key={m} colSpan={2}
+                  className={`text-center px-2 py-1.5 text-xs font-bold border-l border-slate-400 ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-800'}`}>{m}</th>
+              ))}
+            </tr>
+            <tr className="bg-slate-200 border-b-2 border-slate-400 text-[10px] uppercase">
+              {MESES.map((m, i) => (
+                <Fragment key={m}>
+                  <th className={`text-center px-1 py-1 font-bold border-l border-slate-300 ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-700'}`}>QTD</th>
+                  <th className={`text-center px-1 py-1 font-bold ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-700'}`}>%</th>
+                </Fragment>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {faixas.map(f => (
+              <tr key={f} className="hover:bg-gray-50">
+                <td className="px-3 py-1.5 text-sm font-medium text-gray-700" colSpan={2}>{f}</td>
+                {dadosPorMes.map((d, i) => {
+                  if (!d) return (
+                    <Fragment key={i}>
+                      <td className="px-1 py-1.5 text-center text-gray-300 text-xs border-l border-gray-100">—</td>
+                      <td className="px-1 py-1.5 text-center text-gray-300 text-xs">—</td>
+                    </Fragment>
+                  );
+                  const qtd = d.totais[f] || 0;
+                  const pct = d.total ? Math.round((qtd / d.total) * 100) : 0;
+                  return (
+                    <Fragment key={i}>
+                      <td className="px-1 py-1.5 text-center text-sm border-l border-gray-100">
+                        {qtd > 0 ? <span className="font-bold text-gray-800">{qtd}</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-1 py-1.5 text-center text-xs">
+                        {qtd > 0 ? <span className="text-gray-500 font-medium">{pct}%</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                    </Fragment>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+              <td className="px-3 py-1.5 text-sm uppercase tracking-wide text-gray-700" colSpan={2}>TOTAL</td>
+              {dadosPorMes.map((d, i) => (
+                <Fragment key={i}>
+                  <td className="px-1 py-1.5 text-center text-sm border-l border-gray-200">
+                    {d ? <span className="text-gray-800">{d.total}</span> : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-1 py-1.5 text-center text-xs">
+                    {d ? <span className="text-gray-500">100%</span> : <span className="text-gray-300">—</span>}
+                  </td>
+                </Fragment>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Tabela de Recem Contratados (< 6 meses) + Admitidos no mes
+// Igual a planilha do Tradicao: pra cada mes mostra qtd e % sobre ativos do mes
+function TabelaMensalContratados({ titulo, colaboradores, ano, mesLimite }) {
+  const linhaAtivos6m = []; // ativos com < 6 meses de empresa naquele mes
+  const linhaAdmitidos = []; // admitidos NAQUELE mes especifico
+  let totalAtivos6m = 0, totalAdmitidos = 0;
+
+  for (let m = 1; m <= 12; m++) {
+    if (m > mesLimite) {
+      linhaAtivos6m.push(null);
+      linhaAdmitidos.push(null);
+      continue;
+    }
+    // Ativos no fim do mes
+    const ativos = ativosNoMes(colaboradores, ano, m);
+    const ref = new Date(ano, m, 0);
+    // Quantos desses tem < 6 meses de empresa
+    const seisMesesAtras = new Date(ref);
+    seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 6);
+    const qtdMenos6m = ativos.filter(c => {
+      if (!c.data_admissao) return false;
+      return new Date(c.data_admissao) >= seisMesesAtras;
+    }).length;
+    const pct6m = ativos.length ? Math.round((qtdMenos6m / ativos.length) * 100) : 0;
+    linhaAtivos6m.push({ qtd: qtdMenos6m, pct: pct6m, total: ativos.length });
+    totalAtivos6m += qtdMenos6m;
+
+    // Admitidos NO mes
+    const adm = admitidosNoMes(colaboradores, ano, m).length;
+    linhaAdmitidos.push(adm);
+    totalAdmitidos += adm;
+  }
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="text-sm border-collapse table-fixed" style={{ width: '2180px' }}>
+          <colgroup>
+            <col style={{ width: '115px' }} />
+            <col style={{ width: '115px' }} />
+            {MESES.map(m => <col key={m} style={{ width: '150px' }} />)}
+            <col style={{ width: '150px' }} />
+          </colgroup>
+          <thead>
+            <tr className="bg-slate-300 border-b-2 border-slate-400">
+              <th className="text-left px-3 py-2 font-bold text-slate-800 uppercase text-sm tracking-wide" colSpan={2}>{titulo}</th>
+              {MESES.map((m, i) => (
+                <th key={m} className={`text-center px-2 py-2 text-xs font-bold border-l border-slate-400 ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-800'}`}>{m}</th>
+              ))}
+              <th className="text-center px-2 py-2 text-xs font-bold text-slate-800 bg-slate-400 border-l border-slate-500">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr className="hover:bg-gray-50">
+              <td className="px-3 py-1.5 text-sm font-medium text-gray-700" colSpan={2}>... 6 meses (ativos)</td>
+              {linhaAtivos6m.map((d, i) => (
+                <td key={i} className="px-2 py-1.5 text-center text-sm">
+                  {!d ? <span className="text-gray-300">—</span> :
+                   d.qtd === 0 ? <span className="text-gray-300">—</span> :
+                   <>
+                     <span className="font-bold text-pink-700">{d.qtd}</span>
+                     <span className="text-xs text-gray-400 ml-1">({d.pct}%)</span>
+                   </>}
+                </td>
+              ))}
+              <td className="px-2 py-1.5 text-center text-sm font-bold text-orange-800 bg-orange-50">{totalAtivos6m}</td>
+            </tr>
+            <tr className="hover:bg-gray-50">
+              <td className="px-3 py-1.5 text-sm font-medium text-gray-700" colSpan={2}>Admitidos no mês</td>
+              {linhaAdmitidos.map((q, i) => (
+                <td key={i} className="px-2 py-1.5 text-center text-sm">
+                  {q == null ? <span className="text-gray-300">—</span> :
+                   q === 0 ? <span className="text-gray-300">—</span> :
+                   <span className="font-bold text-emerald-700">{q}</span>}
+                </td>
+              ))}
+              <td className="px-2 py-1.5 text-center text-sm font-bold text-emerald-800 bg-orange-50">{totalAdmitidos}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function agrupar(arr, fn) {
+  const map = {};
+  arr.forEach(x => {
+    const k = fn(x);
+    map[k] = (map[k] || 0) + 1;
+  });
+  return map;
+}
+
+function BlocoBarras({ titulo, dados, cor, ordem }) {
+  let entries = Object.entries(dados).filter(([, v]) => v > 0);
+  if (Array.isArray(ordem)) {
+    // Ordena conforme ordem fornecida (mantem so as faixas que tem valor)
+    entries = ordem
+      .filter(k => (dados[k] || 0) > 0)
+      .map(k => [k, dados[k]]);
+  } else {
+    entries.sort((a, b) => b[1] - a[1]);
+  }
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  if (entries.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border shadow-sm p-5">
+        <h3 className="font-bold text-gray-800 text-base mb-3">{titulo}</h3>
+        <div className="text-center text-gray-400 py-8 text-sm">Sem dados</div>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white rounded-lg border shadow-sm p-5">
+      <h3 className="font-bold text-gray-800 text-base mb-3">{titulo}</h3>
+      <div className="space-y-3">
+        {entries.map(([label, qtd]) => {
+          const pct = Math.round((qtd / total) * 100);
+          return (
+            <div key={label}>
+              <div className="flex justify-between mb-1">
+                <span className="font-semibold text-gray-700 text-sm">{label}</span>
+                <span className="font-bold text-gray-800 text-base">{qtd} <span className="text-gray-700 font-semibold">({pct}%)</span></span>
+              </div>
+              <div className="h-4 bg-gray-100 rounded overflow-hidden">
+                <div className={`h-full ${cor}`} style={{ width: `${pct}%` }}></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Tabela({ titulo, cor, linhas }) {
+  const cores = { emerald: 'bg-emerald-50 text-emerald-800', rose: 'bg-rose-50 text-rose-800' };
+  return (
+    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className={`px-4 py-3 border-b ${cores[cor]}`}>
+        <h3 className="text-sm font-bold">{titulo}</h3>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Cargo</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {linhas.length === 0 ? (
+            <tr><td colSpan={3} className="px-3 py-4 text-center text-sm text-gray-400">Nenhum registro</td></tr>
+          ) : linhas.map((l, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              <td className="px-3 py-2 text-gray-800 font-medium">{l.a}</td>
+              <td className="px-3 py-2 text-gray-600">{l.b}</td>
+              <td className="px-3 py-2 text-gray-600">{l.c}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Esqueleto das abas que ainda nao tem dados conectados.
+// Mostra a estrutura planejada (KPIs e graficos) com placeholders.
+function Esqueleto({ aba, ano }) {
+  const blocos = {
+    colaboradores: {
+      kpis: [
+        { titulo: 'Quadro Inicial do Mês', cor: 'blue' },
+        { titulo: 'Quadro Final do Mês', cor: 'emerald' },
+        { titulo: 'Variação Mensal', cor: 'amber' },
+        { titulo: 'Recém Contratados (6m)', cor: 'pink' },
+      ],
+      visuais: [
+        { titulo: 'Distribuição por Escolaridade (mensal)', tipo: 'grafico' },
+        { titulo: 'Distribuição por Faixa Etária', tipo: 'grafico' },
+        { titulo: 'Tempo de Empresa', tipo: 'grafico' },
+        { titulo: 'Por Setor', tipo: 'pizza' },
+        { titulo: 'Por Tipo de Cargo (Operacional/Estratégico)', tipo: 'pizza' },
+        { titulo: 'Top Cargos', tipo: 'lista' },
+      ],
+    },
+    'ponto-ausencias': {
+      kpis: [
+        { titulo: 'Taxa de Absenteísmo', cor: 'rose' },
+        { titulo: 'Gravidade (h/funcionário)', cor: 'amber' },
+        { titulo: 'Total Horas Ausência Não Planejada', cor: 'rose' },
+        { titulo: 'Total Horas Jornada de Trabalho', cor: 'blue' },
+      ],
+      visuais: [
+        { titulo: 'Ausência Planejada vs Não Planejada (mensal)', tipo: 'grafico' },
+        { titulo: 'Por Tipo (Atestado, Falta, Atraso, Maternidade, INSS)', tipo: 'pizza' },
+        { titulo: 'Top 100 Colaboradores com Mais Ausências', tipo: 'tabela' },
+        { titulo: 'Evolução do Absenteísmo', tipo: 'linha' },
+        { titulo: 'Evolução da Gravidade', tipo: 'linha' },
+      ],
+    },
+    recrutamento: {
+      kpis: [
+        { titulo: 'Vagas em Aberto', cor: 'amber' },
+        { titulo: 'Vagas Preenchidas (ano)', cor: 'emerald' },
+        { titulo: 'Tempo Médio de Contratação', cor: 'blue' },
+        { titulo: 'Taxa de Recusa', cor: 'rose' },
+      ],
+      visuais: [
+        { titulo: 'Processos Iniciados vs Encerrados', tipo: 'grafico' },
+        { titulo: 'Dentro do Prazo vs Fora do Prazo', tipo: 'pizza' },
+        { titulo: 'Motivos de Não Preenchimento', tipo: 'lista' },
+        { titulo: 'Funil: Candidatos → Entrevistas → Contratados', tipo: 'grafico' },
+        { titulo: 'Vagas em Aberto Detalhadas', tipo: 'tabela' },
+      ],
+    },
+    'pesquisa-clima': {
+      kpis: [
+        { titulo: 'eNPS Atual', cor: 'emerald' },
+        { titulo: 'Total de Respostas', cor: 'blue' },
+        { titulo: 'Taxa de Participação', cor: 'amber' },
+        { titulo: 'Variação vs Rodada Anterior', cor: 'pink' },
+      ],
+      visuais: [
+        { titulo: 'Distribuição Promotores / Passivos / Detratores', tipo: 'pizza' },
+        { titulo: 'Evolução do eNPS (rodadas)', tipo: 'linha' },
+        { titulo: 'Médias por Pergunta', tipo: 'grafico' },
+        { titulo: 'Comentários Abertos', tipo: 'lista' },
+      ],
+    },
+    treinamentos: {
+      kpis: [
+        { titulo: 'Horas Totais no Ano', cor: 'purple' },
+        { titulo: 'Custo Total no Ano', cor: 'emerald' },
+        { titulo: 'Treinamentos Realizados', cor: 'blue' },
+        { titulo: 'Certificações Vencendo (30d)', cor: 'rose' },
+      ],
+      visuais: [
+        { titulo: 'NRs Obrigatórias - Conformidade', tipo: 'pizza' },
+        { titulo: 'Top Treinamentos por Frequência', tipo: 'grafico' },
+        { titulo: 'Evolução Mensal de Horas', tipo: 'linha' },
+        { titulo: 'Por Setor', tipo: 'pizza' },
+        { titulo: 'Certificações Vencidas / Vencendo', tipo: 'tabela' },
+      ],
+    },
+    financeiro: {
+      kpis: [
+        { titulo: 'Folha do Mês', cor: 'emerald' },
+        { titulo: 'Folha Acumulada (Ano)', cor: 'blue' },
+        { titulo: 'Custo Médio por Colaborador', cor: 'pink' },
+        { titulo: 'Total de Encargos (Ano)', cor: 'amber' },
+      ],
+      visuais: [
+        { titulo: 'Evolução Mensal da Folha', tipo: 'linha' },
+        { titulo: 'Custo por Setor', tipo: 'pizza' },
+        { titulo: 'Composição: Salário vs Encargos vs Benefícios', tipo: 'pizza' },
+        { titulo: 'Encargos Detalhados (FGTS, INSS, Férias, 13º)', tipo: 'grafico' },
+        { titulo: 'Provisões Mensais (PLR, Férias, etc)', tipo: 'grafico' },
+      ],
+    },
+    escala: {
+      kpis: [
+        { titulo: 'Cobertura da Escala (%)', cor: 'emerald' },
+        { titulo: 'Horas Extras no Mês', cor: 'amber' },
+        { titulo: 'Banco de Horas (saldo médio)', cor: 'blue' },
+        { titulo: 'Folgas Pendentes', cor: 'rose' },
+      ],
+      visuais: [
+        { titulo: 'Distribuição de Turnos', tipo: 'pizza' },
+        { titulo: 'Horas Extras por Setor', tipo: 'grafico' },
+        { titulo: 'Férias Programadas (próximos 90 dias)', tipo: 'tabela' },
+        { titulo: 'Licenças em Curso', tipo: 'tabela' },
+        { titulo: 'Evolução Mensal de Horas Extras', tipo: 'linha' },
+      ],
+    },
+    dp: {
+      kpis: [
+        { titulo: 'Documentos Vencidos', cor: 'rose' },
+        { titulo: 'Vencendo em 30 dias', cor: 'amber' },
+        { titulo: 'Total de Documentos', cor: 'blue' },
+        { titulo: 'Taxa de Conformidade', cor: 'emerald' },
+      ],
+      visuais: [
+        { titulo: 'ASOs - Emissão e Vencimento Mensal', tipo: 'grafico' },
+        { titulo: 'Pastas com mais Documentos', tipo: 'lista' },
+        { titulo: 'Conformidade por Empresa/Loja', tipo: 'pizza' },
+        { titulo: 'Documentos Vencidos Detalhados', tipo: 'tabela' },
+      ],
+    },
+  };
+
+  const data = blocos[aba] || { kpis: [], visuais: [] };
+
+  return (
+    <>
+      {data.kpis.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {data.kpis.map((c, i) => (
+            <div key={i} className="bg-white rounded-lg border-l-4 border-gray-300 shadow-sm p-4 opacity-70">
+              <p className="text-xs uppercase font-semibold text-gray-500">{c.titulo}</p>
+              <p className="text-2xl font-bold text-gray-300 mt-1">—</p>
+              <p className="text-[10px] text-gray-400 mt-1">a conectar</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {data.visuais.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {data.visuais.map((c, i) => (
+            <div key={i} className="bg-white rounded-lg border shadow-sm p-5 min-h-[180px]">
+              <h3 className="font-bold text-gray-700 mb-1">{c.titulo}</h3>
+              <p className="text-xs text-gray-400 mb-3">
+                {c.tipo === 'grafico' && '📊 Gráfico de barras'}
+                {c.tipo === 'linha' && '📈 Gráfico de linha'}
+                {c.tipo === 'pizza' && '🥧 Gráfico de pizza'}
+                {c.tipo === 'lista' && '📋 Lista ranqueada'}
+                {c.tipo === 'tabela' && '📑 Tabela detalhada'}
+              </p>
+              <div className="bg-gray-50 rounded p-6 text-center text-gray-400 text-sm border-2 border-dashed border-gray-200">
+                🚧 A conectar com a tela origem
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="text-xs text-gray-400 mt-4 text-center">Ano-base: {ano} · Estrutura placeholder, dados reais serão plugados quando as telas origem estiverem completas</div>
+    </>
   );
 }

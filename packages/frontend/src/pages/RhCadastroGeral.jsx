@@ -60,7 +60,8 @@ export default function RhCadastroGeral() {
   })();
 
   // Estatisticas
-  const [stats, setStats] = useState({ total: 0, ativos: 0, desligados: 0 });
+  const [stats, setStats] = useState({ total: 0, ativos: 0, desligados: 0, clts: 0, aprendizes: 0 });
+  const [setores, setSetores] = useState([]);
 
   // Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -171,6 +172,7 @@ export default function RhCadastroGeral() {
     escala_id: '',
     escala_domingo_id: '',
     regime_trabalho_id: '',
+    sector_id: '',
     data_admissao: '',
     salario: '',
     status: 'ativo',
@@ -221,7 +223,7 @@ export default function RhCadastroGeral() {
 
   const carregarConfiguracoes = async () => {
     try {
-      const [cargosRes, empRes, jorRes, escRes, escalasRes, escDomRes, regimesRes, beneficiosRes] = await Promise.all([
+      const [cargosRes, empRes, jorRes, escRes, escalasRes, escDomRes, regimesRes, beneficiosRes, setoresRes] = await Promise.all([
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/empresas/stores/list'),
         api.get('/rh/configuracoes/jornadas'),
@@ -229,7 +231,8 @@ export default function RhCadastroGeral() {
         api.get('/rh/configuracoes/escalas'),
         api.get('/rh/configuracoes/escalas-domingo'),
         api.get('/rh/configuracoes/regimes-trabalho'),
-        api.get('/rh/configuracoes/beneficios')
+        api.get('/rh/configuracoes/beneficios'),
+        api.get('/sectors')
       ]);
       setCargos(cargosRes.data?.cargos || cargosRes.data || []);
       const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.companies || []);
@@ -241,6 +244,8 @@ export default function RhCadastroGeral() {
       setRegimes(regimesRes.data?.regimes || regimesRes.data || []);
       const benData = beneficiosRes.data?.beneficios || beneficiosRes.data || [];
       setBeneficiosDisponiveis(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
+      const setoresData = Array.isArray(setoresRes.data) ? setoresRes.data : (setoresRes.data?.sectors || []);
+      setSetores(setoresData);
     } catch (error) {
       console.error('Erro ao carregar configuracoes:', error);
     }
@@ -252,7 +257,9 @@ export default function RhCadastroGeral() {
       setStats({
         total: response.data?.totalColaboradores || response.data?.total || 0,
         ativos: response.data?.ativos || 0,
-        desligados: response.data?.desligados || 0
+        desligados: response.data?.desligados || 0,
+        clts: response.data?.clts || 0,
+        aprendizes: response.data?.aprendizes || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar estatisticas:', error);
@@ -312,6 +319,7 @@ export default function RhCadastroGeral() {
         escala_id: colaborador.escala_id || '',
         escala_domingo_id: colaborador.escala_domingo_id || '',
         regime_trabalho_id: colaborador.regime_trabalho_id || '',
+        sector_id: colaborador.sector_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
         salario: colaborador.salario || '',
         status: colaborador.status || 'ativo',
@@ -443,7 +451,7 @@ export default function RhCadastroGeral() {
         {/* Content */}
         <div className="p-6">
           {/* Stats Cards - foscos (cores suaves) com icones neutros + faixa lateral */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
               <div className="flex-1 p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
@@ -485,6 +493,36 @@ export default function RhCadastroGeral() {
                 </div>
               </div>
               <div className="w-2 bg-rose-300" />
+            </div>
+            {/* CARD CLT (ativos) */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
+              <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500/70">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">CLTs Ativos</p>
+                  <p className="text-2xl font-bold text-blue-700/80 mt-0.5">{stats.clts}</p>
+                </div>
+              </div>
+              <div className="w-2 bg-blue-300" />
+            </div>
+            {/* CARD APRENDIZ (ativos) */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex items-stretch">
+              <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500/70">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Aprendizes Ativos</p>
+                  <p className="text-2xl font-bold text-amber-700/80 mt-0.5">{stats.aprendizes}</p>
+                </div>
+              </div>
+              <div className="w-2 bg-amber-300" />
             </div>
           </div>
 
@@ -594,6 +632,7 @@ export default function RhCadastroGeral() {
                       <th onClick={() => toggleSort('data_nascimento')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Idade{sortIcon('data_nascimento')}</th>
                       <th onClick={() => toggleSort('cpf')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">CPF{sortIcon('cpf')}</th>
                       <th onClick={() => toggleSort('cargo_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Cargo{sortIcon('cargo_nome')}</th>
+                      <th onClick={() => toggleSort('setor_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Setor{sortIcon('setor_nome')}</th>
                       <th onClick={() => toggleSort('escolaridade_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Escolaridade{sortIcon('escolaridade_nome')}</th>
                       <th onClick={() => toggleSort('empresa_nome')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Empresa{sortIcon('empresa_nome')}</th>
                       <th onClick={() => toggleSort('salario')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Salario{sortIcon('salario')}</th>
@@ -647,6 +686,13 @@ export default function RhCadastroGeral() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {colab.cargo_nome || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {colab.setor_nome ? (
+                              <span className="inline-block px-2 py-0.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-full text-xs font-semibold">
+                                {colab.setor_nome}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {colab.escolaridade_nome || '-'}
@@ -1026,6 +1072,15 @@ export default function RhCadastroGeral() {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className={labelClass}>Setor (vem das Configurações &gt; Setores)</label>
+                        <select className={selectClass} value={formData.sector_id || ''} onChange={(e) => handleChange('sector_id', e.target.value)}>
+                          <option value="">Selecione...</option>
+                          {setores.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className={labelClass}>Data de Admissao *</label>
                         <input type="date" required className={inputClass} value={formData.data_admissao} onChange={(e) => handleChange('data_admissao', e.target.value)} />

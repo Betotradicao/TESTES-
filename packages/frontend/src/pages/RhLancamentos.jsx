@@ -27,6 +27,30 @@ const DESCONTOS = [
 ];
 const ALL = [...PROVENTOS, ...DESCONTOS];
 
+// Valida se string e um numero monetario valido (vazio, BR "10,50" ou US "10.50").
+// Aceita: "", "10", "10,5", "10.50", "1.234,56" (com milhar BR).
+// Rejeita: "1,,0", "abc", "1,2,3" etc.
+function isValorValido(v) {
+  if (v == null || v === '') return true;
+  const s = String(v).trim().replace(/R\$|\s/gi, '');
+  if (s === '') return true;
+  return /^-?(\d+|\d{1,3}(\.\d{3})*|\d{1,3}(,\d{3})*)([.,]\d{1,2})?$/.test(s);
+}
+
+// Converte string BR/US pra Number ("10,50" -> 10.50). Retorna 0 se invalido.
+function parseValor(v) {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  let s = String(v).trim().replace(/R\$|\s/gi, '');
+  if (s.includes(',') && s.includes('.')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes(',')) {
+    s = s.replace(',', '.');
+  }
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
+
 function hoje() { return new Date().toISOString().split('T')[0]; }
 function primeiroDiaMes() {
   const d = new Date(); d.setDate(1);
@@ -62,6 +86,8 @@ export default function RhLancamentos() {
   const [showNovaColuna, setShowNovaColuna] = useState(false);
   const [novaLabel, setNovaLabel] = useState('');
   const [novoTipo, setNovoTipo] = useState('provento');
+  const [novoMostraQtd, setNovoMostraQtd] = useState(true);
+  const [novoMostraValor, setNovoMostraValor] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -134,12 +160,21 @@ export default function RhLancamentos() {
 
   const criarColuna = async () => {
     if (!novaLabel.trim()) return;
+    if (!novoMostraQtd && !novoMostraValor) {
+      toast.error('Marque pelo menos QTD ou R$');
+      return;
+    }
     try {
-      await api.post('/rh/apontamentos/campos', { label: novaLabel.trim(), tipo: novoTipo });
+      await api.post('/rh/apontamentos/campos', {
+        label: novaLabel.trim(), tipo: novoTipo,
+        mostra_qtd: novoMostraQtd, mostra_valor: novoMostraValor,
+      });
       toast.success('Coluna criada');
       setShowNovaColuna(false);
       setNovaLabel('');
       setNovoTipo('provento');
+      setNovoMostraQtd(true);
+      setNovoMostraValor(true);
       await carregarCampos();
     } catch (err) { toast.error(err?.response?.data?.error || 'Erro ao criar coluna'); }
   };
@@ -234,12 +269,19 @@ export default function RhLancamentos() {
   };
 
   // Totais por colaborador — soma R$ dos campos _valor (qtd nao entra no dinheiro)
+  // Pra colunas extras: soma sempre o R$ se houver, senao soma o QTD direto
+  const valorExtra = (r, c) => {
+    const showVal = c.mostra_valor !== false;
+    const chaveValor = showVal ? `${c.chave}_valor` : c.chave;
+    return parseValor(r.campos_extras?.[chaveValor]);
+  };
+
   const totais = (r) => {
-    const prov = PROVENTOS.reduce((s, c) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0)
-      + extrasProventos.reduce((s, c) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0);
-    const desc = DESCONTOS.reduce((s, c) => s + (Number(r.campos_extras?.[`${c.key}_valor`]) || 0), 0)
-      + extrasDescontos.reduce((s, c) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0);
-    const sal = Number(r.salario) || 0;
+    const prov = PROVENTOS.reduce((s, c) => s + parseValor(r.campos_extras?.[`${c.key}_valor`]), 0)
+      + extrasProventos.reduce((s, c) => s + valorExtra(r, c), 0);
+    const desc = DESCONTOS.reduce((s, c) => s + parseValor(r.campos_extras?.[`${c.key}_valor`]), 0)
+      + extrasDescontos.reduce((s, c) => s + valorExtra(r, c), 0);
+    const sal = parseValor(r.salario);
     const bruto = sal + prov;
     return { prov, desc, bruto, liq: bruto - desc };
   };
@@ -451,24 +493,31 @@ export default function RhLancamentos() {
               <p className="font-semibold">Informe o período e clique em <strong>Carregar</strong></p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-280px)]">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 z-30">
                   <tr className="bg-gray-600 text-white">
-                    <th className="px-2 py-2 text-left sticky left-0 bg-gray-600 z-10 min-w-[180px]" rowSpan={2}>Colaborador</th>
-                    <th className="px-2 py-2 text-left" rowSpan={2}>Cargo</th>
-                    <th className="px-2 py-2 text-right" rowSpan={2}>Salário</th>
+                    <th className="px-2 py-2 text-left sticky left-0 bg-gray-600 z-40 min-w-[180px]" rowSpan={2}>Colaborador</th>
+                    <th className="px-2 py-2 text-left bg-gray-600" rowSpan={2}>Cargo</th>
+                    <th className="px-2 py-2 text-right bg-gray-600" rowSpan={2}>Salário</th>
                     {PROVENTOS.map(c => (
                       <th key={c.key} colSpan={2} className="px-2 py-1 text-center bg-emerald-700 border-l border-emerald-600" title={c.label}>
                         {c.label}
                       </th>
                     ))}
-                    {extrasProventos.map(c => (
-                      <th key={c.chave} className="px-2 py-2 text-center bg-emerald-800 min-w-[80px] relative group" title={c.label} rowSpan={2}>
-                        {c.label}
-                        <button onClick={() => deletarColuna(c.id)} className="absolute top-0 right-0 text-[10px] px-1 opacity-0 group-hover:opacity-100 hover:text-red-200" title="Remover">✖</button>
-                      </th>
-                    ))}
+                    {extrasProventos.map(c => {
+                      const showQtd = c.mostra_qtd !== false;
+                      const showVal = c.mostra_valor !== false;
+                      const span = (showQtd && showVal) ? 2 : 1;
+                      return (
+                        <th key={c.chave} colSpan={span}
+                          className="px-2 py-1 text-center bg-emerald-800 min-w-[80px] relative group"
+                          title={c.label} rowSpan={span === 2 ? 1 : 2}>
+                          {c.label}
+                          <button onClick={() => deletarColuna(c.id)} className="absolute top-0 right-0 text-[10px] px-1 opacity-0 group-hover:opacity-100 hover:text-red-200" title="Remover">✖</button>
+                        </th>
+                      );
+                    })}
                     {DESCONTOS.map(c => (
                       <th key={c.key} colSpan={2} className="px-2 py-1 text-center bg-rose-700 border-l border-rose-600" title={c.label}>
                         {c.label}
@@ -484,11 +533,17 @@ export default function RhLancamentos() {
                     <th className="px-2 py-2 text-right bg-blue-700" rowSpan={2}>Líquido</th>
                     <th className="px-2 py-2 text-left min-w-[150px]" rowSpan={2}>Obs</th>
                   </tr>
-                  <tr className="bg-gray-500 text-white text-[10px]">
+                  <tr className="bg-gray-500 text-white text-xs">
                     {PROVENTOS.map(c => (
                       <Fragment key={c.key}>
                         <th className="px-1 py-1 text-center bg-emerald-600 min-w-[60px] font-normal">QTD</th>
                         <th className="px-1 py-1 text-center bg-emerald-500 min-w-[70px] font-bold">R$</th>
+                      </Fragment>
+                    ))}
+                    {extrasProventos.filter(c => c.mostra_qtd !== false && c.mostra_valor !== false).map(c => (
+                      <Fragment key={`sub-${c.chave}`}>
+                        <th className="px-1 py-1 text-center bg-emerald-700 min-w-[60px] font-normal">QTD</th>
+                        <th className="px-1 py-1 text-center bg-emerald-600 min-w-[70px] font-bold">R$</th>
                       </Fragment>
                     ))}
                     {DESCONTOS.map(c => (
@@ -506,58 +561,116 @@ export default function RhLancamentos() {
                       <tr key={r.colaborador_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-2 py-1 font-semibold sticky left-0 bg-inherit z-10">
                           <div>{r.nome}</div>
-                          <div className="text-[10px] text-gray-400">Mat. {r.matricula || '-'}</div>
+                          <div className="text-xs text-gray-400">Mat. {r.matricula || '-'}</div>
                         </td>
                         <td className="px-2 py-1 text-gray-600">{r.cargo_nome || '-'}</td>
                         <td className="px-2 py-1 text-right font-semibold text-gray-700">{fmtMoney(r.salario)}</td>
                         {PROVENTOS.map(c => (
                           <Fragment key={c.key}>
                             <td className="px-1 py-1 bg-emerald-50/30 border-l border-emerald-200">
-                              <input type="text" inputMode="decimal" value={r[c.key] || ''}
+                              <input type="text" inputMode="decimal" value={r[c.key] ?? ''}
                                 onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
                                 className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
                                 placeholder="0" />
                             </td>
                             <td className="px-1 py-1 bg-emerald-100/40">
-                              <input type="text" inputMode="decimal" value={r.campos_extras?.[`${c.key}_valor`] || ''}
-                                onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
-                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none font-semibold text-emerald-800"
-                                placeholder="R$ 0,00" />
+                              {(() => {
+                                const v = r.campos_extras?.[`${c.key}_valor`] ?? '';
+                                const invalido = !isValorValido(v);
+                                return (
+                                  <input type="text" inputMode="decimal" value={v}
+                                    onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
+                                    className={`w-full px-1 py-1 text-right border rounded focus:outline-none font-semibold ${invalido ? 'border-red-500 bg-red-100 text-red-700 animate-pulse' : 'border-transparent hover:border-gray-300 focus:border-orange-400 bg-transparent focus:bg-white text-emerald-800'}`}
+                                    placeholder="R$ 0,00" />
+                                );
+                              })()}
                             </td>
                           </Fragment>
                         ))}
-                        {extrasProventos.map(c => (
-                          <td key={c.chave} className="px-1 py-1 bg-emerald-100/30">
-                            <input type="text" inputMode="decimal" value={r.campos_extras?.[c.chave] || ''}
-                              onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
-                              className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                              placeholder="0" />
-                          </td>
-                        ))}
+                        {extrasProventos.map(c => {
+                          const showQtd = c.mostra_qtd !== false;
+                          const showVal = c.mostra_valor !== false;
+                          return (
+                            <Fragment key={c.chave}>
+                              {showQtd && (
+                                <td className="px-1 py-1 bg-emerald-50/30">
+                                  <input type="text" inputMode="decimal"
+                                    value={r.campos_extras?.[c.chave] ?? ''}
+                                    onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
+                                    className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
+                                    placeholder="0" />
+                                </td>
+                              )}
+                              {showVal && (
+                                <td className="px-1 py-1 bg-emerald-100/40">
+                                  {(() => {
+                                    const v = r.campos_extras?.[`${c.chave}_valor`] ?? '';
+                                    const inv = !isValorValido(v);
+                                    return (
+                                      <input type="text" inputMode="decimal" value={v}
+                                        onChange={e => updateExtra(r.colaborador_id, `${c.chave}_valor`, e.target.value)}
+                                        className={`w-full px-1 py-1 text-right border rounded focus:outline-none font-semibold ${inv ? 'border-red-500 bg-red-100 text-red-700 animate-pulse' : 'border-transparent hover:border-gray-300 focus:border-orange-400 bg-transparent focus:bg-white text-emerald-800'}`}
+                                        placeholder="R$ 0,00" />
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                            </Fragment>
+                          );
+                        })}
                         {DESCONTOS.map(c => (
                           <Fragment key={c.key}>
                             <td className="px-1 py-1 bg-rose-50/30 border-l border-rose-200">
-                              <input type="text" inputMode="decimal" value={r[c.key] || ''}
+                              <input type="text" inputMode="decimal" value={r[c.key] ?? ''}
                                 onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
                                 className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
                                 placeholder="0" />
                             </td>
                             <td className="px-1 py-1 bg-rose-100/40">
-                              <input type="text" inputMode="decimal" value={r.campos_extras?.[`${c.key}_valor`] || ''}
-                                onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
-                                className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none font-semibold text-rose-800"
-                                placeholder="R$ 0,00" />
+                              {(() => {
+                                const v = r.campos_extras?.[`${c.key}_valor`] ?? '';
+                                const inv = !isValorValido(v);
+                                return (
+                                  <input type="text" inputMode="decimal" value={v}
+                                    onChange={e => updateExtra(r.colaborador_id, `${c.key}_valor`, e.target.value)}
+                                    className={`w-full px-1 py-1 text-right border rounded focus:outline-none font-semibold ${inv ? 'border-red-500 bg-red-100 text-red-700 animate-pulse' : 'border-transparent hover:border-gray-300 focus:border-orange-400 bg-transparent focus:bg-white text-rose-800'}`}
+                                    placeholder="R$ 0,00" />
+                                );
+                              })()}
                             </td>
                           </Fragment>
                         ))}
-                        {extrasDescontos.map(c => (
-                          <td key={c.chave} className="px-1 py-1 bg-rose-100/30">
-                            <input type="text" inputMode="decimal" value={r.campos_extras?.[c.chave] || ''}
-                              onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
-                              className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                              placeholder="0" />
-                          </td>
-                        ))}
+                        {extrasDescontos.map(c => {
+                          const showQtd = c.mostra_qtd !== false;
+                          const showVal = c.mostra_valor !== false;
+                          return (
+                            <Fragment key={c.chave}>
+                              {showQtd && (
+                                <td className="px-1 py-1 bg-rose-50/30">
+                                  <input type="text" inputMode="decimal"
+                                    value={r.campos_extras?.[c.chave] ?? ''}
+                                    onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
+                                    className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
+                                    placeholder="0" />
+                                </td>
+                              )}
+                              {showVal && (
+                                <td className="px-1 py-1 bg-rose-100/40">
+                                  {(() => {
+                                    const v = r.campos_extras?.[`${c.chave}_valor`] ?? '';
+                                    const inv = !isValorValido(v);
+                                    return (
+                                      <input type="text" inputMode="decimal" value={v}
+                                        onChange={e => updateExtra(r.colaborador_id, `${c.chave}_valor`, e.target.value)}
+                                        className={`w-full px-1 py-1 text-right border rounded focus:outline-none font-semibold ${inv ? 'border-red-500 bg-red-100 text-red-700 animate-pulse' : 'border-transparent hover:border-gray-300 focus:border-orange-400 bg-transparent focus:bg-white text-rose-800'}`}
+                                        placeholder="R$ 0,00" />
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                            </Fragment>
+                          );
+                        })}
                         <td className="px-2 py-1 text-right font-bold text-amber-700 bg-amber-50/40 whitespace-nowrap">
                           {fmtMoney(t.bruto)}
                         </td>
@@ -574,7 +687,7 @@ export default function RhLancamentos() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-100 font-bold text-xs">
+                  <tr className="bg-gray-100 font-bold text-sm">
                     <td colSpan={3} className="px-2 py-2 text-right">TOTAIS:</td>
                     {PROVENTOS.map(c => (
                       <Fragment key={c.key}>
@@ -586,11 +699,24 @@ export default function RhLancamentos() {
                         </td>
                       </Fragment>
                     ))}
-                    {extrasProventos.map(c => (
-                      <td key={c.chave} className="px-2 py-2 text-right bg-emerald-100">
-                        {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0))}
-                      </td>
-                    ))}
+                    {extrasProventos.map(c => {
+                      const showQtd = c.mostra_qtd !== false;
+                      const showVal = c.mostra_valor !== false;
+                      return (
+                        <Fragment key={c.chave}>
+                          {showQtd && (
+                            <td className="px-2 py-2 text-right bg-emerald-50">
+                              {rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0).toFixed(2)}
+                            </td>
+                          )}
+                          {showVal && (
+                            <td className="px-2 py-2 text-right bg-emerald-100 text-emerald-800">
+                              {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[`${c.chave}_valor`]) || 0), 0))}
+                            </td>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                     {DESCONTOS.map(c => (
                       <Fragment key={c.key}>
                         <td className="px-2 py-2 text-right bg-rose-50">
@@ -601,11 +727,24 @@ export default function RhLancamentos() {
                         </td>
                       </Fragment>
                     ))}
-                    {extrasDescontos.map(c => (
-                      <td key={c.chave} className="px-2 py-2 text-right bg-rose-100">
-                        {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0))}
-                      </td>
-                    ))}
+                    {extrasDescontos.map(c => {
+                      const showQtd = c.mostra_qtd !== false;
+                      const showVal = c.mostra_valor !== false;
+                      return (
+                        <Fragment key={c.chave}>
+                          {showQtd && (
+                            <td className="px-2 py-2 text-right bg-rose-50">
+                              {rows.reduce((s, r) => s + (Number(r.campos_extras?.[c.chave]) || 0), 0).toFixed(2)}
+                            </td>
+                          )}
+                          {showVal && (
+                            <td className="px-2 py-2 text-right bg-rose-100 text-rose-800">
+                              {fmtMoney(rows.reduce((s, r) => s + (Number(r.campos_extras?.[`${c.chave}_valor`]) || 0), 0))}
+                            </td>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                     <td className="px-2 py-2 text-right bg-amber-100 text-amber-800">
                       {fmtMoney(rows.reduce((s, r) => s + totais(r).bruto, 0))}
                     </td>
@@ -653,6 +792,22 @@ export default function RhLancamentos() {
                     <span className="font-bold text-rose-700">📉 Desconto</span>
                   </label>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">O que vai ter na coluna?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer ${novoMostraQtd ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                    <input type="checkbox" checked={novoMostraQtd}
+                      onChange={e => setNovoMostraQtd(e.target.checked)} className="accent-blue-500 w-4 h-4" />
+                    <span className="font-bold text-blue-700">📊 QTD (quantidade)</span>
+                  </label>
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer ${novoMostraValor ? 'border-amber-500 bg-amber-50' : 'border-gray-200'}`}>
+                    <input type="checkbox" checked={novoMostraValor}
+                      onChange={e => setNovoMostraValor(e.target.checked)} className="accent-amber-500 w-4 h-4" />
+                    <span className="font-bold text-amber-700">💵 R$ (valor)</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">Marque os 2 pra ter QTD e R$ lado a lado.</p>
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-end gap-2">

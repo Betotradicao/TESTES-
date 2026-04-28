@@ -9,7 +9,7 @@ import RadarLoading from '../components/RadarLoading';
 const TABS = [
   { key: 'empresas', label: 'Empresas', custom: true },
   { key: 'turnos', label: 'Turnos', custom: true },
-  { key: 'cargos', label: 'Cargos', endpoint: '/rh/configuracoes/cargos', fields: ['nome', 'descricao'] },
+  { key: 'cargos', label: 'Cargos', custom: true },
   { key: 'jornadas', label: 'Jornadas', endpoint: '/rh/configuracoes/jornadas', fields: ['nome', 'carga_horaria', 'descricao'] },
   { key: 'escolaridades', label: 'Escolaridades', endpoint: '/rh/configuracoes/escolaridades', fields: ['nome'] },
   { key: 'escalas', label: 'Escalas', endpoint: '/rh/configuracoes/escalas', fields: ['nome', 'descricao'] },
@@ -25,6 +25,7 @@ const TABS = [
   { key: 'status_treinamento', label: 'Status Trein.', endpoint: '/rh/configuracoes/status-treinamento', fields: ['nome', 'cor'] },
   { key: 'beneficios', label: 'Benefícios', endpoint: '/rh/configuracoes/beneficios', fields: ['nome', 'descricao', 'valor'] },
   { key: 'feriados', label: 'Feriados', custom: true },
+  { key: 'epis_epcs', label: 'EPIs e EPCs', custom: true },
 ];
 
 const FIELD_LABELS = {
@@ -206,6 +207,10 @@ export default function RhConfiguracoes() {
             <EmpresasTab />
           ) : currentTab?.custom && activeTab === 'turnos' ? (
             <TurnosTab />
+          ) : currentTab?.custom && activeTab === 'cargos' ? (
+            <CargosTab />
+          ) : currentTab?.custom && activeTab === 'epis_epcs' ? (
+            <EpisEpcsTab />
           ) : (
           <div className="bg-white rounded-lg shadow">
             {/* Toolbar */}
@@ -1226,6 +1231,381 @@ function TurnosTab() {
             <div className="p-4 border-t flex justify-end gap-2">
               <button onClick={() => setModal(null)}
                 className="px-4 py-2 bg-gray-100 rounded text-sm">Cancelar</button>
+              <button onClick={salvar} disabled={salvando}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-semibold disabled:opacity-50">
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Tab customizada: EPIs e EPCs (catalogo de equipamentos de protecao)
+// ============================================================================
+function EpisEpcsTab() {
+  const [items, setItems] = useState([]);
+  const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const VAZIO = { id: null, nome: '', tipo: 'epi', descricao: '', ca: '', validade_meses: '' };
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/rh/configuracoes/epis-epcs');
+      setItems(Array.isArray(r.data) ? r.data : []);
+    } catch { toast.error('Erro ao carregar EPIs/EPCs'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { carregar(); }, []);
+
+  const salvar = async () => {
+    if (!modal.nome?.trim()) { toast.error('Nome obrigatório'); return; }
+    setSalvando(true);
+    try {
+      const payload = {
+        nome: modal.nome.trim(), tipo: modal.tipo,
+        descricao: modal.descricao || null, ca: modal.ca || null,
+        validade_meses: modal.validade_meses ? Number(modal.validade_meses) : null,
+      };
+      if (modal.id) await api.put(`/rh/configuracoes/epis-epcs/${modal.id}`, payload);
+      else await api.post('/rh/configuracoes/epis-epcs', payload);
+      toast.success('Salvo'); setModal(null); await carregar();
+    } catch (err) { toast.error(err?.response?.data?.error || 'Erro'); }
+    finally { setSalvando(false); }
+  };
+
+  const excluir = async (item) => {
+    if (!window.confirm(`Excluir "${item.nome}"?`)) return;
+    try { await api.delete(`/rh/configuracoes/epis-epcs/${item.id}`); toast.success('Excluído'); await carregar(); }
+    catch { toast.error('Erro ao excluir'); }
+  };
+
+  const lista = filtroTipo === 'todos' ? items : items.filter(i => i.tipo === filtroTipo);
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-700">EPIs e EPCs</h2>
+          <p className="text-xs text-gray-500">Catálogo de Equipamentos de Proteção Individual e Coletiva. Use depois nos Cargos pra marcar quais são obrigatórios.</p>
+        </div>
+        <div className="flex gap-2">
+          <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm">
+            <option value="todos">Todos ({items.length})</option>
+            <option value="epi">EPI ({items.filter(i => i.tipo === 'epi').length})</option>
+            <option value="epc">EPC ({items.filter(i => i.tipo === 'epc').length})</option>
+          </select>
+          <button onClick={() => setModal({ ...VAZIO })}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium">+ Novo</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>
+      ) : lista.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">Nenhum item cadastrado</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-600 text-white">
+                <th className="text-left px-4 py-3 text-sm font-medium">Tipo</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Nome</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">CA</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Validade</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Descrição</th>
+                <th className="text-right px-4 py-3 text-sm font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {lista.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${item.tipo === 'epi' ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-purple-100 text-purple-800 border border-purple-300'}`}>
+                      {item.tipo === 'epi' ? '🦺 EPI' : '🛡️ EPC'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-sm font-semibold text-gray-800">{item.nome}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600 font-mono">{item.ca || '—'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600">{item.validade_meses ? `${item.validade_meses} meses` : '—'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600 max-w-md truncate">{item.descricao || '—'}</td>
+                  <td className="px-4 py-2 text-right">
+                    <button onClick={() => setModal({ id: item.id, nome: item.nome, tipo: item.tipo, descricao: item.descricao || '', ca: item.ca || '', validade_meses: item.validade_meses || '' })}
+                      className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3">Editar</button>
+                    <button onClick={() => excluir(item)}
+                      className="text-red-600 hover:text-red-800 text-sm font-medium">Excluir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <h3 className="font-bold text-gray-800">{modal.id ? 'Editar' : 'Novo'} EPI/EPC</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Tipo *</label>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => setModal(m => ({ ...m, tipo: 'epi' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-bold ${modal.tipo === 'epi' ? 'bg-blue-100 border-blue-500 text-blue-800' : 'bg-gray-50 border-gray-200'}`}>🦺 EPI (Individual)</button>
+                  <button onClick={() => setModal(m => ({ ...m, tipo: 'epc' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-bold ${modal.tipo === 'epc' ? 'bg-purple-100 border-purple-500 text-purple-800' : 'bg-gray-50 border-gray-200'}`}>🛡️ EPC (Coletivo)</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Nome *</label>
+                <input type="text" value={modal.nome}
+                  onChange={e => setModal(m => ({ ...m, nome: e.target.value }))}
+                  placeholder="Ex: Luva de açougueiro"
+                  className="w-full border rounded px-3 py-2 text-sm" autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase text-gray-500 font-semibold">CA (Certif. Aprov.)</label>
+                  <input type="text" value={modal.ca}
+                    onChange={e => setModal(m => ({ ...m, ca: e.target.value }))}
+                    placeholder="Ex: 12345"
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-gray-500 font-semibold">Validade (meses)</label>
+                  <input type="number" value={modal.validade_meses}
+                    onChange={e => setModal(m => ({ ...m, validade_meses: e.target.value }))}
+                    placeholder="Ex: 12"
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Descrição</label>
+                <textarea value={modal.descricao}
+                  onChange={e => setModal(m => ({ ...m, descricao: e.target.value }))}
+                  rows={2}
+                  placeholder="Para que serve, em quais setores é obrigatório, etc."
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => setModal(null)} className="px-4 py-2 bg-gray-100 rounded text-sm">Cancelar</button>
+              <button onClick={salvar} disabled={salvando}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-semibold disabled:opacity-50">
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Tab customizada: Cargos (com salário base, atividades e EPIs/EPCs)
+// ============================================================================
+function CargosTab() {
+  const [cargos, setCargos] = useState([]);
+  const [epis, setEpis] = useState([]);
+  const [sugestoesSalarios, setSugestoesSalarios] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const VAZIO = { id: null, nome: '', descricao: '', salario_base: '', descritivo_atividades: '', epis_epcs_obrigatorios_ids: [] };
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const [cargosR, episR, sugR] = await Promise.all([
+        api.get('/rh/configuracoes/cargos'),
+        api.get('/rh/configuracoes/epis-epcs'),
+        api.get('/rh/configuracoes/cargos/sugestao-salarios').catch(() => ({ data: [] })),
+      ]);
+      setCargos(Array.isArray(cargosR.data) ? cargosR.data : []);
+      setEpis(Array.isArray(episR.data) ? episR.data : []);
+      const map = {};
+      (sugR.data || []).forEach(s => { map[s.cargo_id] = s; });
+      setSugestoesSalarios(map);
+    } catch { toast.error('Erro ao carregar cargos'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { carregar(); }, []);
+
+  const abrirNovo = () => setModal({ ...VAZIO });
+  const abrirEdicao = (c) => setModal({
+    id: c.id, nome: c.nome || '', descricao: c.descricao || '',
+    salario_base: c.salario_base || (sugestoesSalarios[c.id]?.salario_medio || ''),
+    descritivo_atividades: c.descritivo_atividades || '',
+    epis_epcs_obrigatorios_ids: Array.isArray(c.epis_epcs_obrigatorios_ids) ? c.epis_epcs_obrigatorios_ids : [],
+  });
+
+  const salvar = async () => {
+    if (!modal.nome?.trim()) { toast.error('Nome obrigatório'); return; }
+    setSalvando(true);
+    try {
+      const payload = {
+        nome: modal.nome.trim().toUpperCase(),
+        descricao: modal.descricao || null,
+        salario_base: modal.salario_base ? Number(modal.salario_base) : null,
+        descritivo_atividades: modal.descritivo_atividades || null,
+        epis_epcs_obrigatorios_ids: modal.epis_epcs_obrigatorios_ids || [],
+      };
+      if (modal.id) await api.put(`/rh/configuracoes/cargos/${modal.id}`, payload);
+      else await api.post('/rh/configuracoes/cargos', payload);
+      toast.success('Salvo'); setModal(null); await carregar();
+    } catch (err) { toast.error(err?.response?.data?.error || 'Erro'); }
+    finally { setSalvando(false); }
+  };
+
+  const excluir = async (c) => {
+    if (!window.confirm(`Excluir "${c.nome}"?`)) return;
+    try { await api.delete(`/rh/configuracoes/cargos/${c.id}`); toast.success('Excluído'); await carregar(); }
+    catch { toast.error('Erro ao excluir'); }
+  };
+
+  const toggleEpi = (id) => {
+    setModal(m => {
+      const lista = m.epis_epcs_obrigatorios_ids || [];
+      const novo = lista.includes(id) ? lista.filter(x => x !== id) : [...lista, id];
+      return { ...m, epis_epcs_obrigatorios_ids: novo };
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-700">Cargos</h2>
+          <p className="text-xs text-gray-500">Cargos com salário base, descritivo de atividades e EPIs/EPCs obrigatórios.</p>
+        </div>
+        <button onClick={abrirNovo} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium">+ Novo Cargo</button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>
+      ) : cargos.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">Nenhum cargo cadastrado</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-600 text-white">
+                <th className="text-left px-4 py-3 text-sm font-medium">Nome</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Salário Base da Categoria</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">EPIs/EPCs</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Atividades</th>
+                <th className="text-right px-4 py-3 text-sm font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {cargos.map(c => {
+                const sug = sugestoesSalarios[c.id];
+                const ids = Array.isArray(c.epis_epcs_obrigatorios_ids) ? c.epis_epcs_obrigatorios_ids : [];
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-800">{c.nome}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-800">
+                      {sug ? `R$ ${sug.salario_medio.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {ids.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {ids.map(id => {
+                            const epi = epis.find(e => e.id === id);
+                            if (!epi) return null;
+                            return (
+                              <span key={id}
+                                className="inline-block bg-purple-50 border border-purple-300 text-purple-800 px-2 py-0.5 rounded-full text-xs font-semibold"
+                                title={epi.descricao || epi.nome}>
+                                {epi.tipo === 'epi' ? '🦺' : '🛡️'} {epi.nome}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 max-w-xs truncate">
+                      {c.descritivo_atividades || <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => abrirEdicao(c)} className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3">Editar</button>
+                      <button onClick={() => excluir(c)} className="text-red-600 hover:text-red-800 text-sm font-medium">Excluir</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b sticky top-0 bg-white z-10">
+              <h3 className="font-bold text-gray-800">{modal.id ? 'Editar' : 'Novo'} Cargo</h3>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs uppercase text-gray-500 font-semibold">Nome *</label>
+                  <input type="text" value={modal.nome}
+                    onChange={e => setModal(m => ({ ...m, nome: e.target.value.toUpperCase() }))}
+                    style={{ textTransform: 'uppercase' }}
+                    className="w-full border rounded px-3 py-2 text-sm font-semibold" autoFocus />
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-gray-500 font-semibold">Salário Base (R$)</label>
+                  <input type="number" step="0.01" value={modal.salario_base}
+                    onChange={e => setModal(m => ({ ...m, salario_base: e.target.value }))}
+                    placeholder="0,00"
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Descritivo de Atividades</label>
+                <textarea value={modal.descritivo_atividades}
+                  onChange={e => setModal(m => ({ ...m, descritivo_atividades: e.target.value }))}
+                  rows={5}
+                  placeholder="Descreva as atividades obrigatórias do cargo, uma por linha..."
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">EPIs e EPCs Obrigatórios</label>
+                <p className="text-[10px] text-gray-500 mb-2">Marque os equipamentos obrigatórios pra esse cargo. Cadastre novos na aba <strong>EPIs e EPCs</strong>.</p>
+                {epis.length === 0 ? (
+                  <div className="text-xs text-gray-400 italic bg-gray-50 rounded p-3">
+                    Nenhum EPI/EPC cadastrado ainda. Vá na aba <strong>EPIs e EPCs</strong> pra criar.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-72 overflow-y-auto bg-gray-50 rounded p-2 border">
+                    {epis.map(e => {
+                      const checked = (modal.epis_epcs_obrigatorios_ids || []).includes(e.id);
+                      return (
+                        <label key={e.id}
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer text-sm transition ${checked ? 'bg-orange-50 border border-orange-300' : 'hover:bg-white'}`}>
+                          <input type="checkbox" checked={checked} onChange={() => toggleEpi(e.id)} className="accent-orange-500" />
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${e.tipo === 'epi' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{e.tipo === 'epi' ? 'EPI' : 'EPC'}</span>
+                          <span className="flex-1">{e.nome}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
+              <button onClick={() => setModal(null)} className="px-4 py-2 bg-gray-100 rounded text-sm">Cancelar</button>
               <button onClick={salvar} disabled={salvando}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-semibold disabled:opacity-50">
                 {salvando ? 'Salvando...' : 'Salvar'}

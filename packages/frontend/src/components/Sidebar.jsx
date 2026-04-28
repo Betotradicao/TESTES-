@@ -967,13 +967,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           id: 'rh-indicadores',
           moduleId: 'rh-indicadores',
           title: 'INDICADORES RH',
-          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>),
-          expandable: true,
-          subItems: [
-            { id: 'rh-indicadores-dashboard', submenuId: 'rh-dashboard-executivo', title: 'DASHBOARD EXECUTIVO', path: '/rh/indicadores' },
-            { id: 'rh-rotatividade', submenuId: 'rh-rotatividade', title: 'ROTATIVIDADE (TURNOVER)', path: '/rh/rotatividade' },
-            { id: 'rh-perfil', submenuId: 'rh-perfil-demografico', title: 'PERFIL DEMOGRÁFICO', path: '/rh/perfil' }
-          ]
+          path: '/rh/indicadores',
+          icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>)
         },
         {
           id: 'rh-colaboradores',
@@ -985,7 +980,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'rh-cadastro', submenuId: 'rh-cadastro-geral', title: 'CADASTRO GERAL', path: '/rh/cadastro' },
             { id: 'rh-documentacao', submenuId: 'rh-documentacao', title: 'DOCUMENTAÇÃO', path: '/rh/documentacao' },
             { id: 'rh-saude', submenuId: 'rh-saude', title: 'SAÚDE OCUPACIONAL', path: '/rh/aso' },
-            { id: 'rh-ferias', submenuId: 'rh-ferias', title: 'FÉRIAS', path: '/rh/ferias' }
+            // FÉRIAS desativado — gestão de férias agora dentro de "Escala de Trabalho > Férias / Licenças"
+            // { id: 'rh-ferias', submenuId: 'rh-ferias', title: 'FÉRIAS', path: '/rh/ferias' }
           ]
         },
         {

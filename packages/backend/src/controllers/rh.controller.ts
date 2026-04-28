@@ -50,7 +50,8 @@ export class RhController {
                 es.nome AS escolaridade_nome,
                 esc.nome AS escala_nome,
                 rt.nome AS regime_trabalho_nome,
-                dep.nome AS setor_nome
+                dep.nome AS setor_departamento_nome,
+                s.name AS setor_nome
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
          LEFT JOIN rh_empresas comp ON comp.id = c.company_id
@@ -59,6 +60,7 @@ export class RhController {
          LEFT JOIN rh_escalas esc ON esc.id = c.escala_id
          LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
          LEFT JOIN rh_departamentos dep ON dep.id = c.departamento_id
+         LEFT JOIN sectors s ON s.id = c.sector_id
          ${whereClause}
          ORDER BY c.nome ASC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -94,7 +96,8 @@ export class RhController {
                 esc.nome AS escala_nome,
                 rt.nome AS regime_trabalho_nome,
                 td.nome AS tipo_desligamento_nome,
-                md.nome AS motivo_desligamento_nome
+                md.nome AS motivo_desligamento_nome,
+                s.name AS setor_nome
          FROM rh_colaboradores c
          LEFT JOIN rh_cargos ca ON ca.id = c.cargo_id
          LEFT JOIN rh_empresas e ON e.id = c.company_id
@@ -104,6 +107,7 @@ export class RhController {
          LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
          LEFT JOIN rh_tipos_desligamento td ON td.id = c.tipo_desligamento_id
          LEFT JOIN rh_motivos_desligamento md ON md.id = c.motivo_desligamento_id
+         LEFT JOIN sectors s ON s.id = c.sector_id
          WHERE c.id = $1`,
         [id]
       );
@@ -126,6 +130,7 @@ export class RhController {
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
         matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
+        sector_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -161,7 +166,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
-          company_id, escala_id, escala_domingo_id, beneficios_ids
+          company_id, escala_id, escala_domingo_id, beneficios_ids, sector_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
           $9, $10, $11, $12,
@@ -174,7 +179,7 @@ export class RhController {
           $44, $45,
           $46, $47, $48, $49, $50,
           $51, $52, $53,
-          $54, $55, $56, $57
+          $54, $55, $56, $57, $58
         ) RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
@@ -188,7 +193,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
-          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
+          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [], nnum(sector_id),
         ]
       );
 
@@ -210,6 +215,7 @@ export class RhController {
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
         matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
+        sector_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -228,6 +234,23 @@ export class RhController {
         return isNaN(n) ? null : n;
       };
 
+      // Auto-preenche data_desligamento quando status muda pra desligado/inativo e a data nao foi informada.
+      // Pra isso le o status anterior do colaborador.
+      let dataDeslg = nn(data_desligamento);
+      const statusFinal = status || 'ativo';
+      if ((statusFinal === 'desligado' || statusFinal === 'inativo') && !dataDeslg) {
+        const [atual] = await AppDataSource.query(
+          `SELECT status, data_desligamento FROM rh_colaboradores WHERE id = $1`,
+          [id]
+        );
+        // So preenche se nao havia data antes
+        if (!atual?.data_desligamento) {
+          dataDeslg = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        } else {
+          dataDeslg = atual.data_desligamento; // mantem a anterior
+        }
+      }
+
       const result = await AppDataSource.query(
         `UPDATE rh_colaboradores SET
           nome = $1, cpf = $2, rg = $3, data_nascimento = $4, sexo = $5, estado_civil = $6, nacionalidade = $7, naturalidade = $8,
@@ -242,15 +265,16 @@ export class RhController {
           observacoes = $46, filtro1 = $47, filtro2 = $48, filtro3 = $49, foto_url = $50,
           tipo_desligamento_id = $51, motivo_desligamento_id = $52, observacoes_desligamento = $53,
           company_id = $54, escala_id = $55, escala_domingo_id = $56, beneficios_ids = $57,
+          sector_id = $58,
           updated_at = NOW()
-        WHERE id = $58
+        WHERE id = $59
         RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
           telefone, celular, email, email_pessoal,
           cep, endereco, numero, complemento, bairro, cidade, estado,
           matricula, nnum(cargo_id), nnum(empresa_id), nnum(jornada_id), nnum(escolaridade_id), nnum(regime_trabalho_id),
-          nn(data_admissao), nn(data_desligamento), nnum(salario), status || 'ativo',
+          nn(data_admissao), dataDeslg, nnum(salario), statusFinal,
           vale_transporte || false, vale_refeicao || false, nnum(valor_vale_refeicao), plano_saude || false,
           banco, agencia, conta, tipo_conta, pix,
           ctps, serie_ctps, pis_pasep, titulo_eleitor, reservista,
@@ -258,6 +282,7 @@ export class RhController {
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
           nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
+          nnum(sector_id),
           id,
         ]
       );
@@ -312,11 +337,21 @@ export class RhController {
     }
   }
 
+  // Transforma arrays/objects em JSON string + cast `::jsonb` na query.
+  // Necessario pra colunas JSONB tipo epis_epcs_obrigatorios_ids.
+  private static prepararValueParaSQL(v: any): { sql: string; value: any } {
+    if (Array.isArray(v) || (v !== null && typeof v === 'object')) {
+      return { sql: '::jsonb', value: JSON.stringify(v) };
+    }
+    return { sql: '', value: v ?? null };
+  }
+
   private static async criarConfig(req: AuthRequest, res: Response, table: string, fields: string[]) {
     try {
-      const values = fields.map(f => req.body[f] ?? null);
+      const prepared = fields.map(f => RhController.prepararValueParaSQL(req.body[f]));
+      const values = prepared.map(p => p.value);
       const cols = fields.join(', ');
-      const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
+      const placeholders = prepared.map((p, i) => `$${i + 1}${p.sql}`).join(', ');
       const result = await AppDataSource.query(
         `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING *`,
         values
@@ -334,8 +369,9 @@ export class RhController {
   private static async atualizarConfig(req: AuthRequest, res: Response, table: string, fields: string[]) {
     try {
       const { id } = req.params;
-      const values = fields.map(f => req.body[f] ?? null);
-      const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+      const prepared = fields.map(f => RhController.prepararValueParaSQL(req.body[f]));
+      const values = prepared.map(p => p.value);
+      const setClause = fields.map((f, i) => `${f} = $${i + 1}${prepared[i].sql}`).join(', ');
       const result = await AppDataSource.query(
         `UPDATE ${table} SET ${setClause}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
         [...values, id]
@@ -375,13 +411,46 @@ export class RhController {
     return RhController.listarConfig(req, res, 'rh_cargos');
   }
   static async criarCargo(req: AuthRequest, res: Response) {
-    return RhController.criarConfig(req, res, 'rh_cargos', ['nome', 'descricao']);
+    return RhController.criarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'epis_epcs_obrigatorios_ids']);
   }
   static async atualizarCargo(req: AuthRequest, res: Response) {
-    return RhController.atualizarConfig(req, res, 'rh_cargos', ['nome', 'descricao']);
+    return RhController.atualizarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'epis_epcs_obrigatorios_ids']);
   }
   static async deletarCargo(req: AuthRequest, res: Response) {
     return RhController.deletarConfig(req, res, 'rh_cargos');
+  }
+
+  // --- EPIs e EPCs (catalogo proprio) ---
+  static async listarEpisEpcs(req: AuthRequest, res: Response) {
+    return RhController.listarConfig(req, res, 'rh_epis_epcs');
+  }
+  static async criarEpiEpc(req: AuthRequest, res: Response) {
+    return RhController.criarConfig(req, res, 'rh_epis_epcs', ['nome', 'tipo', 'descricao', 'ca', 'validade_meses']);
+  }
+  static async atualizarEpiEpc(req: AuthRequest, res: Response) {
+    return RhController.atualizarConfig(req, res, 'rh_epis_epcs', ['nome', 'tipo', 'descricao', 'ca', 'validade_meses']);
+  }
+  static async deletarEpiEpc(req: AuthRequest, res: Response) {
+    return RhController.deletarConfig(req, res, 'rh_epis_epcs');
+  }
+
+  // GET /rh/configuracoes/cargos/sugestao-salarios
+  // Retorna salario medio dos colaboradores ativos por cargo (pra auto-preencher)
+  static async sugestaoSalariosCargos(_req: AuthRequest, res: Response) {
+    try {
+      const rows = await AppDataSource.query(`
+        SELECT cargo_id,
+               ROUND(AVG(salario)::numeric, 2)::float AS salario_medio,
+               COUNT(*)::int AS qtd_colaboradores
+        FROM rh_colaboradores
+        WHERE status = 'ativo' AND salario IS NOT NULL AND salario > 0 AND cargo_id IS NOT NULL
+        GROUP BY cargo_id
+      `);
+      return res.json(rows);
+    } catch (e: any) {
+      console.error('[RH] sugestaoSalariosCargos:', e);
+      return res.status(500).json({ error: e.message });
+    }
   }
 
   // --- Empresas --- (stubs legados - use /rh/empresas via RhEmpresasController) ---
@@ -1242,10 +1311,27 @@ export class RhController {
         params
       );
 
+      // Contagem por regime de trabalho (so ativos)
+      const ativosWhere = empresaFilter ? empresaFilter + " AND c.status = 'ativo'" : "WHERE c.status = 'ativo'";
+      const cltsResult = await AppDataSource.query(
+        `SELECT COUNT(*) as total FROM rh_colaboradores c
+         LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
+         ${ativosWhere} AND UPPER(COALESCE(rt.nome, '')) LIKE '%CLT%'`,
+        params
+      );
+      const aprendizesResult = await AppDataSource.query(
+        `SELECT COUNT(*) as total FROM rh_colaboradores c
+         LEFT JOIN rh_regimes_trabalho rt ON rt.id = c.regime_trabalho_id
+         ${ativosWhere} AND UPPER(COALESCE(rt.nome, '')) LIKE '%APRENDIZ%'`,
+        params
+      );
+
       res.json({
         total: parseInt(totalResult[0].total),
         ativos: parseInt(ativosResult[0].total),
         desligados: parseInt(desligadosResult[0].total),
+        clts: parseInt(cltsResult[0].total),
+        aprendizes: parseInt(aprendizesResult[0].total),
         genero: generoResult.map((r: any) => ({ sexo: r.sexo, total: parseInt(r.total) })),
         admissoesRecentes: parseInt(admissoesRecentesResult[0].total),
       });

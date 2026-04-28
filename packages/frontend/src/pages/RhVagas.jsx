@@ -255,16 +255,16 @@ export default function RhVagas() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{formatDate(v.data_abertura)}</td>
                         <td className="px-4 py-3 text-sm">
-                          <div className="flex gap-2">
+                          <div className="flex gap-3">
                             <button
                               onClick={() => abrirModal(v)}
-                              className="text-orange-600 hover:text-orange-800 text-xs font-medium"
+                              className="text-orange-600 hover:text-orange-800 text-base font-semibold"
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => handleExcluir(v.id)}
-                              className="text-red-600 hover:text-red-800 text-xs font-medium"
+                              className="text-red-600 hover:text-red-800 text-base font-semibold"
                             >
                               Excluir
                             </button>

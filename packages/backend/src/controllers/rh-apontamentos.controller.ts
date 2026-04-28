@@ -46,22 +46,27 @@ export class RhApontamentosController {
   /** Cria campo customizado */
   static async criarCampo(req: AuthRequest, res: Response) {
     try {
-      const { label, tipo } = req.body;
+      const { label, tipo, mostra_qtd, mostra_valor } = req.body;
       if (!label?.trim() || !['provento', 'desconto'].includes(tipo)) {
         return res.status(400).json({ error: 'label e tipo (provento|desconto) obrigatorios' });
       }
-      // Gera chave slug
+      const showQtd = mostra_qtd !== false;
+      const showValor = mostra_valor !== false;
+      if (!showQtd && !showValor) {
+        return res.status(400).json({ error: 'Marque pelo menos QTD ou R$ pra coluna' });
+      }
       const chave = 'extra_' + label.toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_|_$/g, '')
         .slice(0, 40);
       const [row] = await AppDataSource.query(
-        `INSERT INTO rh_apontamento_campos (chave, label, tipo)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (chave) DO UPDATE SET label = EXCLUDED.label, tipo = EXCLUDED.tipo, ativo = true
+        `INSERT INTO rh_apontamento_campos (chave, label, tipo, mostra_qtd, mostra_valor)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (chave) DO UPDATE SET label = EXCLUDED.label, tipo = EXCLUDED.tipo,
+           mostra_qtd = EXCLUDED.mostra_qtd, mostra_valor = EXCLUDED.mostra_valor, ativo = true
          RETURNING *`,
-        [chave, label.trim().toUpperCase(), tipo]
+        [chave, label.trim().toUpperCase(), tipo, showQtd, showValor]
       );
       return res.status(201).json(row);
     } catch (err: any) {
@@ -187,9 +192,20 @@ export class RhApontamentosController {
       const mesCxDate = String(mes_caixa).length === 7 ? `${mes_caixa}-01` : mes_caixa;
       let salvos = 0;
       for (const a of apontamentos) {
+        // Aceita formato BR (vírgula) e US (ponto). "10,50" e "10.50" viram 10.50.
+        // Remove "R$", espaços, e separador de milhar.
         const num = (v: any) => {
           if (v === '' || v === null || v === undefined) return 0;
-          const n = Number(v);
+          if (typeof v === 'number') return isNaN(v) ? 0 : v;
+          let s = String(v).trim().replace(/R\$|\s/gi, '');
+          // Se tem virgula E ponto: ponto e separador de milhar, virgula e decimal -> remove ponto, troca virgula por ponto
+          if (s.includes(',') && s.includes('.')) {
+            s = s.replace(/\./g, '').replace(',', '.');
+          } else if (s.includes(',')) {
+            // So tem virgula = decimal BR
+            s = s.replace(',', '.');
+          }
+          const n = Number(s);
           return isNaN(n) ? 0 : n;
         };
         // Converte campos_extras em JSON (apenas numeros)

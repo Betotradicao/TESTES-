@@ -40,10 +40,16 @@ export class RhFolhaController {
       const colaboradorId = req.query.colaborador_id as string | undefined;
       const lancamentoKey = req.query.lancamento as string | undefined;
 
+      // Inclui colunas extras cadastradas em rh_apontamento_campos (que aparecem na tela Lancamentos)
+      const extras = await AppDataSource.query(
+        `SELECT chave, label, tipo, mostra_qtd, mostra_valor FROM rh_apontamento_campos WHERE ativo = true ORDER BY ordem ASC, id ASC`
+      ).catch(() => []);
+
       // Filtra os lancamentos a retornar
-      let lancamentos: { key: string; label: string; tipo: 'provento' | 'desconto' }[] = [
+      let lancamentos: { key: string; label: string; tipo: 'provento' | 'desconto'; extra?: boolean; mostra_valor?: boolean }[] = [
         ...PROVENTOS.map(p => ({ ...p, tipo: 'provento' as const })),
         ...DESCONTOS.map(d => ({ ...d, tipo: 'desconto' as const })),
+        ...extras.map((e: any) => ({ key: e.chave, label: e.label, tipo: e.tipo as 'provento' | 'desconto', extra: true, mostra_valor: e.mostra_valor !== false })),
       ];
       if (tipo === 'proventos') lancamentos = lancamentos.filter(l => l.tipo === 'provento');
       if (tipo === 'descontos') lancamentos = lancamentos.filter(l => l.tipo === 'desconto');
@@ -55,10 +61,16 @@ export class RhFolhaController {
       if (empresaId) { params.push(empresaId); where += ` AND a.company_id = $${params.length}::uuid`; }
       if (colaboradorId) { params.push(Number(colaboradorId)); where += ` AND a.colaborador_id = $${params.length}`; }
 
-      // Para cada lancamento da lista, soma o valor R$ (em campos_extras com sufixo _valor)
-      const selects = lancamentos.map(l =>
-        `SUM(COALESCE((a.campos_extras->>'${l.key}_valor')::numeric, 0)) AS "${l.key}"`
-      ).join(', ');
+      // Pra cada lancamento, soma o R$:
+      //  - lancamentos padrao: campos_extras->>'KEY_valor'
+      //  - extras com mostra_valor: campos_extras->>'CHAVE_valor'
+      //  - extras com so mostra_qtd: campos_extras->>'CHAVE' (assume valor monetario direto)
+      const selects = lancamentos.map(l => {
+        const chaveBanco = l.extra
+          ? (l.mostra_valor ? `${l.key}_valor` : l.key)
+          : `${l.key}_valor`;
+        return `SUM(COALESCE((a.campos_extras->>'${chaveBanco}')::numeric, 0)) AS "${l.key}"`;
+      }).join(', ');
 
       const rows = await AppDataSource.query(
         `SELECT EXTRACT(MONTH FROM a.${base})::int AS mes, ${selects}

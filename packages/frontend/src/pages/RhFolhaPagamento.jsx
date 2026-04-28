@@ -209,13 +209,13 @@ export default function RhFolhaPagamento() {
           {loading ? (
             <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>
           ) : !resumo ? null : (
-            <div className="bg-white rounded-lg border shadow-sm overflow-auto">
-              <table className="w-full text-xs">
-                <thead>
+            <div className="bg-white rounded-lg border shadow-sm overflow-auto max-h-[calc(100vh-280px)]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-30">
                   <tr className="bg-gray-700 text-white">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-gray-700 z-10 min-w-[200px]">Lançamento</th>
+                    <th className="text-left px-3 py-2 sticky left-0 bg-gray-700 z-40 min-w-[200px]">Lançamento</th>
                     {MESES_LABEL.map(m => (
-                      <th key={m} className="text-right px-2 py-2 min-w-[90px]">{m}</th>
+                      <th key={m} className="text-right px-2 py-2 min-w-[90px] bg-gray-700">{m}</th>
                     ))}
                     <th className="text-right px-3 py-2 bg-blue-700 min-w-[110px]">Total {ano}</th>
                   </tr>
@@ -225,7 +225,7 @@ export default function RhFolhaPagamento() {
                   {proventos.length > 0 && (
                     <>
                       <tr className="bg-emerald-700 text-white">
-                        <td colSpan={14} className="px-3 py-1.5 font-bold uppercase text-xs">✓ PAGAMENTOS (PROVENTOS)</td>
+                        <td colSpan={14} className="px-3 py-1.5 font-bold uppercase text-sm">✓ PAGAMENTOS (PROVENTOS)</td>
                       </tr>
                       {proventos.map(l => (
                         <tr key={l.key} className="hover:bg-emerald-50 border-b">
@@ -252,7 +252,7 @@ export default function RhFolhaPagamento() {
                   {descontos.length > 0 && (
                     <>
                       <tr className="bg-rose-700 text-white">
-                        <td colSpan={14} className="px-3 py-1.5 font-bold uppercase text-xs">✗ DESCONTOS</td>
+                        <td colSpan={14} className="px-3 py-1.5 font-bold uppercase text-sm">✗ DESCONTOS</td>
                       </tr>
                       {descontos.map(l => (
                         <tr key={l.key} className="hover:bg-rose-50 border-b">
@@ -278,7 +278,7 @@ export default function RhFolhaPagamento() {
                   {/* Liquido (proventos - descontos) */}
                   {tipo === 'todos' && (
                     <tr className="bg-blue-600 text-white font-bold">
-                      <td className="sticky left-0 bg-blue-600 px-3 py-2.5 uppercase text-xs">Líquido (Pagto − Desc)</td>
+                      <td className="sticky left-0 bg-blue-600 px-3 py-2.5 uppercase text-sm">Líquido (Pagto − Desc)</td>
                       {liquidoMes.map((v, i) => (
                         <td key={i} className="px-2 py-2.5 text-right">{v !== 0 ? fmtMoney(v) : '—'}</td>
                       ))}
