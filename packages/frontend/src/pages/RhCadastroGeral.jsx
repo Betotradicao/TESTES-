@@ -174,6 +174,7 @@ export default function RhCadastroGeral() {
     regime_trabalho_id: '',
     sector_id: '',
     data_admissao: '',
+    data_desligamento: '',
     salario: '',
     status: 'ativo',
     // Documentos
@@ -321,6 +322,7 @@ export default function RhCadastroGeral() {
         regime_trabalho_id: colaborador.regime_trabalho_id || '',
         sector_id: colaborador.sector_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
+        data_desligamento: colaborador.data_desligamento?.split('T')[0] || '',
         salario: colaborador.salario || '',
         status: colaborador.status || 'ativo',
         ctps: colaborador.ctps || '',
@@ -356,6 +358,10 @@ export default function RhCadastroGeral() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.status === 'desligado' && !formData.data_desligamento) {
+      toast.error('Informe a data de desligamento');
+      return;
+    }
     try {
       setSalvando(true);
       if (editando) {
@@ -402,7 +408,18 @@ export default function RhCadastroGeral() {
   };
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const novo = { ...prev, [field]: value };
+      // Quando muda status pra desligado e ainda nao tem data, sugere hoje (usuario pode trocar)
+      if (field === 'status' && value === 'desligado' && !prev.data_desligamento) {
+        novo.data_desligamento = new Date().toISOString().split('T')[0];
+      }
+      // Quando volta pra ativo, limpa a data
+      if (field === 'status' && value === 'ativo') {
+        novo.data_desligamento = '';
+      }
+      return novo;
+    });
   };
 
   // Input class helper
@@ -642,13 +659,14 @@ export default function RhCadastroGeral() {
                       <th onClick={() => toggleSort('data_admissao')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Admissao{sortIcon('data_admissao')}</th>
                       <th onClick={() => toggleSort('data_admissao')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Tempo de Casa</th>
                       <th onClick={() => toggleSort('status')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Status{sortIcon('status')}</th>
+                      <th onClick={() => toggleSort('data_desligamento')} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer select-none hover:bg-gray-700">Desligado em{sortIcon('data_desligamento')}</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Acoes</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {colaboradores.length === 0 ? (
                       <tr>
-                        <td colSpan="16" className="px-6 py-12 text-center text-gray-500">
+                        <td colSpan="17" className="px-6 py-12 text-center text-gray-500">
                           <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
@@ -728,6 +746,13 @@ export default function RhCadastroGeral() {
                             }`}>
                               {colab.status === 'ativo' ? 'Ativo' : 'Desligado'}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {colab.status === 'desligado' && colab.data_desligamento ? (
+                              <span className="inline-block px-2 py-0.5 bg-red-50 border border-red-200 text-red-700 rounded font-semibold">
+                                {formatarDataBR(colab.data_desligamento)}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center gap-3">
@@ -848,8 +873,8 @@ export default function RhCadastroGeral() {
                     </div>
 
                     {/* Empresa + Status - escolhidos antes de qualquer outra coisa */}
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <div className="md:col-span-3">
+                    <div className={`border rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-3 ${formData.status === 'desligado' ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}`}>
+                      <div className={formData.status === 'desligado' ? 'md:col-span-2' : 'md:col-span-3'}>
                         <label className={labelClass}>
                           🏪 Empresa / Loja * <span className="text-xs text-gray-500 font-normal">(cadastrada em Configuracoes)</span>
                         </label>
@@ -871,6 +896,19 @@ export default function RhCadastroGeral() {
                           <option value="desligado">Desligado</option>
                         </select>
                       </div>
+                      {formData.status === 'desligado' && (
+                        <div>
+                          <label className={labelClass + ' text-red-700'}>Data de Desligamento *</label>
+                          <input
+                            type="date"
+                            required
+                            className={inputClass + ' border-red-300 focus:ring-red-500 focus:border-red-500'}
+                            value={formData.data_desligamento}
+                            max={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => handleChange('data_desligamento', e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

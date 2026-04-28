@@ -605,30 +605,91 @@ function admitidosNoMes(colaboradores, ano, mes) {
 }
 
 function AbaColaboradores({ loading, colaboradores, ano }) {
+  const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'clt_720' | 'clt_600' | 'aprendiz'
+
   if (loading) return <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>;
+
+  // Aplica filtro por regime/jornada antes de tudo
+  const matchTipo = (c) => {
+    const regime = String(c.regime_trabalho_nome || '').toUpperCase();
+    const jornada = String(c.jornada_nome || c.carga_horaria || '').toUpperCase();
+    const isCLT = regime.includes('CLT');
+    const has720 = jornada.includes('7:20') || jornada.includes('07:20') || jornada.includes('7H20') || jornada.includes('07H20');
+    const has600 = jornada.includes('6:00') || jornada.includes('06:00') || jornada.includes('6H') || jornada.includes('06H');
+    if (filtroTipo === 'todos') return true;
+    if (filtroTipo === 'clt_720') return isCLT && has720;
+    if (filtroTipo === 'clt_600') return isCLT && has600;
+    if (filtroTipo === 'aprendiz') return regime.includes('APRENDIZ');
+    return true;
+  };
+  const colaboradoresFiltrados = colaboradores.filter(matchTipo);
+
+  const contagem = {
+    todos: colaboradores.length,
+    clt_720: colaboradores.filter(c => {
+      const r = String(c.regime_trabalho_nome || '').toUpperCase();
+      const j = String(c.jornada_nome || c.carga_horaria || '').toUpperCase();
+      return r.includes('CLT') && (j.includes('7:20') || j.includes('07:20') || j.includes('7H20'));
+    }).length,
+    clt_600: colaboradores.filter(c => {
+      const r = String(c.regime_trabalho_nome || '').toUpperCase();
+      const j = String(c.jornada_nome || c.carga_horaria || '').toUpperCase();
+      return r.includes('CLT') && (j.includes('6:00') || j.includes('06:00') || j.includes('6H'));
+    }).length,
+    aprendiz: colaboradores.filter(c => String(c.regime_trabalho_nome || '').toUpperCase().includes('APRENDIZ')).length,
+  };
 
   const hoje = new Date();
   const mesAtual = (hoje.getFullYear() === ano) ? hoje.getMonth() + 1 : 12;
 
-  // KPIs do mes atual
+  // KPIs do mes atual (sobre o filtrado)
   const fimMesAnt = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
   const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 6, hoje.getDate());
-  const quadroInicial = colaboradores.filter(c => {
+  const quadroInicial = colaboradoresFiltrados.filter(c => {
     if (!c.data_admissao) return false;
     const adm = new Date(c.data_admissao);
     if (adm > fimMesAnt) return false;
     if (c.data_desligamento && new Date(c.data_desligamento) <= fimMesAnt) return false;
     return true;
   }).length;
-  const quadroFinal = colaboradores.filter(c => c.status === 'ativo').length;
+  const quadroFinal = colaboradoresFiltrados.filter(c => c.status === 'ativo').length;
   const variacao = quadroFinal - quadroInicial;
-  const recemContratados = colaboradores.filter(c => {
+  const recemContratados = colaboradoresFiltrados.filter(c => {
     if (!c.data_admissao || c.status !== 'ativo') return false;
     return new Date(c.data_admissao) >= seisMesesAtras;
   }).length;
 
+  const tiposBtns = [
+    { id: 'todos', label: 'TODOS', cor: 'slate', count: contagem.todos },
+    { id: 'clt_720', label: 'CLT 7:20', cor: 'blue', count: contagem.clt_720 },
+    { id: 'clt_600', label: 'CLT 6:00', cor: 'indigo', count: contagem.clt_600 },
+    { id: 'aprendiz', label: 'Aprendiz', cor: 'amber', count: contagem.aprendiz },
+  ];
+
   return (
     <>
+      {/* Filtros por tipo de regime/jornada */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 bg-white border border-gray-200 rounded-lg p-3">
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-500 mr-2">Filtrar por:</span>
+        {tiposBtns.map(t => {
+          const ativo = filtroTipo === t.id;
+          const corClasses = {
+            slate: ativo ? 'bg-slate-600 text-white border-slate-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50',
+            blue: ativo ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50',
+            indigo: ativo ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50',
+            amber: ativo ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50',
+          }[t.cor];
+          return (
+            <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition ${corClasses}`}>
+              <span>{ativo ? '●' : '○'}</span>
+              <span>{t.label}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${ativo ? 'bg-white/30' : 'bg-gray-100'}`}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* KPIs do mes atual */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <Kpi label="Quadro Inicial do Mês" valor={quadroInicial} cor="blue" />
@@ -641,14 +702,14 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
       <div className="space-y-4">
         <TabelaMensal
           titulo="ESCOLARIDADE"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={c => c.escolaridade_nome || 'Sem informação'}
           ordemFaixas={null}
         />
         <TabelaMensal
           titulo="GÊNERO"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={c => {
             const s = (c.sexo || '').toUpperCase();
@@ -658,7 +719,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
         />
         <TabelaMensal
           titulo="FAIXA ETÁRIA"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={(c, ano, mes) => faixaEtaria(c, ano, mes)}
           ordemFaixas={['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+']}
@@ -666,7 +727,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
         />
         <TabelaMensal
           titulo="TEMPO DE EMPRESA"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={(c, ano, mes) => faixaTempo(c, ano, mes)}
           ordemFaixas={['< 6 meses', '6-12 meses', '1-2 anos', '2-3 anos', '3-5 anos', '5-10 anos', '10+ anos']}
@@ -674,21 +735,21 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
         />
         <TabelaMensal
           titulo="POR SETOR"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={c => c.setor_nome || 'Sem setor'}
           ordemFaixas={null}
         />
         <TabelaMensal
           titulo="TIPO DE CARGO"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
           classificar={c => PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '') ? 'Estratégico' : 'Operacional'}
           ordemFaixas={['Operacional', 'Estratégico']}
         />
         <TabelaMensalContratados
           titulo="RECÉM CONTRATADOS (6 meses)"
-          colaboradores={colaboradores}
+          colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
         />
       </div>
