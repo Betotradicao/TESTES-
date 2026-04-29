@@ -601,6 +601,108 @@ exit /b 0
     }
   }
 
+  /**
+   * GET /api/tunnel-installer/auto-reconectar-bat
+   * Gera um .bat que instala o Tunnel Manager (gerenciador silencioso 24/7).
+   * O .bat embute o PS1 do setup em base64 e executa.
+   * Cliente baixa, da duplo-clique, aceita UAC, e o gerenciador roda pra
+   * sempre verificando os tuneis a cada 30s e reativando se cair.
+   */
+  async baixarAutoReconectarBat(_req: Request, res: Response) {
+    try {
+      // Le o template PS1 do filesystem (copiado pra dist/templates pelo Dockerfile)
+      const ps1Path = path.join(__dirname, '../templates/tunnel-manager-setup.ps1');
+      let ps1: string;
+      try {
+        ps1 = fs.readFileSync(ps1Path, 'utf8');
+      } catch {
+        // Fallback: tenta ler do src (dev local sem build)
+        const altPath = path.join(__dirname, '../../src/templates/tunnel-manager-setup.ps1');
+        ps1 = fs.readFileSync(altPath, 'utf8');
+      }
+
+      // Codifica em base64 e quebra em chunks pra caber no echo do CMD
+      const ps1Base64 = Buffer.from(ps1, 'utf8').toString('base64');
+      const ps1Chunks: string[] = [];
+      for (let i = 0; i < ps1Base64.length; i += 900) {
+        ps1Chunks.push(ps1Base64.substring(i, i + 900));
+      }
+      const echoLines = ps1Chunks.map((chunk, i) => {
+        const op = i === 0 ? '>' : '>>';
+        return `echo ${chunk} ${op} "%TEMP%\\auto-reconectar-radar.b64"`;
+      }).join('\r\n');
+
+      const bat = `@echo off
+chcp 65001 >nul 2>&1
+title Auto-Reconectar Tuneis - Radar 360
+color 0A
+
+echo.
+echo ============================================================
+echo   AUTO-RECONECTAR TUNEIS - RADAR 360
+echo ============================================================
+echo.
+echo Este instalador vai:
+echo  - Detectar todos os tuneis SSH ja configurados na maquina
+echo  - Criar um gerenciador silencioso que verifica a cada 30s
+echo  - Reconectar automaticamente qualquer tunel que cair
+echo  - Iniciar sozinho no boot do Windows
+echo.
+echo Sem janelas, sem icones, totalmente invisivel.
+echo.
+
+REM Auto-elevar se nao estiver como admin
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Solicitando privilegios de administrador...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
+echo Preparando instalador...
+${echoLines}
+
+REM Decodificar base64 em arquivo PS1
+powershell -NoProfile -Command "$b64 = (Get-Content '%TEMP%\\auto-reconectar-radar.b64' -Raw) -replace '\\s',''; [System.IO.File]::WriteAllText('%TEMP%\\auto-reconectar-radar.ps1', [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)))"
+
+if not exist "%TEMP%\\auto-reconectar-radar.ps1" (
+    echo.
+    echo ERRO: Falha ao criar script de instalacao!
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Executar PS1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\\auto-reconectar-radar.ps1"
+
+REM Limpar temporarios
+del "%TEMP%\\auto-reconectar-radar.b64" 2>nul
+del "%TEMP%\\auto-reconectar-radar.ps1" 2>nul
+
+echo.
+echo ============================================================
+echo   Instalacao finalizada!
+echo ============================================================
+echo.
+echo Pra ver status:    schtasks /query /tn SSH-Tunnel-Manager
+echo Pra ver logs:      type C:\\ProgramData\\SSHTunnels\\tunnel-manager.log
+echo Pra editar tuneis: notepad C:\\ProgramData\\SSHTunnels\\tunnels.json
+echo.
+pause
+exit /b 0
+`;
+
+      const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
+      res.setHeader('Content-Type', 'application/x-msdos-program');
+      res.setHeader('Content-Disposition', 'attachment; filename="Auto-Reconectar-Tuneis.bat"');
+      return res.send(toCRLF(bat));
+    } catch (error: any) {
+      console.error('Erro ao gerar auto-reconectar.bat:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   async uninstallTunnel(req: Request, res: Response) {
     try {
       const { clientName } = req.body;

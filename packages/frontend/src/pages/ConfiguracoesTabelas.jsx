@@ -1754,8 +1754,19 @@ export default function ConfiguracoesTabelas() {
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
               <a
-                href="https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/instalar-tunnel-manager.bat"
-                download="instalar-tunnel-manager.bat"
+                href={(api.defaults?.baseURL || '') + '/tunnel-installer/auto-reconectar-bat'}
+                download="Auto-Reconectar-Tuneis.bat"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const r = await api.get('/tunnel-installer/auto-reconectar-bat', { responseType: 'blob' });
+                    const url = URL.createObjectURL(new Blob([r.data]));
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'Auto-Reconectar-Tuneis.bat';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch { alert('Erro ao baixar'); }
+                }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg cursor-pointer flex items-center gap-2 transition"
                 title="Instala um gerenciador silencioso que verifica os túneis a cada 30s e reativa sozinho se cair. Roda invisível. Faça isso UMA vez por máquina cliente para parar de cair."
               >

@@ -29,4 +29,7 @@ router.post('/uninstall', authenticateToken, controller.uninstallTunnel.bind(con
 // Baixar BAT universal de reconexao dos tuneis (clicar 2x e pronto)
 router.get('/reconectar-bat', authenticateToken, controller.baixarReconectarBat.bind(controller));
 
+// Baixar BAT que instala o gerenciador silencioso (Auto-Reconectar 24/7)
+router.get('/auto-reconectar-bat', authenticateToken, controller.baixarAutoReconectarBat.bind(controller));
+
 export default router;

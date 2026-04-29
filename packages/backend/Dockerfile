@@ -18,8 +18,8 @@ COPY src ./src
 
 # Build TypeScript (usar tsc local do node_modules)
 RUN npx tsc && \
-    # Copiar arquivos .js que não são compilados pelo TypeScript
-    find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \;
+    find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \; && \
+    mkdir -p dist/templates && cp -r src/templates/. dist/templates/ 2>/dev/null || true
 
 # ===================================
 # STAGE 2: Production
