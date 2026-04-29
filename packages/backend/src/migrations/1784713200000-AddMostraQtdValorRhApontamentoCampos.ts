@@ -9,6 +9,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class AddMostraQtdValorRhApontamentoCampos1784713200000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Em clientes antigos sem o modulo de apontamentos, a tabela pode nao existir.
+    // Migration vira no-op nesses casos pra nao quebrar a inicializacao.
+    const tabela = await queryRunner.query(`
+      SELECT 1 FROM information_schema.tables
+      WHERE table_name = 'rh_apontamento_campos'
+    `);
+    if (!tabela || tabela.length === 0) return;
+
     await queryRunner.query(`
       ALTER TABLE rh_apontamento_campos
       ADD COLUMN IF NOT EXISTS mostra_qtd BOOLEAN DEFAULT TRUE,
