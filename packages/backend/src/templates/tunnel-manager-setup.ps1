@@ -31,14 +31,50 @@ foreach ($t in $tarefas) {
     }
 }
 
-# Tambem detecta pastas SSHTunnels-* sem tarefa correspondente
+# Tambem detecta pastas SSHTunnels-* sem tarefa correspondente, e tenta
+# extrair config do tunnel-service.ps1 (variaveis $TUNNELn_LOCAL_IP/PORT/REMOTE_PORT)
 $pastas = Get-ChildItem "C:\ProgramData" -Directory -Filter "SSHTunnels*" -ErrorAction SilentlyContinue
 foreach ($p in $pastas) {
     $keyPath = Join-Path $p.FullName "tunnel_key"
     if (-not (Test-Path $keyPath)) { continue }
     if ($tunnels | Where-Object { $_.key -eq $keyPath }) { continue }
-    Write-Host "  [INFO] Pasta '$($p.Name)' tem chave mas nao esta no inventario" -ForegroundColor Yellow
-    Write-Host "         Adicione manualmente em $mgrDir\tunnels.json depois" -ForegroundColor Yellow
+
+    # Procura tunnel-service.ps1 (ou .disabled) na pasta
+    $svcPath = $null
+    foreach ($cand in @("$($p.FullName)\tunnel-service.ps1", "$($p.FullName)\tunnel-service.ps1.disabled-by-manager")) {
+        if (Test-Path $cand) { $svcPath = $cand; break }
+    }
+    if (-not $svcPath) {
+        Write-Host "  [AVISO] Pasta '$($p.Name)' tem chave mas sem tunnel-service.ps1 — adicione no JSON manualmente" -ForegroundColor Yellow
+        continue
+    }
+
+    $svcContent = Get-Content $svcPath -Raw -ErrorAction SilentlyContinue
+    if (-not $svcContent) { continue }
+
+    # Extrai forwards de cada bloco $TUNNELn_*
+    $forwards = @()
+    $nums = [regex]::Matches($svcContent, '\$TUNNEL(\d+)_LOCAL_IP\s*=') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+    foreach ($n in $nums) {
+        $ipM = [regex]::Match($svcContent, "\`$TUNNEL${n}_LOCAL_IP\s*=\s*`"([^`"]+)`"")
+        $lpM = [regex]::Match($svcContent, "\`$TUNNEL${n}_LOCAL_PORT\s*=\s*`"([^`"]+)`"")
+        $rpM = [regex]::Match($svcContent, "\`$TUNNEL${n}_REMOTE_PORT\s*=\s*`"([^`"]+)`"")
+        if ($ipM.Success -and $lpM.Success -and $rpM.Success) {
+            $forwards += "-R $($rpM.Groups[1].Value):$($ipM.Groups[1].Value):$($lpM.Groups[1].Value)"
+        }
+    }
+
+    if ($forwards.Count -gt 0) {
+        $nome = if ($p.Name -eq 'SSHTunnels') { 'PRINCIPAL' } else { $p.Name -replace '^SSHTunnels-?','' }
+        $tunnels += [PSCustomObject]@{
+            name = $nome
+            key = $keyPath
+            forwards = ($forwards -join ' ')
+        }
+        Write-Host "  [OK] Auto-detectado de '$($p.Name)': $($forwards -join ' ')" -ForegroundColor Green
+    } else {
+        Write-Host "  [AVISO] Pasta '$($p.Name)' sem variaveis TUNNELn — adicione no JSON manualmente" -ForegroundColor Yellow
+    }
 }
 
 # Se ja existir tunnels.json e tiver entradas, preserva
