@@ -778,7 +778,10 @@
       "PowerShell(Stop-Process -Id 22872 -Force -ErrorAction SilentlyContinue)",
       "PowerShell(netstat -ano)",
       "Bash(git status *)",
-      "PowerShell(ssh vps2-hostinger \"docker exec prevencao-maxvale-postgres bash -c 'psql -U postgres -d postgres_maxvale -tAc `\"SELECT name FROM migrations ORDER BY id DESC LIMIT 5`\"'\")"
+      "PowerShell(ssh vps2-hostinger \"docker exec prevencao-maxvale-postgres bash -c 'psql -U postgres -d postgres_maxvale -tAc `\"SELECT name FROM migrations ORDER BY id DESC LIMIT 5`\"'\")",
+      "PowerShell(Test-NetConnection -ComputerName 10.6.1.123 -Port 18080 -InformationLevel Detailed -WarningAction SilentlyContinue)",
+      "PowerShell(Test-NetConnection -ComputerName 10.6.1.123 -Port 80 -InformationLevel Detailed -WarningAction SilentlyContinue)",
+      "PowerShell(Test-NetConnection -ComputerName 10.6.1.123 -Port 554 -InformationLevel Detailed -WarningAction SilentlyContinue)"
     ],
     "deny": [],
     "ask": []
