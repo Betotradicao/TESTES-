@@ -86,17 +86,16 @@ export default function ReconhecimentoFacial() {
       setLoading(true);
 
       const params = {
-        limit: 100
+        limit: 500
       };
 
-      const response = await api.get('/email-monitor/logs', { params });
+      // Endpoint dedicado: filtra no SQL (so logs com image_path)
+      // Antes: /email-monitor/logs pegava 100 mais recentes (todos 'skipped')
+      const response = await api.get('/email-monitor/facial-logs', { params });
 
       console.log('📊 Reconhecimento Facial - Resposta da API:', response.data);
 
       let facialLogs = response.data.logs || [];
-
-      // Filtrar apenas os que tem anexo e imagem salva (image_path não nulo)
-      facialLogs = facialLogs.filter(log => log.has_attachment && log.status === 'success' && log.image_path);
 
       // Filtrar por data
       if (filters.date_from) {

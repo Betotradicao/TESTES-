@@ -695,6 +695,23 @@ export class EmailMonitorService {
     });
   }
 
+  /**
+   * So logs com anexo + status=success + image_path nao nulo.
+   * Usado pela tela de Reconhecimento Facial. Filtra NO SQL pra nao
+   * pegar 100 logs 'skipped' recentes e nao achar nenhum com imagem.
+   */
+  static async getFacialLogs(limit: number = 200): Promise<EmailMonitorLog[]> {
+    const logRepository = AppDataSource.getRepository(EmailMonitorLog);
+    return await logRepository.createQueryBuilder('log')
+      .where('log.has_attachment = :att', { att: true })
+      .andWhere('log.status = :st', { st: 'success' })
+      .andWhere('log.image_path IS NOT NULL')
+      .andWhere("log.image_path != ''")
+      .orderBy('log.processed_at', 'DESC')
+      .take(limit)
+      .getMany();
+  }
+
   /** Retorna 1 log por id (usado na pagina publica de visualizacao) */
   static async getLogById(id: string): Promise<EmailMonitorLog | null> {
     const logRepository = AppDataSource.getRepository(EmailMonitorLog);

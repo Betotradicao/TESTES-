@@ -130,6 +130,21 @@ export class EmailMonitorController {
   }
 
   /**
+   * GET /api/email-monitor/facial-logs
+   * Logs com anexo + status=success + image_path (Reconhecimento Facial)
+   */
+  async getFacialLogs(req: Request, res: Response) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 200;
+      const logs = await EmailMonitorService.getFacialLogs(limit);
+      return res.json({ logs, total: logs.length });
+    } catch (error) {
+      console.error('Error fetching facial logs:', error);
+      return res.status(500).json({ error: 'Failed to fetch facial logs' });
+    }
+  }
+
+  /**
    * GET /api/email-monitor/view/:id
    * Pagina publica que exibe o conteudo do email (usado em link curto no WhatsApp)
    */
