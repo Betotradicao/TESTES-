@@ -126,18 +126,13 @@ function IsTunnelAlive($t) {
 }
 
 function StartTunnel($t) {
-    $sshArgs = @('-F', $emptyConfig, '-i', $t.key, '-p', '22') + ($t.forwards -split ' ') + @(
-        'root@46.202.150.64', '-N',
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'IdentitiesOnly=yes',
-        '-o', "UserKnownHostsFile=$knownHosts",
-        '-o', "GlobalKnownHostsFile=$knownHosts",
-        '-o', 'ServerAliveInterval=15',
-        '-o', 'ServerAliveCountMax=4',
-        '-o', 'TCPKeepAlive=yes',
-        '-o', 'ExitOnForwardFailure=no'
-    )
-    Start-Process -FilePath $sshExe -ArgumentList $sshArgs -WindowStyle Hidden | Out-Null
+    # Monta como string unica pra evitar bug de Start-Process com ArgumentList array
+    $a = '-F "{0}" -i "{1}" -p 22 {2} root@46.202.150.64 -N ' -f $emptyConfig, $t.key, $t.forwards
+    $a += '-o StrictHostKeyChecking=no -o IdentitiesOnly=yes '
+    $a += '-o "UserKnownHostsFile={0}" -o "GlobalKnownHostsFile={0}" ' -f $knownHosts
+    $a += '-o ServerAliveInterval=15 -o ServerAliveCountMax=4 '
+    $a += '-o TCPKeepAlive=yes -o ExitOnForwardFailure=no'
+    Start-Process -FilePath $sshExe -ArgumentList $a -WindowStyle Hidden | Out-Null
     LogMgr "Iniciado tunel '$($t.name)' (forwards: $($t.forwards))"
 }
 
