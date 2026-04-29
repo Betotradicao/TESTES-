@@ -85,8 +85,15 @@ foreach ($t in $tunnels) { FixarChaveStrict $t.key }
 
 # ---------------------------------------------------------------------------
 # 3) empty.config (pra OpenSSH ignorar configs do sistema)
+#    Se existir com ACL restrita de instalacao anterior, recupera ownership
 # ---------------------------------------------------------------------------
-"# vazio" | Out-File "$mgrDir\empty.config" -Encoding ASCII -Force
+$emptyConf = "$mgrDir\empty.config"
+if (Test-Path $emptyConf) {
+    takeown /F $emptyConf /A 2>&1 | Out-Null
+    icacls $emptyConf /grant "Administrators:(F)" 2>&1 | Out-Null
+    Remove-Item $emptyConf -Force -ErrorAction SilentlyContinue
+}
+"# vazio" | Out-File $emptyConf -Encoding ASCII -Force
 
 # ---------------------------------------------------------------------------
 # 4) Cria o gerenciador (loop infinito 30s)
@@ -173,21 +180,26 @@ Register-ScheduledTask -TaskName 'SSH-Tunnel-Manager' `
 Write-Host "  [OK] Tarefa SSH-Tunnel-Manager criada" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# 6) Remove tarefas antigas (substituidas pelo manager)
+# 6) Inicia o Manager AGORA (antes de remover as antigas, pra ter sobreposicao)
+# ---------------------------------------------------------------------------
+Start-ScheduledTask -TaskName 'SSH-Tunnel-Manager' -ErrorAction SilentlyContinue
+Start-Sleep 5
+Write-Host "  [OK] SSH-Tunnel-Manager iniciado" -ForegroundColor Green
+
+# ---------------------------------------------------------------------------
+# 7) Remove tarefas antigas (substituidas pelo manager)
+#    Mata os ssh.exe das tarefas antigas pro manager subir os novos no JSON
 # ---------------------------------------------------------------------------
 $antigas = Get-ScheduledTask -TaskName 'SSH-Tunnel-*' -ErrorAction SilentlyContinue |
            Where-Object { $_.TaskName -ne 'SSH-Tunnel-Manager' }
 foreach ($a in $antigas) {
+    Stop-ScheduledTask -TaskName $a.TaskName -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $a.TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Write-Host "  [INFO] Removida tarefa antiga: $($a.TaskName)" -ForegroundColor Yellow
 }
 
-# ---------------------------------------------------------------------------
-# 7) Inicia AGORA
-# ---------------------------------------------------------------------------
+# Mata ssh.exe orfaos das tarefas antigas e deixa o manager reconectar
 Get-Process ssh -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep 2
-Start-ScheduledTask -TaskName 'SSH-Tunnel-Manager' -ErrorAction SilentlyContinue
 Start-Sleep 8
 
 Write-Host "`n========================================" -ForegroundColor Green
