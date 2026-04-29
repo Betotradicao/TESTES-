@@ -1748,29 +1748,48 @@ export default function ConfiguracoesTabelas() {
 
       {installedTunnels?.hasTunnels && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
               <span>📡</span> Túneis Instalados
             </h3>
-            <a
-              href={(api.defaults?.baseURL || '') + '/tunnel-installer/reconectar-bat'}
-              download="Reconectar-Tuneis.bat"
-              onClick={async (e) => {
-                e.preventDefault();
-                try {
-                  const r = await api.get('/tunnel-installer/reconectar-bat', { responseType: 'blob' });
-                  const url = URL.createObjectURL(new Blob([r.data]));
-                  const a = document.createElement('a');
-                  a.href = url; a.download = 'Reconectar-Tuneis.bat';
-                  document.body.appendChild(a); a.click(); a.remove();
-                  URL.revokeObjectURL(url);
-                } catch { alert('Erro ao baixar'); }
-              }}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg cursor-pointer flex items-center gap-2 transition"
-              title="Baixa um arquivo .bat que reconecta todos os tuneis. Cliente da duplo-clique e pronto."
-            >
-              🔄 Baixar Reconectar.bat
-            </a>
+            <div className="flex items-center gap-2 flex-wrap">
+              <a
+                href="https://raw.githubusercontent.com/Betotradicao/TESTES-/TESTE/InstaladorVPS/instalar-tunnel-manager.bat"
+                download="instalar-tunnel-manager.bat"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg cursor-pointer flex items-center gap-2 transition"
+                title="Instala um gerenciador silencioso que verifica os túneis a cada 30s e reativa sozinho se cair. Roda invisível. Faça isso UMA vez por máquina cliente para parar de cair."
+              >
+                🛡️ Auto-Reconectar (Manter ON)
+              </a>
+              <a
+                href={(api.defaults?.baseURL || '') + '/tunnel-installer/reconectar-bat'}
+                download="Reconectar-Tuneis.bat"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const r = await api.get('/tunnel-installer/reconectar-bat', { responseType: 'blob' });
+                    const url = URL.createObjectURL(new Blob([r.data]));
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'Reconectar-Tuneis.bat';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch { alert('Erro ao baixar'); }
+                }}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg cursor-pointer flex items-center gap-2 transition"
+                title="Baixa um arquivo .bat que reconecta todos os tuneis UMA vez. Use quando os túneis cairam mas não tem o Auto-Reconectar instalado."
+              >
+                🔄 Reconectar Agora (1x)
+              </a>
+            </div>
+          </div>
+
+          {/* Aviso explicativo */}
+          <div className="bg-emerald-50 border-l-4 border-emerald-500 p-3 mb-4 rounded-r-lg">
+            <p className="text-sm text-gray-700">
+              <strong className="text-emerald-700">💡 Túneis caem após reboot ou queda de energia?</strong>{' '}
+              Clique em <strong>🛡️ Auto-Reconectar (Manter ON)</strong> e rode na máquina cliente UMA vez.
+              Depois disso ele monitora 24/7 e religa sozinho. Funciona pra TODOS os túneis dessa máquina (banco, DVR, etc).
+            </p>
           </div>
           <div className="space-y-3">
             {installedTunnels.tunnels.map((tunnel, idx) => (
