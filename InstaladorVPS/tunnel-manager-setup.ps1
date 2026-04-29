@@ -109,7 +109,6 @@ $knownHosts = "$mgrDir\known_hosts"
 
 function LogMgr($msg) {
     "$([DateTime]::Now.ToString('s')) $msg" | Out-File -Append $logFile -Encoding UTF8
-    # Rotaciona log se passar de 1MB
     if ((Test-Path $logFile) -and ((Get-Item $logFile).Length -gt 1MB)) {
         $bak = "$logFile.old"
         if (Test-Path $bak) { Remove-Item $bak -Force }
@@ -117,36 +116,73 @@ function LogMgr($msg) {
     }
 }
 
+# IMPORTANTE: PS 5.1 quebra arrays em pipeline com @().
+# Por isso parseio sem @() e checo o tipo manualmente.
+function CarregarInventario {
+    if (-not (Test-Path $invFile)) { return @() }
+    $raw = Get-Content $invFile -Raw
+    $parsed = $raw | ConvertFrom-Json
+    if ($null -eq $parsed) { return @() }
+    if ($parsed -isnot [array]) { return @($parsed) }
+    return $parsed
+}
+
+function GetSSHGerenciados {
+    return Get-CimInstance Win32_Process -Filter "Name='ssh.exe'" -ErrorAction SilentlyContinue |
+           Where-Object { $_.CommandLine -like "*$emptyConfig*" }
+}
+
 function IsTunnelAlive($t) {
-    $procs = Get-CimInstance Win32_Process -Filter "Name='ssh.exe'" -ErrorAction SilentlyContinue
+    $procs = GetSSHGerenciados
     foreach ($p in $procs) {
         if ($p.CommandLine -like "*$($t.key)*") { return $true }
     }
     return $false
 }
 
+function MatarTodosGerenciados {
+    GetSSHGerenciados | ForEach-Object {
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function StartTunnel($t) {
-    # Monta como string unica pra evitar bug de Start-Process com ArgumentList array
+    # String unica em vez de array (evita bug Start-Process com Object[] no PS 5.1)
     $a = '-F "{0}" -i "{1}" -p 22 {2} root@46.202.150.64 -N ' -f $emptyConfig, $t.key, $t.forwards
     $a += '-o StrictHostKeyChecking=no -o IdentitiesOnly=yes '
     $a += '-o "UserKnownHostsFile={0}" -o "GlobalKnownHostsFile={0}" ' -f $knownHosts
     $a += '-o ServerAliveInterval=15 -o ServerAliveCountMax=4 '
     $a += '-o TCPKeepAlive=yes -o ExitOnForwardFailure=no'
     Start-Process -FilePath $sshExe -ArgumentList $a -WindowStyle Hidden | Out-Null
-    LogMgr "Iniciado tunel '$($t.name)' (forwards: $($t.forwards))"
+    LogMgr "Iniciado tunel '$($t.name)'"
 }
 
-LogMgr "=== Tunnel Manager iniciou ==="
+# Logica "atomic": se ALGUM tunel estiver caido, derruba todos e sobe todos
+# juntos. Garante que o estado dos tuneis fica sempre sincronizado.
+function ReiniciarTodos($tunnels) {
+    LogMgr "==> Reiniciando TODOS os tuneis juntos ($($tunnels.Count) configurados)"
+    MatarTodosGerenciados
+    Start-Sleep -Seconds 2
+    foreach ($t in $tunnels) {
+        StartTunnel $t
+    }
+}
+
+LogMgr "=== Tunnel Manager v3 iniciou ==="
 
 while ($true) {
     try {
-        if (Test-Path $invFile) {
-            $tunnels = @(Get-Content $invFile -Raw | ConvertFrom-Json)
+        $tunnels = CarregarInventario
+        if ($tunnels.Count -gt 0) {
+            $caidos = @()
             foreach ($t in $tunnels) {
                 if (-not (IsTunnelAlive $t)) {
-                    LogMgr "TUNEL CAIDO: '$($t.name)' - reconectando..."
-                    StartTunnel $t
+                    $caidos += $t.name
                 }
+            }
+            if ($caidos.Count -gt 0) {
+                LogMgr "Tuneis caidos: $($caidos -join ', ')"
+                ReiniciarTodos $tunnels
             }
         }
     } catch {
