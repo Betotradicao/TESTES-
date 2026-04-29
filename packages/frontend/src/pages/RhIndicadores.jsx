@@ -4,6 +4,8 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Abas espelhando os modulos do menu RH (cada uma vai consumir dados da sua tela origem)
 const ABAS = [
@@ -666,8 +668,152 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
     { id: 'aprendiz', label: 'Aprendiz', cor: 'amber', count: contagem.aprendiz },
   ];
 
+  // Calcula dados de uma tabela mensal (mesma logica do componente TabelaMensal)
+  const calcDadosTabela = (classificar, ordemFaixas, dependeMes) => {
+    const dadosPorMes = [];
+    for (let m = 1; m <= 12; m++) {
+      if (m > mesAtual) { dadosPorMes.push(null); continue; }
+      const ativos = ativosNoMes(colaboradoresFiltrados, ano, m);
+      const totais = {};
+      for (const c of ativos) {
+        const faixa = dependeMes ? classificar(c, ano, m) : classificar(c);
+        if (!faixa) continue;
+        totais[faixa] = (totais[faixa] || 0) + 1;
+      }
+      dadosPorMes.push({ totais, total: ativos.length });
+    }
+    let faixas = ordemFaixas;
+    if (!faixas) {
+      const todas = new Set();
+      dadosPorMes.forEach(d => d && Object.keys(d.totais).forEach(k => todas.add(k)));
+      faixas = Array.from(todas).sort((a, b) => {
+        const totA = dadosPorMes.reduce((s, d) => s + (d?.totais[a] || 0), 0);
+        const totB = dadosPorMes.reduce((s, d) => s + (d?.totais[b] || 0), 0);
+        return totB - totA;
+      });
+    }
+    return { dadosPorMes, faixas };
+  };
+
+  const exportarPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+      const tipoLabel = tiposBtns.find(t => t.id === filtroTipo)?.label || 'TODOS';
+      const dataGer = new Date().toLocaleString('pt-BR');
+
+      // Cabecalho
+      doc.setFillColor(219, 39, 119); // pink-600
+      doc.rect(0, 0, 297, 18, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Indicadores RH — Colaboradores', 10, 11);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Filtro: ${tipoLabel}  |  Ano: ${ano}  |  Gerado: ${dataGer}`, 10, 16);
+
+      let y = 24;
+
+      // KPIs
+      doc.setTextColor(31, 41, 55);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Indicadores do mês atual', 10, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [['Quadro Inicial', 'Quadro Final', 'Variação Mensal', 'Recém Contratados (6m)']],
+        body: [[String(quadroInicial), String(quadroFinal), (variacao >= 0 ? '+' : '') + variacao, String(recemContratados)]],
+        theme: 'grid',
+        styles: { fontSize: 10, halign: 'center', cellPadding: 3 },
+        headStyles: { fillColor: [71, 85, 105], textColor: [255, 255, 255], fontStyle: 'bold' },
+        bodyStyles: { fontStyle: 'bold', fontSize: 12 },
+        margin: { left: 10, right: 10 },
+      });
+      y = doc.lastAutoTable.finalY + 6;
+
+      // Funcao auxiliar pra gerar tabela mensal no PDF
+      const gerarTabelaMensal = (titulo, classificar, ordemFaixas, dependeMes) => {
+        const { dadosPorMes, faixas } = calcDadosTabela(classificar, ordemFaixas, dependeMes);
+        // Cabecalhos: linha 1 = meses, linha 2 = QTD/% por mes
+        const head = [
+          [{ content: titulo, rowSpan: 2, styles: { halign: 'left', fillColor: [203, 213, 225] } },
+           ...MESES.map(m => ({ content: m, colSpan: 2, styles: { halign: 'center', fillColor: [203, 213, 225] } }))],
+          MESES.flatMap(() => [
+            { content: 'QTD', styles: { halign: 'center', fillColor: [226, 232, 240], fontSize: 7 } },
+            { content: '%', styles: { halign: 'center', fillColor: [226, 232, 240], fontSize: 7 } },
+          ]),
+        ];
+        const body = faixas.map(f => {
+          const row = [f];
+          dadosPorMes.forEach(d => {
+            if (!d) { row.push('—', '—'); return; }
+            const qtd = d.totais[f] || 0;
+            const pct = d.total ? Math.round((qtd / d.total) * 100) : 0;
+            row.push(qtd > 0 ? String(qtd) : '—', qtd > 0 ? pct + '%' : '—');
+          });
+          return row;
+        });
+        // Total
+        const totalRow = ['TOTAL'];
+        dadosPorMes.forEach(d => totalRow.push(d ? String(d.total) : '—', d ? '100%' : '—'));
+        body.push(totalRow);
+
+        // Quebra pagina se nao couber
+        if (y > 175) { doc.addPage(); y = 15; }
+        autoTable(doc, {
+          startY: y,
+          head, body,
+          theme: 'grid',
+          styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
+          headStyles: { textColor: [31, 41, 55], fontStyle: 'bold' },
+          columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 38 } },
+          didParseCell: (data) => {
+            if (data.row.index === body.length - 1) {
+              data.cell.styles.fillColor = [243, 244, 246];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          },
+          margin: { left: 10, right: 10 },
+        });
+        y = doc.lastAutoTable.finalY + 5;
+      };
+
+      gerarTabelaMensal('ESCOLARIDADE', c => c.escolaridade_nome || 'Sem informação', null, false);
+      gerarTabelaMensal('GÊNERO', c => {
+        const s = (c.sexo || '').toUpperCase();
+        return s === 'M' ? 'Masculino' : s === 'F' ? 'Feminino' : 'Não informado';
+      }, ['Masculino', 'Feminino', 'Não informado'], false);
+      gerarTabelaMensal('FAIXA ETÁRIA', (c, ano, mes) => faixaEtaria(c, ano, mes),
+        ['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+'], true);
+      gerarTabelaMensal('TEMPO DE EMPRESA', (c, ano, mes) => faixaTempo(c, ano, mes),
+        ['< 6 meses', '6-12 meses', '1-2 anos', '2-3 anos', '3-5 anos', '5-10 anos', '10+ anos'], true);
+      gerarTabelaMensal('POR SETOR', c => c.setor_nome || 'Sem setor', null, false);
+      gerarTabelaMensal('TIPO DE CARGO',
+        c => PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '') ? 'Estratégico' : 'Operacional',
+        ['Operacional', 'Estratégico'], false);
+
+      doc.save(`indicadores-colaboradores-${tipoLabel.replace(/\s+/g, '_')}-${ano}.pdf`);
+      toast.success('PDF gerado');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao gerar PDF');
+    }
+  };
+
   return (
     <>
+      {/* Botao de exportar PDF */}
+      <div className="flex justify-end mb-3">
+        <button onClick={exportarPDF}
+          className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Exportar PDF
+        </button>
+      </div>
+
       {/* Filtros por tipo de regime/jornada */}
       <div className="flex flex-wrap items-center gap-2 mb-4 bg-white border border-gray-200 rounded-lg p-3">
         <span className="text-xs font-bold uppercase tracking-wide text-gray-500 mr-2">Filtrar por:</span>
