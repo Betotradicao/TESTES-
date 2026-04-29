@@ -6,7 +6,8 @@
 # automaticamente se algum cair.
 # ============================================================================
 
-$ErrorActionPreference = 'Stop'
+# Continua mesmo com erros nao-fatais (ex: icacls com "Administrators" em PT-BR)
+$ErrorActionPreference = 'Continue'
 $mgrDir = "C:\ProgramData\SSHTunnels"
 New-Item -ItemType Directory -Force -Path $mgrDir | Out-Null
 
@@ -137,7 +138,10 @@ foreach ($t in $tunnels) { FixarChaveStrict $t.key }
 $emptyConf = "$mgrDir\empty.config"
 if (Test-Path $emptyConf) {
     takeown /F $emptyConf /A 2>&1 | Out-Null
+    # Tenta tanto em ingles quanto em portugues (o sistema do cliente pode estar em PT-BR)
     icacls $emptyConf /grant "Administrators:(F)" 2>&1 | Out-Null
+    icacls $emptyConf /grant "Administradores:(F)" 2>&1 | Out-Null
+    icacls $emptyConf /grant "*S-1-5-32-544:(F)" 2>&1 | Out-Null
     Remove-Item $emptyConf -Force -ErrorAction SilentlyContinue
 }
 "# vazio" | Out-File $emptyConf -Encoding ASCII -Force
