@@ -27,21 +27,31 @@ const DESCONTOS = [
 ];
 const ALL = [...PROVENTOS, ...DESCONTOS];
 
-// Valida se string e um numero monetario valido (vazio, BR "10,50" ou US "10.50").
-// Aceita: "", "10", "10,5", "10.50", "1.234,56" (com milhar BR).
-// Rejeita: "1,,0", "abc", "1,2,3" etc.
+// Valida se string e um numero monetario valido OU formato horas HH:MM.
+// Aceita: "", "10", "10,5", "10.50", "1.234,56" (BR), "1:20" (hora:min), "0:30"
+// Rejeita: "1,,0", "abc", "1,2,3", "1:99" etc.
 function isValorValido(v) {
   if (v == null || v === '') return true;
   const s = String(v).trim().replace(/R\$|\s/gi, '');
   if (s === '') return true;
+  // Formato horas HH:MM (minutos 00-59)
+  if (/^-?\d+:[0-5]?\d$/.test(s)) return true;
   return /^-?(\d+|\d{1,3}(\.\d{3})*|\d{1,3}(,\d{3})*)([.,]\d{1,2})?$/.test(s);
 }
 
-// Converte string BR/US pra Number ("10,50" -> 10.50). Retorna 0 se invalido.
+// Converte string BR/US/HH:MM pra Number.
+// "10,50" -> 10.50 | "1:20" -> 1.3333 (1h + 20/60) | "2:00" -> 2.0
+// Retorna 0 se invalido.
 function parseValor(v) {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
   let s = String(v).trim().replace(/R\$|\s/gi, '');
+  // Formato horas HH:MM -> decimal
+  const m = s.match(/^(-?)(\d+):([0-5]?\d)$/);
+  if (m) {
+    const sign = m[1] === '-' ? -1 : 1;
+    return sign * (parseInt(m[2], 10) + parseInt(m[3], 10) / 60);
+  }
   if (s.includes(',') && s.includes('.')) {
     s = s.replace(/\./g, '').replace(',', '.');
   } else if (s.includes(',')) {
@@ -49,6 +59,16 @@ function parseValor(v) {
   }
   const n = Number(s);
   return isNaN(n) ? 0 : n;
+}
+
+// Mostra string vazia quando valor e zero/null/undefined.
+// Pra inputs nao ficarem com "0,00" e o usuario ter que apagar antes de digitar.
+function displayVal(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number') return v === 0 ? '' : v;
+  const s = String(v).trim();
+  if (s === '' || /^-?0+([.,]0+)?$/.test(s)) return '';
+  return v;
 }
 
 function hoje() { return new Date().toISOString().split('T')[0]; }
@@ -568,14 +588,14 @@ export default function RhLancamentos() {
                         {PROVENTOS.map(c => (
                           <Fragment key={c.key}>
                             <td className="px-1 py-1 bg-emerald-50/30 border-l border-emerald-200">
-                              <input type="text" inputMode="decimal" value={r[c.key] ?? ''}
+                              <input type="text" inputMode="decimal" value={displayVal(r[c.key])}
                                 onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
                                 className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                                placeholder="0" />
+                                placeholder="" />
                             </td>
                             <td className="px-1 py-1 bg-emerald-100/40">
                               {(() => {
-                                const v = r.campos_extras?.[`${c.key}_valor`] ?? '';
+                                const v = displayVal(r.campos_extras?.[`${c.key}_valor`]);
                                 const invalido = !isValorValido(v);
                                 return (
                                   <input type="text" inputMode="decimal" value={v}
@@ -595,16 +615,16 @@ export default function RhLancamentos() {
                               {showQtd && (
                                 <td className="px-1 py-1 bg-emerald-50/30">
                                   <input type="text" inputMode="decimal"
-                                    value={r.campos_extras?.[c.chave] ?? ''}
+                                    value={displayVal(r.campos_extras?.[c.chave])}
                                     onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
                                     className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                                    placeholder="0" />
+                                    placeholder="" />
                                 </td>
                               )}
                               {showVal && (
                                 <td className="px-1 py-1 bg-emerald-100/40">
                                   {(() => {
-                                    const v = r.campos_extras?.[`${c.chave}_valor`] ?? '';
+                                    const v = displayVal(r.campos_extras?.[`${c.chave}_valor`]);
                                     const inv = !isValorValido(v);
                                     return (
                                       <input type="text" inputMode="decimal" value={v}
@@ -621,14 +641,14 @@ export default function RhLancamentos() {
                         {DESCONTOS.map(c => (
                           <Fragment key={c.key}>
                             <td className="px-1 py-1 bg-rose-50/30 border-l border-rose-200">
-                              <input type="text" inputMode="decimal" value={r[c.key] ?? ''}
+                              <input type="text" inputMode="decimal" value={displayVal(r[c.key])}
                                 onChange={e => updateCell(r.colaborador_id, c.key, e.target.value)}
                                 className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                                placeholder="0" />
+                                placeholder="" />
                             </td>
                             <td className="px-1 py-1 bg-rose-100/40">
                               {(() => {
-                                const v = r.campos_extras?.[`${c.key}_valor`] ?? '';
+                                const v = displayVal(r.campos_extras?.[`${c.key}_valor`]);
                                 const inv = !isValorValido(v);
                                 return (
                                   <input type="text" inputMode="decimal" value={v}
@@ -648,16 +668,16 @@ export default function RhLancamentos() {
                               {showQtd && (
                                 <td className="px-1 py-1 bg-rose-50/30">
                                   <input type="text" inputMode="decimal"
-                                    value={r.campos_extras?.[c.chave] ?? ''}
+                                    value={displayVal(r.campos_extras?.[c.chave])}
                                     onChange={e => updateExtra(r.colaborador_id, c.chave, e.target.value)}
                                     className="w-full px-1 py-1 text-right border border-transparent hover:border-gray-300 focus:border-orange-400 rounded bg-transparent focus:bg-white focus:outline-none"
-                                    placeholder="0" />
+                                    placeholder="" />
                                 </td>
                               )}
                               {showVal && (
                                 <td className="px-1 py-1 bg-rose-100/40">
                                   {(() => {
-                                    const v = r.campos_extras?.[`${c.chave}_valor`] ?? '';
+                                    const v = displayVal(r.campos_extras?.[`${c.chave}_valor`]);
                                     const inv = !isValorValido(v);
                                     return (
                                       <input type="text" inputMode="decimal" value={v}

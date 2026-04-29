@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
+import { DiscTabs } from './RhMetodoDisc';
 
 const PERFIL_NOME = {
   D: 'Dominância',
@@ -151,6 +152,9 @@ export default function RhMetodoDiscResultados() {
           <h1 className="text-2xl font-bold">Resultados — Método DISC</h1>
           <p className="text-orange-100 text-sm">Avaliações comportamentais por colaborador / candidato</p>
         </div>
+
+        {/* Tabs */}
+        <DiscTabs />
 
         {/* Cards de stats por perfil */}
         <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-3">

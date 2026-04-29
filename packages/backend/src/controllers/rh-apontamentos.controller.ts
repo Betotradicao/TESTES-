@@ -192,17 +192,21 @@ export class RhApontamentosController {
       const mesCxDate = String(mes_caixa).length === 7 ? `${mes_caixa}-01` : mes_caixa;
       let salvos = 0;
       for (const a of apontamentos) {
-        // Aceita formato BR (vírgula) e US (ponto). "10,50" e "10.50" viram 10.50.
+        // Aceita BR ("10,50"), US ("10.50") e horas ("1:20" -> 1.333, "2:00" -> 2.0).
         // Remove "R$", espaços, e separador de milhar.
         const num = (v: any) => {
           if (v === '' || v === null || v === undefined) return 0;
           if (typeof v === 'number') return isNaN(v) ? 0 : v;
           let s = String(v).trim().replace(/R\$|\s/gi, '');
-          // Se tem virgula E ponto: ponto e separador de milhar, virgula e decimal -> remove ponto, troca virgula por ponto
+          // Formato horas HH:MM -> decimal
+          const m = s.match(/^(-?)(\d+):([0-5]?\d)$/);
+          if (m) {
+            const sign = m[1] === '-' ? -1 : 1;
+            return sign * (parseInt(m[2], 10) + parseInt(m[3], 10) / 60);
+          }
           if (s.includes(',') && s.includes('.')) {
             s = s.replace(/\./g, '').replace(',', '.');
           } else if (s.includes(',')) {
-            // So tem virgula = decimal BR
             s = s.replace(',', '.');
           }
           const n = Number(s);

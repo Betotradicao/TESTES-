@@ -1,8 +1,30 @@
 import { useState, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
+
+// Barra de tabs compartilhada entre Avaliacao e Resultados
+function DiscTabs() {
+  const nav = useNavigate();
+  const loc = useLocation();
+  const isResults = loc.pathname.includes('/resultados');
+  const tabBase = 'px-5 py-2.5 text-sm font-semibold border-b-2 transition cursor-pointer';
+  const active = 'border-orange-500 text-orange-600';
+  const inactive = 'border-transparent text-gray-500 hover:text-gray-800';
+  return (
+    <div className="bg-white border-b border-gray-200 px-6 flex gap-1 print:hidden">
+      <button onClick={() => nav('/rh/metodo-disc')} className={`${tabBase} ${!isResults ? active : inactive}`}>
+        📋 Método DISC
+      </button>
+      <button onClick={() => nav('/rh/metodo-disc/resultados')} className={`${tabBase} ${isResults ? active : inactive}`}>
+        📊 Resultados DISC
+      </button>
+    </div>
+  );
+}
+export { DiscTabs };
 
 // 18 grupos selecionados — adjetivos mais comuns e claros, removidos os
 // menos discriminativos (Autoritario, Dominador, Impulsivo, Audacioso,
@@ -724,6 +746,9 @@ export default function RhMetodoDisc() {
           <h1 className="text-2xl font-bold">Metodo DISC</h1>
           <p className="text-orange-100 text-sm">Avaliacao de Perfil Comportamental</p>
         </div>
+
+        {/* Tabs */}
+        <DiscTabs />
 
         {/* Content */}
         <div className="p-6">

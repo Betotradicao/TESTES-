@@ -9,6 +9,8 @@ export default function PesquisaClimaAnalise() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [modelos, setModelos] = useState([]);
   const [modeloAberto, setModeloAberto] = useState(null);
+  const [perguntasModelo, setPerguntasModelo] = useState([]);
+  const [mostrarPerguntas, setMostrarPerguntas] = useState(true);
   const [rodadas, setRodadas] = useState([]);
   const [criandoRodada, setCriandoRodada] = useState(false);
   const [novaRodadaNome, setNovaRodadaNome] = useState('');
@@ -23,10 +25,15 @@ export default function PesquisaClimaAnalise() {
 
   const abrirModelo = async (m) => {
     setModeloAberto(m);
+    setPerguntasModelo([]);
     try {
-      const r = await api.get('/pesquisa-clima/rodadas', { params: { modelo_id: m.id } });
-      setRodadas(Array.isArray(r.data) ? r.data : []);
-    } catch { toast.error('Erro ao carregar rodadas'); }
+      const [rR, rM] = await Promise.all([
+        api.get('/pesquisa-clima/rodadas', { params: { modelo_id: m.id } }),
+        api.get(`/pesquisa-clima/modelos/${m.id}`).catch(() => ({ data: {} })),
+      ]);
+      setRodadas(Array.isArray(rR.data) ? rR.data : []);
+      setPerguntasModelo(Array.isArray(rM.data?.perguntas) ? rM.data.perguntas : []);
+    } catch { toast.error('Erro ao carregar'); }
   };
 
   const criarRodada = async () => {
@@ -114,14 +121,46 @@ export default function PesquisaClimaAnalise() {
           ) : (
             <>
               <div className="flex items-center gap-2 mb-4">
-                <button onClick={() => { setModeloAberto(null); setRodadas([]); }}
+                <button onClick={() => { setModeloAberto(null); setRodadas([]); setPerguntasModelo([]); }}
                   className="px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-sm">← Voltar</button>
-                <h2 className="text-lg font-bold flex-1">{modeloAberto.icone} {modeloAberto.nome} — Rodadas</h2>
+                <h2 className="text-lg font-bold flex-1">{modeloAberto.icone} {modeloAberto.nome}</h2>
                 <button onClick={() => setCriandoRodada(true)}
                   className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm">
                   ➕ Nova Rodada
                 </button>
               </div>
+
+              {/* Perguntas do modelo */}
+              {perguntasModelo.length > 0 && (
+                <div className="bg-white rounded-lg shadow border-2 border-blue-100 mb-4">
+                  <button onClick={() => setMostrarPerguntas(s => !s)}
+                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-blue-50 transition">
+                    <span className="text-xl">📋</span>
+                    <span className="font-bold flex-1 text-left">Perguntas desta pesquisa ({perguntasModelo.length})</span>
+                    <span className="text-gray-500">{mostrarPerguntas ? '▲' : '▼'}</span>
+                  </button>
+                  {mostrarPerguntas && (
+                    <div className="border-t divide-y divide-gray-100">
+                      {perguntasModelo.map((p, i) => (
+                        <div key={p.id} className="px-4 py-2.5 flex items-start gap-3">
+                          <span className="text-xs font-bold text-gray-500 mt-0.5 min-w-[24px]">{String(i + 1).padStart(2, '0')}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-gray-800">{p.texto}</div>
+                            {p.tipo && (
+                              <div className="text-[10px] text-gray-500 uppercase mt-0.5 font-semibold">
+                                {p.tipo === 'nps' ? '🎯 NPS (0-10)' : p.tipo === 'escala' ? '📊 Escala 1-5' : p.tipo === 'multipla' ? '☑️ Múltipla escolha' : p.tipo === 'texto' ? '💬 Texto livre' : `📌 ${p.tipo}`}
+                                {p.categoria && <span className="ml-2 text-blue-600">· {p.categoria}</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <h3 className="text-sm font-bold text-gray-700 uppercase mb-2 mt-4">📅 Rodadas</h3>
 
               {criandoRodada && (
                 <div className="bg-white rounded-lg shadow p-4 mb-4 border-2 border-rose-300">

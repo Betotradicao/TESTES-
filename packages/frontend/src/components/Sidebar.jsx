@@ -1004,13 +1004,12 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>),
           expandable: true,
           subItems: [
+            { id: 'rh-recrutador-ia', submenuId: 'rh-recrutador-ia', title: '👩‍💼 RECRUTADOR(A) INTELIGENTE', path: '/rh/recrutador/vagas' },
             { id: 'rh-vagas', submenuId: 'rh-vagas', title: 'VAGAS ABERTAS', path: '/rh/vagas' },
             { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' },
             { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'MÉTODO DISC', path: '/rh/metodo-disc' },
-            { id: 'rh-metodo-disc-resultados', submenuId: 'rh-metodo-disc-resultados', title: '↳ RESULTADOS DISC', path: '/rh/metodo-disc/resultados' },
             { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
             { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' },
-            { id: 'rh-recrutador-ia', submenuId: 'rh-recrutador-ia', title: '🤖 RECRUTADOR(A) INTELIGENTE', path: '/rh/recrutador/vagas' }
           ]
         },
         {

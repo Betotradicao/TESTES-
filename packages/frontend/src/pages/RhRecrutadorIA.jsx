@@ -58,14 +58,14 @@ function fallbackCopia(texto, okMsg) {
 export default function RhRecrutadorIA() {
   const navigate = useNavigate();
   const { tab: tabParam } = useParams();
-  const [tab, setTab] = useState(tabParam || 'vagas');
+  const [tab, setTab] = useState(tabParam || 'treinar');
 
   useEffect(() => { if (tabParam) setTab(tabParam); }, [tabParam]);
 
   const tabs = [
+    { id: 'treinar', label: '🎓 Treinar Entrevistadora' },
     { id: 'vagas', label: '💼 Vagas e Critérios' },
     { id: 'perguntas', label: '🧠 Banco de Perguntas' },
-    { id: 'treinar', label: '🎓 Treinar Entrevistadora' },
     { id: 'enviar', label: '📤 Enviar Entrevista' },
     { id: 'entrevistas', label: '📋 Entrevistas Realizadas' },
   ];

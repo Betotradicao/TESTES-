@@ -143,7 +143,7 @@ export default function BancoCurriculos() {
           {erro && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{erro}</div>}
 
           {/* Resumo */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
             <Tile emoji="📇" titulo="Total" valor={resumo.total} grad="from-slate-500 to-gray-600" />
             <Tile emoji="🆕" titulo="Novo" valor={resumo.novo} grad="from-sky-500 to-blue-600" />
             <Tile emoji="🔎" titulo="Em análise" valor={resumo.em_analise} grad="from-amber-500 to-orange-600" />
@@ -152,8 +152,8 @@ export default function BancoCurriculos() {
           </div>
 
           {/* Filtros */}
-          <div className="bg-white border-2 border-gray-100 rounded-xl p-3 shadow-sm mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="bg-white border border-gray-200 rounded-lg p-2 shadow-sm mb-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <FiltroInput label="Buscar" value={filtros.q} placeholder="nome, whatsapp, email…" onChange={v => setFiltros({ ...filtros, q: v })} />
               <FiltroSelect label="Cidade" value={filtros.cidade} onChange={v => setFiltros({ ...filtros, cidade: v })}>
                 <option value="">Todas</option>
@@ -188,13 +188,13 @@ export default function BancoCurriculos() {
               </FiltroSelect>
               <FiltroInput label="De" type="date" value={filtros.dataDe} onChange={v => setFiltros({ ...filtros, dataDe: v })} />
               <FiltroInput label="Até" type="date" value={filtros.dataAte} onChange={v => setFiltros({ ...filtros, dataAte: v })} />
-            </div>
-            <div className="flex justify-end gap-2 mt-3">
-              <button
-                onClick={() => setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '' })}
-                className="text-base px-6 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 shadow hover:shadow-md transition">
-                🧹 Limpar filtros
-              </button>
+              <div className="flex items-end">
+                <button
+                  onClick={() => setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '' })}
+                  className="w-full text-sm px-3 py-1.5 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition">
+                  🧹 Limpar filtros
+                </button>
+              </div>
             </div>
           </div>
 
@@ -213,20 +213,20 @@ export default function BancoCurriculos() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-600 text-white text-xs uppercase">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold">Candidato</th>
-                      <th className="px-4 py-3 text-left font-semibold">Status</th>
-                      <th className="px-4 py-3 text-left font-semibold">Vaga</th>
-                      <th className="px-4 py-3 text-left font-semibold">WhatsApp</th>
-                      <th className="px-4 py-3 text-left font-semibold">Instagram</th>
-                      <th className="px-4 py-3 text-left font-semibold">Email</th>
-                      <th className="px-4 py-3 text-left font-semibold">Localização</th>
-                      <th className="px-4 py-3 text-left font-semibold">Cargos de Interesse</th>
-                      <th className="px-4 py-3 text-left font-semibold">Experiências</th>
-                      <th className="px-4 py-3 text-left font-semibold">Perfil Primário</th>
-                      <th className="px-4 py-3 text-left font-semibold">Perfil Secundário</th>
-                      <th className="px-4 py-3 text-left font-semibold">Entrevista</th>
-                      <th className="px-4 py-3 text-left font-semibold">Relatório</th>
-                      <th className="px-4 py-3 text-right font-semibold">Data</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Candidato</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Status</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Vaga</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">WhatsApp</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Instagram</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Email</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Localização</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Cargos de Interesse</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Experiências</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Perfil Primário</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Perfil Secundário</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Entrevista</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Relatório</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Data</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -236,12 +236,12 @@ export default function BancoCurriculos() {
                         <tr key={cv.id} onClick={() => setSelecionado(cv)}
                           className="hover:bg-rose-50/40 cursor-pointer transition">
                           {/* Candidato (foto + nome) */}
-                          <td className="px-4 py-3">
+                          <td className="px-2 py-1.5">
                             <div className="flex items-center gap-3">
                               {cv.foto_url ? (
-                                <img src={cv.foto_url} alt="" className="w-10 h-10 rounded-full object-cover border border-rose-200 shrink-0" />
+                                <img src={cv.foto_url} alt="" className="w-7 h-7 rounded-full object-cover border border-rose-200 shrink-0" />
                               ) : (
-                                <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0 border border-rose-200">
+                                <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 text-xs flex items-center justify-center font-bold shrink-0 border border-rose-200">
                                   {cv.nome?.charAt(0).toUpperCase() || '?'}
                                 </div>
                               )}
@@ -249,13 +249,13 @@ export default function BancoCurriculos() {
                             </div>
                           </td>
                           {/* Status */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-bold border ${st.bg}`}>
                               {st.emoji} {st.label}
                             </span>
                           </td>
                           {/* Vaga */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.interesse_vaga ? (
                               <span className="inline-block text-xs px-2.5 py-1 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
                                 {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 Aprendiz'}
@@ -263,7 +263,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* WhatsApp */}
-                          <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-2 py-1.5 text-gray-700 whitespace-nowrap">
                             {cv.whatsapp ? (
                               <a href={waLink(cv.whatsapp)} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
@@ -277,7 +277,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Instagram */}
-                          <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-2 py-1.5 text-gray-700 whitespace-nowrap">
                             {cv.instagram ? (
                               <a href={igLink(cv.instagram)} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
@@ -291,17 +291,17 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Email */}
-                          <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">
+                          <td className="px-2 py-1.5 text-gray-700 max-w-[200px] truncate">
                             {cv.email || <span className="text-gray-300">—</span>}
                           </td>
                           {/* Localização */}
-                          <td className="px-4 py-3 text-gray-700">
+                          <td className="px-2 py-1.5 text-gray-700">
                             {(cv.cidade || cv.bairro)
                               ? [cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')
                               : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Cargos */}
-                          <td className="px-4 py-3">
+                          <td className="px-2 py-1.5">
                             <div className="flex flex-wrap gap-1">
                               {(cv.cargos || []).slice(0, 3).map((c, i) => (
                                 <span key={i} className="text-xs px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-full whitespace-nowrap font-semibold">{c}</span>
@@ -313,7 +313,7 @@ export default function BancoCurriculos() {
                             </div>
                           </td>
                           {/* Experiencias */}
-                          <td className="px-4 py-3">
+                          <td className="px-2 py-1.5">
                             {(cv.experiencias_detalhadas && cv.experiencias_detalhadas.length > 0) ? (
                               <div className="flex flex-col gap-0.5 text-xs text-gray-700 max-w-[280px]">
                                 {cv.experiencias_detalhadas.slice(0, 2).map((exp, i) => {
@@ -340,7 +340,7 @@ export default function BancoCurriculos() {
                             )}
                           </td>
                           {/* Perfil Primário (DISC) */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.disc?.perfil_primario ? (
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${DISC_COR[cv.disc.perfil_primario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_primario]?.text || 'text-gray-700'} ${DISC_COR[cv.disc.perfil_primario]?.border || 'border-gray-300'}`}>
                                 {cv.disc.perfil_primario} — {DISC_NOME[cv.disc.perfil_primario]}
@@ -348,7 +348,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Perfil Secundário (DISC) */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.disc?.perfil_secundario ? (
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${DISC_COR[cv.disc.perfil_secundario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_secundario]?.text || 'text-gray-700'} ${DISC_COR[cv.disc.perfil_secundario]?.border || 'border-gray-300'}`}>
                                 {cv.disc.perfil_secundario} — {DISC_NOME[cv.disc.perfil_secundario]}
@@ -356,7 +356,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Entrevista (status) */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.entrevista ? (
                               cv.entrevista.status === 'finalizada' ? (
                                 <span className="inline-block text-xs px-2 py-0.5 rounded-full font-bold border bg-emerald-100 text-emerald-800 border-emerald-300">✅ Finalizada</span>
@@ -368,7 +368,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Relatório (botão -> Entrevistas Realizadas) */}
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.entrevista?.tem_relatorio ? (
                               <button onClick={e => {
                                 e.stopPropagation();
@@ -382,7 +382,7 @@ export default function BancoCurriculos() {
                             ) : <span className="text-gray-300">—</span>}
                           </td>
                           {/* Data */}
-                          <td className="px-4 py-3 text-gray-600 text-right whitespace-nowrap text-xs">
+                          <td className="px-2 py-1.5 text-gray-600 text-right whitespace-nowrap text-xs">
                             {fmtData(cv.created_at)}
                           </td>
                         </tr>
@@ -424,18 +424,18 @@ function Tile({ emoji, titulo, valor, grad }) {
 function FiltroInput({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>
-      <label className="block text-sm font-bold uppercase text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-bold uppercase text-gray-600 mb-0.5">{label}</label>
       <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400" />
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400" />
     </div>
   );
 }
 function FiltroSelect({ label, value, onChange, children }) {
   return (
     <div>
-      <label className="block text-sm font-bold uppercase text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-bold uppercase text-gray-600 mb-0.5">{label}</label>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-rose-400">
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400">
         {children}
       </select>
     </div>

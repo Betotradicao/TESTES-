@@ -38,6 +38,7 @@ export default function PesquisaClimaCriar() {
   const [edit, setEdit] = useState(null); // null | { id, nome, perguntas }
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [novoNome, setNovoNome] = useState('');
+  const [novoIcone, setNovoIcone] = useState('📋');
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { carregar(); }, []);
@@ -57,13 +58,20 @@ export default function PesquisaClimaCriar() {
   };
 
   const criarModelo = async () => {
-    if (!novoNome.trim()) return;
+    if (!novoNome.trim()) { toast.error('Informe o nome da pesquisa'); return; }
     try {
-      const r = await api.post('/pesquisa-clima/modelos', { nome: novoNome.trim() });
-      setNovoNome(''); setCriandoNovo(false);
+      const r = await api.post('/pesquisa-clima/modelos', {
+        nome: novoNome.trim(),
+        icone: novoIcone || '📋'
+      });
+      setNovoNome(''); setNovoIcone('📋'); setCriandoNovo(false);
       await carregar();
       abrirEdicao(r.data.id);
-    } catch (e) { toast.error(e.response?.data?.error || 'Erro'); }
+      toast.success('Pesquisa criada!');
+    } catch (e) {
+      console.error('Erro ao criar pesquisa:', e);
+      toast.error(e.response?.data?.error || e.message || 'Erro ao criar pesquisa');
+    }
   };
 
   const excluirModelo = async (m) => {
@@ -154,10 +162,25 @@ export default function PesquisaClimaCriar() {
                   <input type="text" value={novoNome} onChange={e => setNovoNome(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && criarModelo()}
                     placeholder="Ex: Avaliação de Clima Trimestral 2026"
-                    className="w-full border rounded px-3 py-2 mb-2" autoFocus />
+                    className="w-full border rounded px-3 py-2 mb-3" autoFocus />
+
+                  <label className="block text-sm font-bold mb-1">🎭 Ícone</label>
+                  <div className="flex gap-2 items-center mb-3 flex-wrap">
+                    <input type="text" value={novoIcone} maxLength={4}
+                      onChange={e => setNovoIcone(e.target.value)}
+                      placeholder="📋"
+                      className="w-16 text-center text-2xl border rounded px-2 py-1.5" />
+                    <div className="flex flex-wrap gap-1">
+                      {['📋','🛒','🌡️','🎯','👔','🚀','👋','📚','🔄','😊','💼','🏪','📊','🤝','💡','⭐','🎓','🏆','📝','💬','🎨','🔥'].map(e => (
+                        <button key={e} type="button" onClick={() => setNovoIcone(e)}
+                          className={`w-9 h-9 rounded text-xl hover:bg-gray-100 transition ${novoIcone === e ? 'bg-rose-100 ring-2 ring-rose-400' : ''}`}>{e}</button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
-                    <button onClick={criarModelo} className="bg-rose-500 text-white px-4 py-2 rounded font-bold">Criar</button>
-                    <button onClick={() => { setCriandoNovo(false); setNovoNome(''); }} className="bg-gray-200 px-4 py-2 rounded">Cancelar</button>
+                    <button onClick={criarModelo} className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded font-bold">Criar</button>
+                    <button onClick={() => { setCriandoNovo(false); setNovoNome(''); setNovoIcone('📋'); }} className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">Cancelar</button>
                   </div>
                 </div>
               )}
@@ -234,36 +257,6 @@ function EditorPesquisa({ edit, setEdit, salvando, salvarEdicao, voltar, addPerg
           <textarea value={edit.descricao || ''} onChange={e => setEdit({ ...edit, descricao: e.target.value })}
             rows={2} className="w-full border rounded px-3 py-2 text-sm" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-bold mb-1">🎨 Cor da pesquisa</label>
-            <div className="flex flex-wrap gap-2">
-              {CORES.map(c => (
-                <button key={c.id} type="button"
-                  onClick={() => setEdit({ ...edit, cor: c.id })}
-                  className={`w-10 h-10 rounded-full ${c.bg} transition-all border-4 ${edit.cor === c.id ? 'border-gray-800 scale-110' : 'border-transparent hover:scale-105'}`}
-                  title={c.label} />
-              ))}
-            </div>
-            <div className="text-[11px] text-gray-500 mt-1">Define o gradiente do topo da pesquisa pública.</div>
-          </div>
-          <div>
-            <label className="block text-sm font-bold mb-1">🎭 Ícone (emoji)</label>
-            <div className="flex gap-2 items-center">
-              <input type="text" value={edit.icone || ''} maxLength={4}
-                onChange={e => setEdit({ ...edit, icone: e.target.value })}
-                placeholder="📋"
-                className="w-20 text-center text-2xl border rounded px-2 py-1.5" />
-              <div className="flex flex-wrap gap-1">
-                {['📋','🛒','🌡️','🎯','👔','🚀','👋','📚','🔄','😊','💼','🏪','📊','🤝','💡','⭐','🎓','🏆'].map(e => (
-                  <button key={e} type="button"
-                    onClick={() => setEdit({ ...edit, icone: e })}
-                    className={`w-8 h-8 rounded text-lg hover:bg-gray-100 ${edit.icone === e ? 'bg-rose-100 ring-2 ring-rose-400' : ''}`}>{e}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" checked={edit.anonima !== false}
             onChange={e => setEdit({ ...edit, anonima: e.target.checked })} />
@@ -271,14 +264,14 @@ function EditorPesquisa({ edit, setEdit, salvando, salvarEdicao, voltar, addPerg
         </label>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <h3 className="font-bold mb-2">Adicionar pergunta:</h3>
+      <div className="bg-gradient-to-br from-orange-200 to-amber-200 rounded-lg shadow p-4 mb-4 border-2 border-orange-400">
+        <h3 className="font-bold mb-2 text-orange-800">Adicionar pergunta:</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {TIPOS.map(t => (
             <button key={t.id} onClick={() => addPergunta(t.id)}
-              className="text-left p-3 border-2 border-gray-200 hover:border-rose-400 rounded-lg transition">
-              <div className="font-bold text-sm">{t.label}</div>
-              <div className="text-xs text-gray-500">{t.desc}</div>
+              className="text-left p-3 bg-white border-2 border-orange-300 hover:border-orange-500 hover:bg-orange-50 rounded-lg transition shadow-sm">
+              <div className="font-bold text-sm text-gray-800">{t.label}</div>
+              <div className="text-xs text-gray-600">{t.desc}</div>
             </button>
           ))}
         </div>
@@ -286,7 +279,7 @@ function EditorPesquisa({ edit, setEdit, salvando, salvarEdicao, voltar, addPerg
 
       <div className="space-y-3">
         {(edit.perguntas || []).map((p, idx) => (
-          <div key={idx} className="bg-amber-50 rounded-lg shadow p-4 border-l-4 border-rose-400 border border-amber-200">
+          <div key={idx} className="bg-slate-200 rounded-lg shadow p-4 border-l-4 border-rose-400 border border-slate-300">
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold text-xs">#{idx + 1}</span>
               <span className="text-xs uppercase font-bold text-gray-500">{TIPOS.find(t => t.id === p.tipo)?.label || p.tipo}</span>
