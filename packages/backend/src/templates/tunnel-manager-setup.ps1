@@ -42,13 +42,22 @@ foreach ($p in $pastas) {
 }
 
 # Se ja existir tunnels.json e tiver entradas, preserva
+# IMPORTANTE: PS 5.1 quebra arrays em pipeline com @(). Por isso parseio sem
+# @() e checo o tipo manualmente — se nao fizer, array de N vira array de 1
+# contendo o array, e ConvertTo-Json salva com 'value' e 'Count' bugados.
 $invFile = "$mgrDir\tunnels.json"
 if ((Test-Path $invFile) -and ((Get-Item $invFile).Length -gt 5)) {
     try {
-        $existing = @(Get-Content $invFile -Raw | ConvertFrom-Json)
-        if ($existing.Count -gt 0) {
-            Write-Host "  [INFO] tunnels.json existente preservado ($($existing.Count) tunel(eis))" -ForegroundColor Green
-            $tunnels = $existing
+        $raw = Get-Content $invFile -Raw
+        $parsed = $raw | ConvertFrom-Json
+        if ($null -ne $parsed) {
+            if ($parsed -isnot [array]) { $existing = @($parsed) } else { $existing = $parsed }
+            # Filtra so itens validos (name, key e forwards) — protege contra JSON corrompido
+            $existing = @($existing | Where-Object { $_.name -and $_.key -and $_.forwards })
+            if ($existing.Count -gt 0) {
+                Write-Host "  [INFO] tunnels.json existente preservado ($($existing.Count) tunel(eis))" -ForegroundColor Green
+                $tunnels = $existing
+            }
         }
     } catch {}
 }
@@ -56,8 +65,10 @@ if ((Test-Path $invFile) -and ((Get-Item $invFile).Length -gt 5)) {
 if ($tunnels.Count -eq 0) {
     Write-Host "  [AVISO] Nenhum tunel detectado. Crie tunnels.json manualmente depois." -ForegroundColor Yellow
 } else {
-    ConvertTo-Json @($tunnels) -Depth 5 | Out-File $invFile -Encoding UTF8 -Force
-    Write-Host "  [OK] Inventario salvo: $invFile ($($tunnels.Count) tunel(eis))" -ForegroundColor Green
+    # Salva sem @() em pipeline pra evitar wrap com 'value'/'Count'
+    $arr = if ($tunnels -is [array]) { $tunnels } else { @($tunnels) }
+    ConvertTo-Json $arr -Depth 5 | Out-File $invFile -Encoding UTF8 -Force
+    Write-Host "  [OK] Inventario salvo: $invFile ($($arr.Count) tunel(eis))" -ForegroundColor Green
 }
 
 # ---------------------------------------------------------------------------
