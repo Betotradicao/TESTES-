@@ -154,10 +154,31 @@ export class CreateRhBaseTables1784700500000 implements MigrationInterface {
       )
     `);
 
+    // rh_candidatos referenciada por CreateRhRecrutadorTables (FK)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS rh_candidatos (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NULL,
+        telefone VARCHAR(20) NULL,
+        cpf VARCHAR(14) NULL,
+        data_nascimento DATE NULL,
+        endereco TEXT NULL,
+        cidade VARCHAR(100) NULL,
+        estado VARCHAR(2) NULL,
+        cargo_pretendido VARCHAR(255) NULL,
+        status VARCHAR(30) DEFAULT 'novo',
+        observacoes TEXT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // Index util pra filtros por colaborador
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_documento_pastas_colab ON rh_documento_pastas(colaborador_id)`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_status ON rh_colaboradores(status)`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_cargo ON rh_colaboradores(cargo_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_candidatos_status ON rh_candidatos(status)`);
   }
 
   public async down(_queryRunner: QueryRunner): Promise<void> {
