@@ -9,8 +9,19 @@ main() {
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO 5.2: Atualizado Abr/2026
-#   NOVO:
+# VERSÃO 5.3: Atualizado Abr/2026
+#   NOVO (v5.3):
+#   - Modulo RH completo (Cadastro, Documentacao, ASO, DP, Lancamentos
+#     Folha, Indicadores, Pesquisa Clima, Recrutador IA, Banco Curriculos)
+#   - Setor (FK rh_colaboradores -> sectors), CLT/Aprendiz, EPIs/EPCs
+#   - Auto-Reconectar de tuneis: botao na tela Configuracoes de Tabelas
+#     baixa .bat que instala gerenciador 24/7 nas maquinas cliente
+#   - Tunnel-manager-setup.ps1 servido pelo backend (nao GitHub)
+#   - Reconhecimento Facial: endpoint /facial-logs (filtro SQL otimizado)
+#   - Migrations tolerantes a clientes legacy (dp_pastas int->uuid,
+#     no-op se rh_apontamento_campos nao existir)
+#   - Apontamentos aceitam HH:MM (ex: 1:20 -> 1.333)
+#   v5.2:
 #   - Check List no Radar (auditorias + alertas WhatsApp + PDF automatico)
 #   - Reconhecimento Facial via Vision 360
 #   - Garimpador multi-loja (Oracle + PostgreSQL)
@@ -31,7 +42,7 @@ echo "╔═══════════════════════�
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
-echo "║   VERSÃO: 5.1 (Abril 2026)                                 ║"
+echo "║   VERSÃO: 5.3 (Abril 2026)                                 ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
@@ -1147,11 +1158,17 @@ echo "════════════════════════�
 echo ""
 echo "1. Primeiro acesso: https://$CLIENT_SUBDOMAIN/first-setup"
 echo "2. Acessos seguintes: https://$CLIENT_SUBDOMAIN"
-echo "3. Configurar túnel SSH para Oracle (se necessário)"
-echo "4. Configurar DVR (se necessário)"
-echo "5. Configurar Evolution API WhatsApp em Config. REDE → APIs"
-echo "6. Cadastrar grupos WhatsApp em Config. REDE → Grupos WhatsApp"
-echo "7. Criar templates de auditoria em Check List → Cadastros → Templates"
+echo "3. Configurar túnel SSH para banco (Oracle/Postgres) na tela"
+echo "   Configurações de Tabelas → Instalador de Túnel"
+echo "4. Configurar DVR (se necessário) - Configurações de Rede → DVR/CFTV"
+echo "5. ⭐ Auto-Reconectar (Manter ON): Após instalar túneis, na tela"
+echo "   Configurações de Tabelas → Instalador de Túnel, clique no botão"
+echo "   verde 🛡️ Auto-Reconectar e rode o .bat na máquina cliente"
+echo "   UMA vez. Manager fica monitorando 24/7 e religa sozinho."
+echo "6. Configurar Evolution API WhatsApp em Config. REDE → APIs"
+echo "7. Cadastrar grupos WhatsApp em Config. REDE → Grupos WhatsApp"
+echo "8. Criar templates de auditoria em Check List → Cadastros → Templates"
+echo "9. Configurar RH: Cargos, Setores, Empresa, Benefícios em RH → Configurações"
 echo ""
 echo "📄 Credenciais salvas em: $CLIENT_DIR/INSTALACAO_INFO.txt"
 echo ""
