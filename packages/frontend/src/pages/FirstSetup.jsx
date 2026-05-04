@@ -123,30 +123,28 @@ export default function FirstSetup() {
   };
 
   const validateForm = () => {
-    // Validar Endereço
-    if (!formData.cep || !formData.rua || !formData.numero || !formData.bairro || !formData.cidade || !formData.estado) {
-      setError('Todos os campos de endereço são obrigatórios');
+    // Validar Empresa: APENAS Nome Fantasia obrigatorio
+    if (!formData.nomeFantasia) {
+      setError('Nome Fantasia é obrigatório');
       return false;
     }
 
-    const cleanCep = formData.cep.replace(/\D/g, '');
-    if (cleanCep.length !== 8) {
-      setError('CEP deve conter 8 dígitos');
-      return false;
+    // Se preencheu CEP, valida o formato
+    if (formData.cep) {
+      const cleanCep = formData.cep.replace(/\D/g, '');
+      if (cleanCep.length !== 8) {
+        setError('CEP deve conter 8 dígitos');
+        return false;
+      }
     }
 
-    // Validar Empresa
-    if (!formData.nomeFantasia || !formData.razaoSocial || !formData.cnpj) {
-      setError('Nome Fantasia, Razão Social e CNPJ são obrigatórios');
-      return false;
-    }
-
-    if (formData.cnpj.length !== 14) {
+    // Se preencheu CNPJ, valida o formato
+    if (formData.cnpj && formData.cnpj.length !== 14) {
       setError('CNPJ deve conter exatamente 14 dígitos');
       return false;
     }
 
-    // Validar Administrador
+    // Validar Administrador (todos obrigatorios)
     if (!formData.adminName || !formData.adminUsername || !formData.adminEmail || !formData.adminPassword) {
       setError('Dados do administrador são obrigatórios');
       return false;
@@ -313,7 +311,7 @@ export default function FirstSetup() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Razão Social *
+                    Razão Social
                   </label>
                   <input
                     type="text"
@@ -327,7 +325,7 @@ export default function FirstSetup() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CNPJ * (apenas números)
+                    CNPJ (apenas números)
                   </label>
                   <input
                     type="text"
@@ -420,7 +418,7 @@ export default function FirstSetup() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      CEP * (00000-000)
+                      CEP (00000-000)
                     </label>
                     <div className="relative">
                       <input
@@ -448,7 +446,7 @@ export default function FirstSetup() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rua *
+                      Rua
                     </label>
                     <input
                       type="text"
@@ -463,7 +461,7 @@ export default function FirstSetup() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número *
+                      Número
                     </label>
                     <input
                       type="text"
@@ -491,7 +489,7 @@ export default function FirstSetup() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Bairro *
+                      Bairro
                     </label>
                     <input
                       type="text"
@@ -506,7 +504,7 @@ export default function FirstSetup() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cidade *
+                      Cidade
                     </label>
                     <input
                       type="text"
@@ -521,7 +519,7 @@ export default function FirstSetup() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Estado * (UF)
+                      Estado (UF)
                     </label>
                     <input
                       type="text"

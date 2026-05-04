@@ -92,8 +92,10 @@ export class SetupController {
         return res.status(400).json({ error: 'Dados do administrador são obrigatórios' });
       }
 
-      if (!nomeFantasia || !razaoSocial || !cnpj) {
-        return res.status(400).json({ error: 'Dados da empresa são obrigatórios' });
+      // Apenas nomeFantasia e obrigatorio. Resto e opcional - cliente
+      // pode preencher depois em Configuracoes da Empresa.
+      if (!nomeFantasia) {
+        return res.status(400).json({ error: 'Nome Fantasia é obrigatório' });
       }
 
       // Email de recuperação é OPCIONAL - pode ser configurado depois
@@ -125,13 +127,14 @@ export class SetupController {
         return res.status(400).json({ error: 'Email já está em uso' });
       }
 
-      // Verificar se CNPJ já existe
+      // Verificar CNPJ so se preenchido (campo opcional)
       const companyRepository = AppDataSource.getRepository(Company);
-      const cnpjLimpo = cnpj.replace(/\D/g, '');
-      const existingCompany = await companyRepository.findOne({ where: { cnpj: cnpjLimpo } });
-
-      if (existingCompany) {
-        return res.status(400).json({ error: 'CNPJ já cadastrado' });
+      const cnpjLimpo = cnpj ? cnpj.replace(/\D/g, '') : null;
+      if (cnpjLimpo) {
+        const existingCompany = await companyRepository.findOne({ where: { cnpj: cnpjLimpo } });
+        if (existingCompany) {
+          return res.status(400).json({ error: 'CNPJ já cadastrado' });
+        }
       }
 
       // Criar empresa (cod_loja = '1' como loja principal)
