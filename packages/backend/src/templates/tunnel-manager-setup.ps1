@@ -198,13 +198,17 @@ function MatarTodosGerenciados {
 }
 
 function StartTunnel($t) {
-    # String unica em vez de array (evita bug Start-Process com Object[] no PS 5.1)
+    # CRITICO v5: usa "cmd /c start /B" pra criar processo VERDADEIRAMENTE
+    # detached. Outras abordagens (Start-Process Hidden, wscript+cmd /c)
+    # fazem ssh.exe morrer em ~30s porque herda handles/job-object da tarefa
+    # do Task Scheduler. "start /B" cria processo independente que sobrevive.
     $a = '-F "{0}" -i "{1}" -p 22 {2} root@46.202.150.64 -N ' -f $emptyConfig, $t.key, $t.forwards
     $a += '-o StrictHostKeyChecking=no -o IdentitiesOnly=yes '
     $a += '-o "UserKnownHostsFile={0}" -o "GlobalKnownHostsFile={0}" ' -f $knownHosts
     $a += '-o ServerAliveInterval=15 -o ServerAliveCountMax=4 '
     $a += '-o TCPKeepAlive=yes -o ExitOnForwardFailure=no'
-    Start-Process -FilePath $sshExe -ArgumentList $a -WindowStyle Hidden | Out-Null
+    $cmdArgs = "/c start /B `"`" `"$sshExe`" $a > nul 2>nul"
+    Start-Process cmd.exe -ArgumentList $cmdArgs -WindowStyle Hidden | Out-Null
     LogMgr "Iniciado tunel '$($t.name)'"
 }
 
