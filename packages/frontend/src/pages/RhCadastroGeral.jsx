@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
@@ -7,6 +8,7 @@ import RadarLoading from '../components/RadarLoading';
 
 export default function RhCadastroGeral() {
   const { user, logout } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Lista e paginacao
@@ -77,6 +79,8 @@ export default function RhCadastroGeral() {
   const [escalas, setEscalas] = useState([]);
   const [escalasDomingo, setEscalasDomingo] = useState([]);
   const [regimes, setRegimes] = useState([]);
+  const [tiposDesligamento, setTiposDesligamento] = useState([]);
+  const [motivosDesligamento, setMotivosDesligamento] = useState([]);
   const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
@@ -175,6 +179,8 @@ export default function RhCadastroGeral() {
     sector_id: '',
     data_admissao: '',
     data_desligamento: '',
+    tipo_desligamento_id: '',
+    motivo_desligamento_id: '',
     salario: '',
     status: 'ativo',
     // Documentos
@@ -222,9 +228,69 @@ export default function RhCadastroGeral() {
     carregarConfiguracoes();
   }, []);
 
+  // Pre-preencher cadastro vindo de Vagas (CONTRATAR)
+  useEffect(() => {
+    const curriculoId = searchParams.get('curriculo_id');
+    const vagaId = searchParams.get('vaga_id');
+    if (!curriculoId) return;
+    (async () => {
+      try {
+        const { data: cv } = await api.get(`/curriculos/${curriculoId}`);
+        if (!cv) return;
+        // Tenta puxar cargo da vaga
+        let cargoIdVaga = '';
+        let salarioVaga = '';
+        if (vagaId) {
+          try {
+            const { data: vagas } = await api.get('/rh/vagas');
+            const vaga = (vagas || []).find(v => String(v.id) === String(vagaId));
+            if (vaga) {
+              cargoIdVaga = vaga.cargo_id || '';
+              salarioVaga = vaga.salario_min || '';
+            }
+          } catch {}
+        }
+        setEditando(null);
+        setFormData(prev => ({
+          ...initialFormData,
+          nome: cv.nome || '',
+          cpf: cv.cpf || '',
+          rg: cv.rg || '',
+          data_nascimento: cv.data_nascimento?.split('T')[0] || '',
+          sexo: cv.sexo || '',
+          estado_civil: cv.estado_civil || '',
+          escolaridade_id: cv.escolaridade_id || '',
+          telefone: cv.telefone || '',
+          celular: cv.whatsapp || cv.celular || '',
+          email: cv.email || '',
+          cep: cv.cep || '',
+          endereco: cv.rua || cv.endereco || '',
+          numero: cv.numero || '',
+          complemento: cv.complemento || '',
+          bairro: cv.bairro || '',
+          cidade: cv.cidade || '',
+          estado: cv.estado || '',
+          foto_url: cv.foto_url || '',
+          cargo_id: cargoIdVaga,
+          salario: salarioVaga,
+          data_admissao: new Date().toISOString().split('T')[0],
+          status: 'ativo',
+        }));
+        setAbaAtiva('pessoais');
+        setModalAberto(true);
+        toast.success(`Pre-preenchido com dados de ${cv.nome} (curriculo N${cv.id})`);
+        // Limpa query params pra nao reabrir ao recarregar
+        setSearchParams({});
+      } catch (err) {
+        console.error('Erro ao pre-preencher:', err);
+        toast.error('Erro ao carregar curriculo');
+      }
+    })();
+  }, [searchParams]);
+
   const carregarConfiguracoes = async () => {
     try {
-      const [cargosRes, empRes, jorRes, escRes, escalasRes, escDomRes, regimesRes, beneficiosRes, setoresRes] = await Promise.all([
+      const [cargosRes, empRes, jorRes, escRes, escalasRes, escDomRes, regimesRes, beneficiosRes, setoresRes, tiposDesligRes, motivosDesligRes] = await Promise.all([
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/empresas/stores/list'),
         api.get('/rh/configuracoes/jornadas'),
@@ -233,7 +299,9 @@ export default function RhCadastroGeral() {
         api.get('/rh/configuracoes/escalas-domingo'),
         api.get('/rh/configuracoes/regimes-trabalho'),
         api.get('/rh/configuracoes/beneficios'),
-        api.get('/sectors')
+        api.get('/sectors'),
+        api.get('/rh/configuracoes/tipos-desligamento'),
+        api.get('/rh/configuracoes/motivos-desligamento')
       ]);
       setCargos(cargosRes.data?.cargos || cargosRes.data || []);
       const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.companies || []);
@@ -247,6 +315,10 @@ export default function RhCadastroGeral() {
       setBeneficiosDisponiveis(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
       const setoresData = Array.isArray(setoresRes.data) ? setoresRes.data : (setoresRes.data?.sectors || []);
       setSetores(setoresData);
+      const tdData = tiposDesligRes.data?.tipos_desligamento || tiposDesligRes.data?.tipos || tiposDesligRes.data || [];
+      setTiposDesligamento(Array.isArray(tdData) ? tdData.filter(t => t.ativo !== false) : []);
+      const mdData = motivosDesligRes.data?.motivos_desligamento || motivosDesligRes.data?.motivos || motivosDesligRes.data || [];
+      setMotivosDesligamento(Array.isArray(mdData) ? mdData.filter(m => m.ativo !== false) : []);
     } catch (error) {
       console.error('Erro ao carregar configuracoes:', error);
     }
@@ -323,6 +395,8 @@ export default function RhCadastroGeral() {
         sector_id: colaborador.sector_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
         data_desligamento: colaborador.data_desligamento?.split('T')[0] || '',
+        tipo_desligamento_id: colaborador.tipo_desligamento_id || '',
+        motivo_desligamento_id: colaborador.motivo_desligamento_id || '',
         salario: colaborador.salario || '',
         status: colaborador.status || 'ativo',
         ctps: colaborador.ctps || '',
@@ -358,9 +432,19 @@ export default function RhCadastroGeral() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.status === 'desligado' && !formData.data_desligamento) {
-      toast.error('Informe a data de desligamento');
-      return;
+    if (formData.status === 'desligado') {
+      if (!formData.data_desligamento) {
+        toast.error('Informe a data de desligamento');
+        return;
+      }
+      if (!formData.tipo_desligamento_id) {
+        toast.error('Selecione o tipo de desligamento');
+        return;
+      }
+      if (!formData.motivo_desligamento_id) {
+        toast.error('Selecione o motivo de desligamento');
+        return;
+      }
     }
     try {
       setSalvando(true);
@@ -414,9 +498,11 @@ export default function RhCadastroGeral() {
       if (field === 'status' && value === 'desligado' && !prev.data_desligamento) {
         novo.data_desligamento = new Date().toISOString().split('T')[0];
       }
-      // Quando volta pra ativo, limpa a data
+      // Quando volta pra ativo, limpa data/tipo/motivo de desligamento
       if (field === 'status' && value === 'ativo') {
         novo.data_desligamento = '';
+        novo.tipo_desligamento_id = '';
+        novo.motivo_desligamento_id = '';
       }
       return novo;
     });
@@ -907,6 +993,38 @@ export default function RhCadastroGeral() {
                             max={new Date().toISOString().split('T')[0]}
                             onChange={(e) => handleChange('data_desligamento', e.target.value)}
                           />
+                        </div>
+                      )}
+                      {formData.status === 'desligado' && (
+                        <div className="md:col-span-2">
+                          <label className={labelClass + ' text-red-700'}>Tipo de Desligamento *</label>
+                          <select
+                            required
+                            className={selectClass + ' border-red-300 focus:ring-red-500 focus:border-red-500'}
+                            value={formData.tipo_desligamento_id}
+                            onChange={(e) => handleChange('tipo_desligamento_id', e.target.value)}
+                          >
+                            <option value="">Selecione...</option>
+                            {tiposDesligamento.map(t => (
+                              <option key={t.id} value={t.id}>{t.nome}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {formData.status === 'desligado' && (
+                        <div className="md:col-span-2">
+                          <label className={labelClass + ' text-red-700'}>Motivo de Desligamento *</label>
+                          <select
+                            required
+                            className={selectClass + ' border-red-300 focus:ring-red-500 focus:border-red-500'}
+                            value={formData.motivo_desligamento_id}
+                            onChange={(e) => handleChange('motivo_desligamento_id', e.target.value)}
+                          >
+                            <option value="">Selecione...</option>
+                            {motivosDesligamento.map(m => (
+                              <option key={m.id} value={m.id}>{m.nome}</option>
+                            ))}
+                          </select>
                         </div>
                       )}
                     </div>

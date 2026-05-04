@@ -129,7 +129,9 @@ const SECTIONS = [
         { id: 'vision-operacoes-risco', name: 'Operações de Risco PDV' },
         { id: 'vision-palavra-chave-2', name: 'Vision Palavra Chave' },
       ]},
-      // { id: 'vision-facial', ... }, // desativado
+      { id: 'vision-facial', name: 'Vision Facial', icon: '👤', subs: [
+        { id: 'vision-facial-identificados', name: 'Identificados em Loja' },
+      ]},
       { id: 'vision-bipagens', name: 'Vision Bipagens', icon: '📡', subs: [
         { id: 'bipagens-ao-vivo', name: 'Bipagens' },
         { id: 'bipagens-resultados', name: 'Resultados do Dia' },
@@ -201,7 +203,6 @@ const SECTIONS = [
       { id: 'rh-recrutamento', name: 'Recrutamento', icon: '💼', subs: [
         { id: 'rh-vagas', name: 'Vagas Abertas' },
         { id: 'rh-candidatos', name: 'Candidatos' },
-        { id: 'rh-processo-seletivo', name: 'Processo Seletivo' },
         { id: 'rh-metodo-disc', name: 'Método DISC' },
       ]},
       { id: 'rh-treinamentos', name: 'Treinamentos', icon: '📚', subs: [
@@ -242,6 +243,7 @@ export default function ModulosTab() {
   const [modules, setModules] = useState(() =>
     ALL_MODULES.map(m => ({ ...m, active: true }))
   );
+  const [visibilityMode, setVisibilityMode] = useState('disabled'); // 'disabled' | 'hidden'
   const [success, setSuccess] = useState(null);
 
   // Carregar configuração salva do localStorage e migrar dados antigos
@@ -267,7 +269,21 @@ export default function ModulosTab() {
       const defaults = ALL_MODULES.map(m => ({ ...m, active: true }));
       localStorage.setItem('modules_config', JSON.stringify(defaults));
     }
+    const savedMode = localStorage.getItem('modules_visibility_mode');
+    if (savedMode === 'disabled' || savedMode === 'hidden') {
+      setVisibilityMode(savedMode);
+    }
   }, []);
+
+  const handleVisibilityModeChange = (mode) => {
+    setVisibilityMode(mode);
+    localStorage.setItem('modules_visibility_mode', mode);
+    window.dispatchEvent(new Event('storage'));
+    setSuccess(mode === 'hidden'
+      ? 'Modo TOTALMENTE INVISIVEL ativado - modulos inativos serao removidos do menu'
+      : 'Modo INVISIVEL (visualizacao desabilitada) ativado - modulos inativos aparecem mas nao sao clicaveis');
+    setTimeout(() => setSuccess(null), 3500);
+  };
 
   const saveAndNotify = (updated) => {
     setModules(updated);
@@ -317,6 +333,39 @@ export default function ModulosTab() {
           <p className="text-sm text-gray-600 mt-1">
             Ative ou desative módulos e seções inteiras. Módulos desativados ficarão inacessíveis no menu lateral.
           </p>
+        </div>
+
+        {/* Modo de visibilidade */}
+        <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+          <h3 className="font-bold text-sm text-blue-900 mb-2">Como exibir módulos desativados no menu?</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <label className={`flex items-start gap-2 p-3 rounded-lg cursor-pointer border-2 transition ${visibilityMode === 'disabled' ? 'border-blue-500 bg-blue-100' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <input
+                type="radio"
+                name="visibility-mode"
+                checked={visibilityMode === 'disabled'}
+                onChange={() => handleVisibilityModeChange('disabled')}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-bold text-sm text-gray-800">INVISIVEL</div>
+                <p className="text-xs text-gray-600">Modulos desativados aparecem no menu (transparentes) mas nao sao clicaveis.</p>
+              </div>
+            </label>
+            <label className={`flex items-start gap-2 p-3 rounded-lg cursor-pointer border-2 transition ${visibilityMode === 'hidden' ? 'border-blue-500 bg-blue-100' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <input
+                type="radio"
+                name="visibility-mode"
+                checked={visibilityMode === 'hidden'}
+                onChange={() => handleVisibilityModeChange('hidden')}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-bold text-sm text-gray-800">TOTALMENTE INVISIVEL</div>
+                <p className="text-xs text-gray-600">Modulos desativados sao removidos completamente do menu. So aparece o que esta ativo.</p>
+              </div>
+            </label>
+          </div>
         </div>
 
         {success && (

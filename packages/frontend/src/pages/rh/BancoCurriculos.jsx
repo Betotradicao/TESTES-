@@ -57,6 +57,7 @@ export default function BancoCurriculos() {
 
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [emProcesso, setEmProcesso] = useState({}); // { curriculo_id: { vaga_titulo, etapa } }
 
   const [filtros, setFiltros] = useState({
     cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '',
@@ -96,10 +97,44 @@ export default function BancoCurriculos() {
         setCargos((c.data?.cargos || []).filter(x => x.ativo));
         setHabilidades((h.data?.habilidades || []).filter(x => x.ativo));
       } catch {}
+      // Mapeia candidatos em processo (vagas com selecionados)
+      try {
+        const { data: vagas } = await api.get('/rh/vagas');
+        const mapa = {};
+        (vagas || []).forEach(v => {
+          if (Array.isArray(v.selecionados)) {
+            v.selecionados.forEach(s => {
+              if (s.contratado) return; // ignora ja contratado
+              mapa[s.curriculo_id] = {
+                vaga_id: v.id,
+                vaga_titulo: v.titulo || v.cargo_nome || `Vaga #${v.id}`,
+                etapa: s.pos_entrevista || s.resultado_entrevista || s.entrevista || 'selecionado',
+              };
+            });
+          }
+        });
+        setEmProcesso(mapa);
+      } catch {}
     })();
     carregar();
     // eslint-disable-next-line
   }, []);
+
+  // Mapa de etapa -> label amigavel pra badge
+  const etapaLabel = (e) => ({
+    selecionado: 'Selecionado',
+    agendada: 'Entrevista agendada',
+    realizada: 'Entrevista realizada',
+    passou: 'Passou na entrevista',
+    aguarda_decisao: 'Aguarda decisao',
+    nao_compareceu: 'Nao compareceu',
+    reprovado: 'Reprovado',
+    desistiu: 'Desistiu',
+    aguarda_agendar_exames: 'Agendar exames',
+    aguarda_resultado_exames: 'Aguarda exames',
+    aprovado_exames: 'Aprovado nos exames',
+    reprovado_exames: 'Reprovado nos exames',
+  }[e] || e);
 
   const fmtData = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -213,6 +248,7 @@ export default function BancoCurriculos() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-600 text-white text-xs uppercase">
                     <tr>
+                      <th className="px-2 py-1.5 text-left font-semibold">Nº</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Candidato</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Status</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Vaga</th>
@@ -235,6 +271,12 @@ export default function BancoCurriculos() {
                       return (
                         <tr key={cv.id} onClick={() => setSelecionado(cv)}
                           className="hover:bg-rose-50/40 cursor-pointer transition">
+                          {/* Numero (ID do candidato) */}
+                          <td className="px-2 py-1.5 whitespace-nowrap">
+                            <span className="font-mono text-xs font-bold text-gray-600 bg-gray-100 border border-gray-200 rounded px-2 py-0.5">
+                              {cv.id}
+                            </span>
+                          </td>
                           {/* Candidato (foto + nome) */}
                           <td className="px-2 py-1.5">
                             <div className="flex items-center gap-3">
@@ -245,7 +287,17 @@ export default function BancoCurriculos() {
                                   {cv.nome?.charAt(0).toUpperCase() || '?'}
                                 </div>
                               )}
-                              <span className="font-bold text-gray-800 whitespace-nowrap">{cv.nome}</span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-gray-800 whitespace-nowrap">{cv.nome}</span>
+                                {emProcesso[cv.id] && (
+                                  <span
+                                    title={`Em processo seletivo: ${emProcesso[cv.id].vaga_titulo}`}
+                                    className="inline-flex items-center gap-1 mt-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300 font-bold whitespace-nowrap w-fit"
+                                  >
+                                    🎯 {emProcesso[cv.id].vaga_titulo} · {etapaLabel(emProcesso[cv.id].etapa)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           {/* Status */}

@@ -73,6 +73,9 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     localStorage.setItem('sidebar_expanded_items', JSON.stringify(expandedItems));
   }, [expandedItems]);
 
+  // Modo de visibilidade dos modulos: 'disabled' (mostra desabilitado) | 'hidden' (esconde)
+  const [visibilityMode, setVisibilityMode] = useState('disabled');
+
   // Carregar configuração de módulos do localStorage
   useEffect(() => {
     const loadModulesConfig = () => {
@@ -83,6 +86,10 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         } catch (err) {
           console.error('Erro ao carregar módulos:', err);
         }
+      }
+      const savedMode = localStorage.getItem('modules_visibility_mode');
+      if (savedMode === 'disabled' || savedMode === 'hidden') {
+        setVisibilityMode(savedMode);
       }
     };
 
@@ -723,7 +730,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
         },
         {
           id: 'vision-facial',
-          moduleId: 'facial',
+          moduleId: 'vision-facial',
           title: 'VISION FACIAL',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -736,8 +743,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           ]
         },
         {
-          id: 'bipagens',
-          moduleId: 'bipagens',
+          id: 'vision-bipagens',
+          moduleId: 'vision-bipagens',
           title: 'VISION BIPAGENS',
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1006,7 +1013,6 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'rh-recrutador-ia', submenuId: 'rh-recrutador-ia', title: '👩‍💼 RECRUTADOR(A) INTELIGENTE', path: '/rh/recrutador/vagas' },
             { id: 'rh-vagas', submenuId: 'rh-vagas', title: 'VAGAS ABERTAS', path: '/rh/vagas' },
-            { id: 'rh-processo', submenuId: 'rh-processo-seletivo', title: 'PROCESSO SELETIVO', path: '/rh/processo-seletivo' },
             { id: 'rh-metodo-disc', submenuId: 'rh-metodo-disc', title: 'MÉTODO DISC', path: '/rh/metodo-disc' },
             { id: 'rh-curriculo-modelo', submenuId: 'rh-curriculo-modelo', title: 'MODELO DE CURRÍCULO', path: '/rh/curriculos/modelo' },
             { id: 'rh-curriculo-banco', submenuId: 'rh-curriculo-banco', title: 'BANCO DE CURRÍCULOS', path: '/rh/curriculos/banco' },
@@ -1201,7 +1207,40 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
       {/* Menu Items */}
       <div className="flex-1 overflow-y-auto py-4">
-        {menuItems.filter((item) => {
+        {(() => {
+          // Em modo TOTALMENTE INVISIVEL: se a seção pai tiver todos os items primarios inativos
+          // mas tiver nestedSections com items ativos, promove as nestedSections pra top-level
+          if (visibilityMode !== 'hidden') return menuItems;
+          return menuItems.flatMap(item => {
+            if (!item.items || item.items.length === 0) return [item];
+            const nestedSections = item.items.filter(i => i.nestedSection);
+            if (nestedSections.length === 0) return [item];
+            const primaryItems = item.items.filter(i => !i.nestedSection);
+            const allPrimaryInactive = primaryItems.length === 0 || primaryItems.every(s => {
+              const k = s.moduleId || s.id;
+              return k && !isModuleActive(k);
+            });
+            const itemKey = item.moduleId || item.id;
+            const itemActive = itemKey ? isModuleActive(itemKey) : true;
+            if (!itemActive || allPrimaryInactive) {
+              // Promove nested sections como top-level (so as que tem item ativo)
+              return nestedSections
+                .filter(ns => (ns.items || []).some(ni => {
+                  const k = ni.moduleId || ni.id;
+                  return !k || isModuleActive(k);
+                }))
+                .map(ns => ({
+                  id: ns.id,
+                  title: ns.title,
+                  titleComponent: ns.titleComponent,
+                  icon: ns.icon,
+                  expandable: true,
+                  items: ns.items,
+                }));
+            }
+            return [item];
+          });
+        })().filter((item) => {
           // Hide Configurações for employees
           if (item.id === 'configuracoes' && user?.type === 'employee') {
             return false;
@@ -1215,14 +1254,46 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             return false;
           }
 
+          // Modo TOTALMENTE INVISIVEL: esconde modulo se estiver inativo
+          if (visibilityMode === 'hidden') {
+            // Configuracoes sempre visivel
+            if (item.id === 'configuracoes' || item.id === 'configuracoes-rede' || item.id === 'configuracoes-tabelas') return true;
+            const itemKey = item.moduleId || item.id;
+            const itemAtivo = itemKey ? isModuleActive(itemKey) : true;
+            // Recursivo: trata nestedSection percorrendo seus items
+            const isItemInactive = (it) => {
+              if (it.nestedSection && it.items && it.items.length > 0) {
+                return it.items.every(isItemInactive);
+              }
+              const k = it.moduleId || it.id;
+              return k && !isModuleActive(k);
+            };
+            const allInactive = item.items && item.items.length > 0 && item.items.every(isItemInactive);
+            if (!itemAtivo || allInactive) return false;
+          }
+
           return true;
         }).map((item) => {
           // Se a seção tem items, verificar se TODOS estão inativos para desabilitar seção inteira
-          const allItemsInactive = item.items && item.items.length > 0 && item.items.every(subItem => subItem.moduleId && !isModuleActive(subItem.moduleId));
-          const moduleActive = item.moduleId ? isModuleActive(item.moduleId) : !allItemsInactive;
+          const isItemInactiveDeep = (it) => {
+            if (it.nestedSection && it.items && it.items.length > 0) {
+              return it.items.every(isItemInactiveDeep);
+            }
+            const k = it.moduleId || it.id;
+            return k && !isModuleActive(k);
+          };
+          const allItemsInactive = item.items && item.items.length > 0 && item.items.every(isItemInactiveDeep);
+          const itemKey = item.moduleId || item.id;
+          const itemActiveByKey = itemKey ? isModuleActive(itemKey) : true;
+          const moduleActive = itemActiveByKey && !allItemsInactive;
 
           // Filtrar items baseado em permissões de módulo do colaborador
           const filteredItems = item.items ? item.items.filter(subitem => {
+            // Modo TOTALMENTE INVISIVEL: oculta subitens inativos
+            if (visibilityMode === 'hidden') {
+              const k = subitem.moduleId || subitem.id;
+              if (k && !isModuleActive(k)) return false;
+            }
             // Verificar permissão do módulo para employees
             if (user?.type === 'employee' && subitem.moduleId) {
               return hasPermission(subitem.moduleId);
@@ -1307,9 +1378,16 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                   // ==========================================================================
                   if (subItem.nestedSection) {
                     const nestedItems = (subItem.items || []).filter(ni => {
+                      // Modo TOTALMENTE INVISIVEL: oculta items inativos
+                      if (visibilityMode === 'hidden') {
+                        const k = ni.moduleId || ni.id;
+                        if (k && !isModuleActive(k)) return false;
+                      }
                       if (user?.type === 'employee' && ni.moduleId) return hasPermission(ni.moduleId);
                       return true;
                     });
+                    // Se em hidden mode e nao sobrou item ativo, esconde a nested section
+                    if (visibilityMode === 'hidden' && nestedItems.length === 0) return null;
                     const isOpen = expandedItems[subItem.id];
                     return (
                       <div key={index} className="my-1">
