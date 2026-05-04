@@ -42,19 +42,8 @@ export class CreateRhMissingTables1784700700000 implements MigrationInterface {
       )
     `);
 
-    // rh_documentos — anexos por colaborador/subpasta
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS rh_documentos (
-        id SERIAL PRIMARY KEY,
-        colaborador_id INT NULL,
-        subpasta_id INT NULL,
-        nome VARCHAR(255) NOT NULL,
-        url TEXT NULL,
-        tipo VARCHAR(50) NULL,
-        tamanho INT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
+    // rh_documentos NAO criada aqui — CreateRhDocumentacaoTables (1784702000000)
+    // tem schema proprio (pasta_id, arquivo_url, etc).
 
     // rh_dependentes
     await queryRunner.query(`

@@ -141,18 +141,8 @@ export class CreateRhBaseTables1784700500000 implements MigrationInterface {
       )
     `);
 
-    // Tabela de pastas de documentos por colaborador. Migration 1784702100000
-    // adiciona coluna ordem.
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS rh_documento_pastas (
-        id SERIAL PRIMARY KEY,
-        colaborador_id INT NULL,
-        nome VARCHAR(255) NOT NULL,
-        obrigatoria BOOLEAN DEFAULT FALSE,
-        ativo BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
+    // rh_documento_pastas NAO criada aqui — CreateRhDocumentacaoTables
+    // (1784702000000) tem schema proprio (FK + UNIQUE).
 
     // rh_candidatos referenciada por CreateRhRecrutadorTables (FK)
     await queryRunner.query(`
@@ -174,8 +164,7 @@ export class CreateRhBaseTables1784700500000 implements MigrationInterface {
       )
     `);
 
-    // Index util pra filtros por colaborador
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_documento_pastas_colab ON rh_documento_pastas(colaborador_id)`);
+    // Index util pra filtros
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_status ON rh_colaboradores(status)`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_colaboradores_cargo ON rh_colaboradores(cargo_id)`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rh_candidatos_status ON rh_candidatos(status)`);
