@@ -8,11 +8,11 @@ export class Company {
   @Column({ name: 'nome_fantasia' })
   nomeFantasia: string;
 
-  @Column({ name: 'razao_social' })
-  razaoSocial: string;
+  @Column({ name: 'razao_social', nullable: true })
+  razaoSocial?: string;
 
-  @Column()
-  cnpj: string;
+  @Column({ nullable: true })
+  cnpj?: string;
 
   @Column({ nullable: true })
   identificador?: string;
