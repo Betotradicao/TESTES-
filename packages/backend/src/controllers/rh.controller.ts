@@ -130,7 +130,7 @@ export class RhController {
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
         matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
-        sector_id,
+        sector_id, departamento_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -166,7 +166,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           tipo_desligamento_id, motivo_desligamento_id, observacoes_desligamento,
-          company_id, escala_id, escala_domingo_id, beneficios_ids, sector_id
+          company_id, escala_id, escala_domingo_id, beneficios_ids, sector_id, departamento_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
           $9, $10, $11, $12,
@@ -179,7 +179,7 @@ export class RhController {
           $44, $45,
           $46, $47, $48, $49, $50,
           $51, $52, $53,
-          $54, $55, $56, $57, $58
+          $54, $55, $56, $57, $58, $59
         ) RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
@@ -193,7 +193,7 @@ export class RhController {
           nome_mae, nome_pai,
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
-          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [], nnum(sector_id),
+          nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [], nnum(sector_id), nnum(departamento_id),
         ]
       );
 
@@ -215,7 +215,7 @@ export class RhController {
         telefone, celular, email, email_pessoal,
         cep, endereco, numero, complemento, bairro, cidade, estado,
         matricula, cargo_id, empresa_id, company_id, jornada_id, escala_id, escala_domingo_id, escolaridade_id, regime_trabalho_id,
-        sector_id,
+        sector_id, departamento_id,
         data_admissao, data_desligamento, salario, status,
         vale_transporte, vale_refeicao, valor_vale_refeicao, plano_saude,
         banco, agencia, conta, tipo_conta, pix,
@@ -266,8 +266,9 @@ export class RhController {
           tipo_desligamento_id = $51, motivo_desligamento_id = $52, observacoes_desligamento = $53,
           company_id = $54, escala_id = $55, escala_domingo_id = $56, beneficios_ids = $57,
           sector_id = $58,
+          departamento_id = $59,
           updated_at = NOW()
-        WHERE id = $59
+        WHERE id = $60
         RETURNING *`,
         [
           nome, cpf, rg, nn(data_nascimento), sexo, estado_civil, nacionalidade, naturalidade,
@@ -282,7 +283,7 @@ export class RhController {
           observacoes, filtro1, filtro2, filtro3, foto_url,
           nnum(tipo_desligamento_id), nnum(motivo_desligamento_id), observacoes_desligamento,
           nn(company_id), nnum(escala_id), nnum(escala_domingo_id), Array.isArray(beneficios_ids) ? beneficios_ids : [],
-          nnum(sector_id),
+          nnum(sector_id), nnum(departamento_id),
           id,
         ]
       );

@@ -8,6 +8,7 @@ import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
 import PreventionTab from '../components/configuracoes/PreventionTab';
 import HolidaysTab from '../components/configuracoes/HolidaysTab';
+import LgpdTab from '../components/configuracoes/LgpdTab';
 
 export default function Configuracoes() {
   const { user, logout } = useAuth();
@@ -20,7 +21,7 @@ export default function Configuracoes() {
       window.location.replace('/ativar-produtos');
       return 'empresa';
     }
-    return t || 'empresa';
+    return t || 'lgpd';
   });
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function Configuracoes() {
       window.location.replace('/ativar-produtos');
       return;
     }
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'holidays')) {
+    if (tabFromUrl && (tabFromUrl === 'lgpd' || tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'holidays')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -90,6 +91,7 @@ export default function Configuracoes() {
           <TabsNavigation activeTab={activeTab} onChange={handleTabChange} />
 
           <div className="mt-6">
+            {activeTab === 'lgpd' && <LgpdTab />}
             {activeTab === 'empresa' && <EmpresaConfigTab />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}

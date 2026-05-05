@@ -264,7 +264,7 @@ function GraficosGeral({ colaboradores }) {
   // Setores
   const setores = {};
   ativos.forEach(c => {
-    const k = c.setor_nome || 'Sem setor';
+    const k = c.setor_departamento_nome || c.setor_nome || 'Sem setor';
     setores[k] = (setores[k] || 0) + 1;
   });
 
@@ -326,12 +326,12 @@ function GraficosGeral({ colaboradores }) {
       <BlocoBarras titulo="Faixa Etária" dados={faixas} cor="bg-purple-500"
         ordem={['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+']} />
       <BlocoBarras titulo="Distribuição por Setor" dados={setores} cor="bg-amber-500" />
-      <div className="bg-white rounded-lg border shadow-sm p-5">
+      <div className="bg-white rounded-lg border shadow-sm p-5 flex flex-col">
         <h3 className="font-bold text-gray-800 text-base mb-3">🏆 Cargos ({topCargos.length})</h3>
         {topCargos.length === 0 ? (
           <div className="text-center text-gray-400 py-8 text-sm">Sem dados</div>
         ) : (
-          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+          <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
             {topCargos.map(([cargo, qtd], i) => (
               <div key={cargo} className="flex items-center gap-3 text-sm">
                 <span className="w-8 text-right font-bold text-gray-400 text-base">#{i + 1}</span>
@@ -788,7 +788,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
         ['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+'], true);
       gerarTabelaMensal('TEMPO DE EMPRESA', (c, ano, mes) => faixaTempo(c, ano, mes),
         ['< 6 meses', '6-12 meses', '1-2 anos', '2-3 anos', '3-5 anos', '5-10 anos', '10+ anos'], true);
-      gerarTabelaMensal('POR SETOR', c => c.setor_nome || 'Sem setor', null, false);
+      gerarTabelaMensal('POR SETOR', c => c.setor_departamento_nome || c.setor_nome || 'Sem setor', null, false);
       gerarTabelaMensal('TIPO DE CARGO',
         c => PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '') ? 'Estratégico' : 'Operacional',
         ['Operacional', 'Estratégico'], false);
@@ -883,7 +883,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           titulo="POR SETOR"
           colaboradores={colaboradoresFiltrados}
           ano={ano} mesLimite={mesAtual}
-          classificar={c => c.setor_nome || 'Sem setor'}
+          classificar={c => c.setor_departamento_nome || c.setor_nome || 'Sem setor'}
           ordemFaixas={null}
         />
         <TabelaMensal

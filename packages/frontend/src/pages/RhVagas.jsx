@@ -54,6 +54,7 @@ export default function RhVagas() {
   const [vagas, setVagas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cargos, setCargos] = useState([]);
+  const [sugestoesSalarios, setSugestoesSalarios] = useState({}); // { cargo_id: salario_medio }
   const [departamentos, setDepartamentos] = useState([]);
   const [beneficiosCatalogo, setBeneficiosCatalogo] = useState([]);
 
@@ -68,6 +69,7 @@ export default function RhVagas() {
   const [buscandoCurriculo, setBuscandoCurriculo] = useState(false);
   const [curriculoVisualizar, setCurriculoVisualizar] = useState(null);
   const [carregandoCurriculo, setCarregandoCurriculo] = useState(false);
+  const [expandedVagaId, setExpandedVagaId] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -76,17 +78,21 @@ export default function RhVagas() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [vagasRes, cargosRes, deptRes, benRes] = await Promise.all([
+      const [vagasRes, cargosRes, deptRes, benRes, sugRes] = await Promise.all([
         api.get('/rh/vagas'),
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/configuracoes/departamentos'),
         api.get('/rh/configuracoes/beneficios'),
+        api.get('/rh/configuracoes/cargos/sugestao-salarios').catch(() => ({ data: [] })),
       ]);
       setVagas(vagasRes.data || []);
       setCargos(cargosRes.data || []);
       setDepartamentos(deptRes.data || []);
       const benData = benRes.data?.beneficios || benRes.data || [];
       setBeneficiosCatalogo(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
+      const sugMap = {};
+      (sugRes.data || []).forEach(s => { sugMap[s.cargo_id] = s.salario_medio; });
+      setSugestoesSalarios(sugMap);
     } catch (err) {
       toast.error('Erro ao carregar vagas');
       console.error(err);
@@ -108,13 +114,25 @@ export default function RhVagas() {
   const abrirModal = (vaga = null) => {
     if (vaga) {
       setEditando(vaga);
+      // Se a vaga nao tem salario salvo, puxa do cargo cadastrado em Configuracoes RH
+      // Fallback: usa sugestao (media dos colaboradores ativos no cargo)
+      let salarioInicial = vaga.salario_min;
+      const temSalario = salarioInicial != null && salarioInicial !== '' && Number(salarioInicial) > 0;
+      if (!temSalario && vaga.cargo_id) {
+        const cargoSel = cargos.find(c => String(c.id) === String(vaga.cargo_id));
+        if (cargoSel && cargoSel.salario_base != null && Number(cargoSel.salario_base) > 0) {
+          salarioInicial = String(cargoSel.salario_base);
+        } else if (sugestoesSalarios[Number(vaga.cargo_id)] != null) {
+          salarioInicial = String(sugestoesSalarios[Number(vaga.cargo_id)]);
+        }
+      }
       setFormData({
         titulo: vaga.titulo || '',
         cargo_id: vaga.cargo_id || '',
         departamento_id: vaga.departamento_id || '',
         descricao: vaga.descricao || '',
         quantidade_vagas: vaga.quantidade_vagas || 1,
-        salario_min: vaga.salario_min || '',
+        salario_min: salarioInicial || '',
         salario_max: vaga.salario_max || '',
         data_abertura: vaga.data_abertura ? vaga.data_abertura.substring(0, 10) : '',
         status: vaga.status || 'Aberta',
@@ -137,22 +155,30 @@ export default function RhVagas() {
       toast.error('Informe o numero do curriculo');
       return;
     }
-    if (formData.selecionados.some(s => Number(s.curriculo_id) === idNum)) {
+    const lista = Array.isArray(formData.selecionados) ? formData.selecionados : [];
+    if (lista.some(s => Number(s.curriculo_id) === idNum)) {
       toast.error('Esse candidato ja esta na lista');
       return;
     }
     try {
       setBuscandoCurriculo(true);
-      const { data } = await api.get(`/curriculos/${idNum}`);
+      const resp = await api.get(`/curriculos/${idNum}`);
+      const data = resp?.data?.curriculo || resp?.data;
       if (!data || !data.id) {
         toast.error('Curriculo nao encontrado');
         return;
       }
-      setFormData(prev => ({ ...prev, selecionados: [...prev.selecionados, novoSelecionado(data)] }));
+      setFormData(prev => ({
+        ...prev,
+        selecionados: [...(Array.isArray(prev.selecionados) ? prev.selecionados : []), novoSelecionado(data)]
+      }));
       setBuscaCurriculoId('');
       toast.success(`${data.nome} adicionado`);
     } catch (err) {
-      toast.error(err.response?.status === 404 ? 'Curriculo nao encontrado' : 'Erro ao buscar curriculo');
+      const status = err?.response?.status;
+      if (status === 404) toast.error('Curriculo nao encontrado');
+      else if (status === 401 || status === 403) toast.error('Sem permissao pra ver curriculos');
+      else toast.error(`Erro ao buscar curriculo${status ? ' (' + status + ')' : ''}: ${err?.message || ''}`);
     } finally {
       setBuscandoCurriculo(false);
     }
@@ -198,7 +224,23 @@ export default function RhVagas() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const novo = { ...prev, [name]: value };
+      // Quando muda o cargo, puxa o salario base cadastrado em Configuracoes RH > Cargos
+      // Fallback: se nao tem salario_base salvo, usa a sugestao (media dos colaboradores ativos)
+      if (name === 'cargo_id') {
+        const cargoSel = cargos.find(c => String(c.id) === String(value));
+        const sb = cargoSel?.salario_base;
+        let valorAuto = '';
+        if (sb != null && sb !== '' && Number(sb) > 0) {
+          valorAuto = String(sb);
+        } else if (value && sugestoesSalarios[Number(value)] != null) {
+          valorAuto = String(sugestoesSalarios[Number(value)]);
+        }
+        novo.salario_min = valorAuto;
+      }
+      return novo;
+    });
   };
 
   const handleSalvar = async () => {
@@ -311,6 +353,7 @@ export default function RhVagas() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8"></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Titulo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
@@ -323,43 +366,151 @@ export default function RhVagas() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {vagas.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         Nenhuma vaga cadastrada
                       </td>
                     </tr>
                   ) : (
-                    vagas.map((v) => (
-                      <tr key={v.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{v.titulo}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{v.cargo_nome || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{v.departamento_nome || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {v.salario_min ? formatCurrency(v.salario_min) : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[v.status] || 'bg-gray-100 text-gray-800'}`}>
-                            {v.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(v.data_abertura)}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => abrirModal(v)}
-                              className="text-orange-600 hover:text-orange-800 text-base font-semibold"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleExcluir(v.id)}
-                              className="text-red-600 hover:text-red-800 text-base font-semibold"
-                            >
-                              Excluir
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    vagas.flatMap((v) => {
+                      const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
+                      const isExpanded = expandedVagaId === v.id;
+                      const podeExpandir = sels.length > 0;
+                      const rows = [];
+                      rows.push(
+                        <tr key={v.id} className="hover:bg-gray-50">
+                          <td className="px-2 py-3 text-center">
+                            {podeExpandir && (
+                              <button
+                                onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                title={isExpanded ? 'Recolher' : 'Expandir candidatos'}
+                                className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold text-base"
+                              >
+                                {isExpanded ? '−' : '+'}
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {v.titulo}
+                            {sels.length > 0 && (
+                              <span className="ml-2 inline-block text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold">
+                                {sels.length} candidato{sels.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{v.cargo_nome || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{v.departamento_nome || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {v.salario_min ? formatCurrency(v.salario_min) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[v.status] || 'bg-gray-100 text-gray-800'}`}>
+                              {v.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(v.data_abertura)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => abrirModal(v)}
+                                className="text-orange-600 hover:text-orange-800 text-base font-semibold"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleExcluir(v.id)}
+                                className="text-red-600 hover:text-red-800 text-base font-semibold"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                      if (isExpanded && podeExpandir) {
+                        rows.push(
+                          <tr key={`${v.id}-expand`} className="bg-blue-50">
+                            <td colSpan={8} className="px-4 py-3">
+                              <div className="text-xs font-bold text-blue-900 mb-2">🎯 Candidatos selecionados ({sels.length})</div>
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-blue-100 text-blue-900">
+                                      <th className="px-2 py-1.5 text-left">Nº</th>
+                                      <th className="px-2 py-1.5 text-left">Nome</th>
+                                      <th className="px-2 py-1.5 text-left">Adicionado</th>
+                                      <th className="px-2 py-1.5 text-left">Entrevista</th>
+                                      <th className="px-2 py-1.5 text-left">Data Entrevista</th>
+                                      <th className="px-2 py-1.5 text-left">Entrevistador</th>
+                                      <th className="px-2 py-1.5 text-left">Resultado</th>
+                                      <th className="px-2 py-1.5 text-left">Pós-Entrevista</th>
+                                      <th className="px-2 py-1.5 text-left">Datas Exames</th>
+                                      <th className="px-2 py-1.5 text-left">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {sels.map((s, i) => (
+                                      <tr key={`${s.curriculo_id}-${i}`} className="border-t border-blue-200 bg-white">
+                                        <td className="px-2 py-1.5 font-mono font-bold">{s.curriculo_id}</td>
+                                        <td className="px-2 py-1.5">
+                                          <button
+                                            onClick={() => visualizarCurriculo(s.curriculo_id)}
+                                            className="text-blue-700 hover:underline font-semibold"
+                                          >
+                                            {s.nome}
+                                          </button>
+                                        </td>
+                                        <td className="px-2 py-1.5 text-gray-600">
+                                          {s.adicionado_em ? new Date(s.adicionado_em).toLocaleDateString('pt-BR') : '-'}
+                                        </td>
+                                        <td className="px-2 py-1.5 capitalize">{s.entrevista || '-'}</td>
+                                        <td className="px-2 py-1.5 text-gray-600">
+                                          {s.data_entrevista ? new Date(s.data_entrevista).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-gray-600">{s.entrevistador || '-'}</td>
+                                        <td className="px-2 py-1.5">
+                                          {s.resultado_entrevista ? (
+                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                              s.resultado_entrevista === 'passou' ? 'bg-green-100 text-green-800' :
+                                              s.resultado_entrevista === 'reprovado' || s.resultado_entrevista === 'desistiu' || s.resultado_entrevista === 'nao_compareceu' ? 'bg-red-100 text-red-800' :
+                                              'bg-amber-100 text-amber-800'
+                                            }`}>
+                                              {({passou:'Passou', aguarda_decisao:'Aguarda decisão', nao_compareceu:'Não compareceu', reprovado:'Reprovado', desistiu:'Desistiu'})[s.resultado_entrevista] || s.resultado_entrevista}
+                                            </span>
+                                          ) : '-'}
+                                          {s.motivo_reprovacao && <div className="text-[10px] italic text-gray-500 mt-0.5">"{s.motivo_reprovacao}"</div>}
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                          {s.pos_entrevista ? ({
+                                            aguarda_agendar_exames: '⏳ Agendar exames',
+                                            aguarda_resultado_exames: '⏳ Aguarda resultado',
+                                            aprovado_exames: '✅ Aprovado',
+                                            reprovado_exames: '❌ Reprovado',
+                                          })[s.pos_entrevista] || s.pos_entrevista : '-'}
+                                          {s.motivo_reprovacao_exames && <div className="text-[10px] italic text-gray-500 mt-0.5">"{s.motivo_reprovacao_exames}"</div>}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-gray-600">
+                                          {s.data_agendar_exames && <div>Agendar: {new Date(s.data_agendar_exames).toLocaleDateString('pt-BR')}</div>}
+                                          {s.data_resultado_exames && <div>Resultado: {new Date(s.data_resultado_exames).toLocaleDateString('pt-BR')}</div>}
+                                          {!s.data_agendar_exames && !s.data_resultado_exames && '-'}
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                          {s.contratado ? (
+                                            <span className="px-2 py-0.5 rounded-full bg-green-600 text-white text-[11px] font-bold">✓ Contratado</span>
+                                          ) : (
+                                            <span className="text-gray-400 italic">Em processo</span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return rows;
+                    })
                   )}
                 </tbody>
               </table>
@@ -421,7 +572,7 @@ export default function RhVagas() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Salario</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Salario Base</label>
                     <input
                       type="number"
                       name="salario_min"
@@ -431,6 +582,7 @@ export default function RhVagas() {
                       placeholder="0,00"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
+                    <span className="text-[11px] text-gray-500 italic">Preenchido automaticamente pelo cargo (editavel)</span>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>

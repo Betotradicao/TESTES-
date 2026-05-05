@@ -177,6 +177,7 @@ export default function RhCadastroGeral() {
     escala_domingo_id: '',
     regime_trabalho_id: '',
     sector_id: '',
+    departamento_id: '',
     data_admissao: '',
     data_desligamento: '',
     tipo_desligamento_id: '',
@@ -299,7 +300,7 @@ export default function RhCadastroGeral() {
         api.get('/rh/configuracoes/escalas-domingo'),
         api.get('/rh/configuracoes/regimes-trabalho'),
         api.get('/rh/configuracoes/beneficios'),
-        api.get('/sectors'),
+        api.get('/rh/configuracoes/departamentos'),
         api.get('/rh/configuracoes/tipos-desligamento'),
         api.get('/rh/configuracoes/motivos-desligamento')
       ]);
@@ -313,8 +314,9 @@ export default function RhCadastroGeral() {
       setRegimes(regimesRes.data?.regimes || regimesRes.data || []);
       const benData = beneficiosRes.data?.beneficios || beneficiosRes.data || [];
       setBeneficiosDisponiveis(Array.isArray(benData) ? benData.filter(b => b.ativo !== false) : []);
-      const setoresData = Array.isArray(setoresRes.data) ? setoresRes.data : (setoresRes.data?.sectors || []);
-      setSetores(setoresData);
+      const setoresData = setoresRes.data?.departamentos || (Array.isArray(setoresRes.data) ? setoresRes.data : []);
+      // Normaliza pra ter sempre {id, name} (rh_departamentos usa "nome")
+      setSetores(setoresData.map(d => ({ id: d.id, name: d.name || d.nome, ativo: d.ativo })).filter(d => d.ativo !== false));
       const tdData = tiposDesligRes.data?.tipos_desligamento || tiposDesligRes.data?.tipos || tiposDesligRes.data || [];
       setTiposDesligamento(Array.isArray(tdData) ? tdData.filter(t => t.ativo !== false) : []);
       const mdData = motivosDesligRes.data?.motivos_desligamento || motivosDesligRes.data?.motivos || motivosDesligRes.data || [];
@@ -393,6 +395,7 @@ export default function RhCadastroGeral() {
         escala_domingo_id: colaborador.escala_domingo_id || '',
         regime_trabalho_id: colaborador.regime_trabalho_id || '',
         sector_id: colaborador.sector_id || '',
+        departamento_id: colaborador.departamento_id || '',
         data_admissao: colaborador.data_admissao?.split('T')[0] || '',
         data_desligamento: colaborador.data_desligamento?.split('T')[0] || '',
         tipo_desligamento_id: colaborador.tipo_desligamento_id || '',
@@ -1229,8 +1232,8 @@ export default function RhCadastroGeral() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className={labelClass}>Setor (vem das Configurações &gt; Setores)</label>
-                        <select className={selectClass} value={formData.sector_id || ''} onChange={(e) => handleChange('sector_id', e.target.value)}>
+                        <label className={labelClass}>Setor (vem das Configurações RH &gt; Setores)</label>
+                        <select className={selectClass} value={formData.departamento_id || ''} onChange={(e) => handleChange('departamento_id', e.target.value)}>
                           <option value="">Selecione...</option>
                           {setores.map(s => (
                             <option key={s.id} value={s.id}>{s.name}</option>

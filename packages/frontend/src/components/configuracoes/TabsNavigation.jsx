@@ -20,6 +20,7 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
   // Obs: "Ativar Produtos" foi movido pra Vision Bipagens > Ativar Produtos (/ativar-produtos)
   // Obs: "Caixas HortFrut" e "Fornecedores" foram removidos (nao usados mais)
   const configTabs = [
+    { id: 'lgpd', label: '🛡️ Privacidade e LGPD' },
     { id: 'empresa', label: 'Empresa' },
     { id: 'sectors', label: 'Setores' },
     { id: 'employees', label: 'Colaboradores' },

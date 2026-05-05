@@ -9,6 +9,13 @@ export default function CurriculoPublico() {
   const [lojaEscolhidaId, setLojaEscolhidaId] = useState(null);
   // Tela intermediaria de dicas (foto + redes sociais) entre loja e formulario
   const [viuDicas, setViuDicas] = useState(false);
+  const [aceitouLgpd, setAceitouLgpd] = useState(false);
+  const [aceitouTermoFinal, setAceitouTermoFinal] = useState(false);
+  const [modalDoc, setModalDoc] = useState(null); // { titulo, tipo: 'consentimento' | 'privacidade' }
+
+  const abrirDoc = (titulo, tipo) => {
+    setModalDoc({ titulo, tipo });
+  };
   // Configs do RH (DISC + pre-entrevista habilitados?)
   const [config, setConfig] = useState({ disc_habilitado: false, preentrevista_habilitada: false });
   // Estado da tela pos-envio (oferecer DISC e/ou pre-entrevista)
@@ -360,14 +367,22 @@ export default function CurriculoPublico() {
             </div>
 
             <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded text-sm text-amber-900">
-              💡 <strong>Dica:</strong> Capriche! Quanto mais completo e bonito for seu currículo, maiores as chances de te chamarmos pra entrevista. 🚀
+              💡 <strong>Dica:</strong> Capriche! Quanto mais completo for seu currículo, maiores as chances de te chamarmos pra entrevista. 🚀
             </div>
 
-            {tituloLoja && (
-              <div className="text-center text-xs text-gray-500 mt-2">
-                Você está se candidatando para <strong className="text-rose-600">{tituloLoja}</strong>
-              </div>
-            )}
+            <label className={`flex items-start gap-2 p-3 rounded border-2 cursor-pointer transition ${aceitouLgpd ? 'bg-emerald-50 border-emerald-400' : 'bg-gray-50 border-gray-300 hover:border-gray-400'}`}>
+              <input
+                type="checkbox"
+                checked={aceitouLgpd}
+                onChange={(e) => setAceitouLgpd(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-rose-600 shrink-0"
+              />
+              <span className="text-xs text-gray-700">
+                🔒 Li e aceito o uso dos meus dados pessoais para processo seletivo, mantidos por até
+                12 meses. Posso solicitar acesso, correção ou exclusão a qualquer momento conforme a
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); abrirDoc('Política de Privacidade (LGPD)', 'consentimento'); }} className="text-rose-600 underline ml-1 hover:text-rose-700">Política de Privacidade (LGPD)</button>.
+              </span>
+            </label>
 
             <div className="flex gap-2 pt-2">
               <button
@@ -378,13 +393,36 @@ export default function CurriculoPublico() {
               </button>
               <button
                 onClick={() => setViuDicas(true)}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-xl font-bold text-base shadow-md"
+                disabled={!aceitouLgpd}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold text-base shadow-md transition ${
+                  aceitouLgpd
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
               >
-                Entendi, vamos lá! →
+                {aceitouLgpd ? 'Entendi, vamos lá! →' : 'Marque o aceite para continuar'}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Modal de visualizacao de documentos LGPD (welcome) */}
+        {modalDoc && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setModalDoc(null)}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-3 border-b bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-t-xl flex items-center justify-between">
+                <h2 className="font-bold text-base">{modalDoc.titulo}</h2>
+                <button onClick={() => setModalDoc(null)} className="text-white text-xl hover:text-gray-200">✕</button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5">
+                <DocumentoLgpd tipo={modalDoc.tipo} />
+              </div>
+              <div className="px-5 py-3 border-t bg-gray-50 rounded-b-xl flex justify-end">
+                <button onClick={() => setModalDoc(null)} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-sm font-bold">Fechar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -407,12 +445,29 @@ export default function CurriculoPublico() {
               </div>
             </div>
             <div className="bg-white rounded-b-2xl shadow-xl p-6 space-y-4">
-              <p className="text-gray-800 leading-relaxed">
-                Nós utilizamos um teste chamado <strong className="text-purple-700">DISC</strong> para conhecer melhor o perfil do candidato. 🎯
-              </p>
-              <p className="text-gray-800 leading-relaxed">
-                Candidatos que preenchem o teste possuem <strong className="underline decoration-amber-400 decoration-4">muito mais chances</strong> de seleção. ✨
-              </p>
+              {/* Confirmacao de envio do curriculo */}
+              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg p-4 text-center">
+                <div className="text-4xl mb-1">✅</div>
+                <p className="font-bold text-emerald-800 text-lg">Currículo enviado com sucesso!</p>
+                <p className="text-sm text-emerald-700 mt-1">
+                  {candidatoNome ? `Obrigado, ${candidatoNome.split(' ')[0]}! ` : 'Obrigado! '}
+                  Seu currículo foi recebido e em breve nossa equipe entrará em contato.
+                </p>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-center text-purple-900 font-bold mb-3">🎯 Quer aumentar suas chances?</p>
+                <p className="text-gray-800 leading-relaxed">
+                  Nós utilizamos um teste chamado <strong className="text-purple-700">DISC</strong> para conhecer melhor o perfil do candidato. 🎯
+                </p>
+                <p className="text-gray-800 leading-relaxed mt-2">
+                  <strong>Não existem respostas certas ou erradas</strong> — o teste serve apenas
+                  para conhecermos melhor o seu perfil. Fique tranquilo(a) e responda com sinceridade. 😊
+                </p>
+                <p className="text-gray-800 leading-relaxed mt-2">
+                  Candidatos que preenchem o teste possuem <strong className="underline decoration-amber-400 decoration-4">muito mais chances</strong> de seleção. ✨
+                </p>
+              </div>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-900 text-center">
                 ⏱️ Leva em torno de <strong>10 a 15 minutos</strong>
               </div>
@@ -821,13 +876,223 @@ export default function CurriculoPublico() {
               className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
           </section>
 
-          <button type="submit" disabled={enviando}
-            className={`w-full py-4 rounded-xl font-bold text-white text-base shadow-md ${enviando ? 'bg-gray-400' : 'bg-gradient-to-r from-rose-500 to-pink-600 hover:shadow-lg hover:scale-[1.01]'} transition`}>
-            {enviando ? 'Enviando…' : '🚀 Enviar currículo'}
+          {/* ===== TERMO LGPD - aceite obrigatorio antes de enviar ===== */}
+          <section className="border-2 border-rose-200 bg-rose-50/40 rounded-xl p-4 space-y-3">
+            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              🔒 Termo de Consentimento (LGPD)
+            </h2>
+            <div className="text-xs text-gray-700 leading-relaxed bg-white rounded-lg p-3 border border-gray-200 max-h-48 overflow-y-auto">
+              <p className="font-semibold mb-2">Antes de enviar, leia atentamente:</p>
+              <p className="mb-2">
+                <strong>Quem coleta seus dados:</strong> a empresa (Controladora dos dados) em parceria com o Radar 360 (Operador).
+              </p>
+              <p className="mb-2">
+                <strong>Para que serão usados:</strong> avaliar sua candidatura para vagas em aberto e futuras, comunicar sobre o processo seletivo e compor o banco de talentos.
+              </p>
+              <p className="mb-2">
+                <strong>Por quanto tempo:</strong> até 12 meses (após esse prazo seus dados são excluídos ou anonimizados, exceto se você for contratado).
+              </p>
+              <p className="mb-2">
+                <strong>Compartilhamento:</strong> apenas com a equipe de RH da empresa autorizada e sub-operadores técnicos da plataforma (hospedagem, IA quando aplicável).
+              </p>
+              <p className="mb-2">
+                <strong>Decisões automatizadas:</strong> a pré-triagem por IA gera apenas uma sugestão — a decisão final é sempre humana. Você tem direito a solicitar revisão humana (Art. 20 LGPD).
+              </p>
+              <p className="mb-2">
+                <strong>Seus direitos:</strong> acesso, correção, exclusão, portabilidade e revogação a qualquer momento.
+              </p>
+              <p>
+                <strong>Texto completo:</strong>{' '}
+                <button type="button" onClick={() => abrirDoc('Termo de Consentimento de Currículo', 'consentimento')} className="text-rose-600 underline hover:text-rose-700">
+                  abrir Termo de Consentimento de Currículo
+                </button>
+                {' · '}
+                <button type="button" onClick={() => abrirDoc('Política de Privacidade', 'privacidade')} className="text-rose-600 underline hover:text-rose-700">
+                  Política de Privacidade
+                </button>
+              </p>
+            </div>
+            <label className={`flex items-start gap-2 p-3 rounded-lg border-2 cursor-pointer transition ${aceitouTermoFinal ? 'bg-emerald-50 border-emerald-400' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+              <input
+                type="checkbox"
+                checked={aceitouTermoFinal}
+                onChange={(e) => setAceitouTermoFinal(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-rose-600 shrink-0"
+              />
+              <span className="text-xs text-gray-800">
+                <strong>Li e estou de acordo</strong> com o tratamento dos meus dados pessoais para
+                participação em processos seletivos e composição do banco de talentos da empresa,
+                pelo prazo de até 12 meses, conforme descrito acima.
+              </span>
+            </label>
+          </section>
+
+          <button type="submit" disabled={enviando || !aceitouTermoFinal}
+            className={`w-full py-4 rounded-xl font-bold text-white text-base shadow-md transition ${
+              enviando ? 'bg-gray-400' :
+              !aceitouTermoFinal ? 'bg-gray-300 cursor-not-allowed' :
+              'bg-gradient-to-r from-rose-500 to-pink-600 hover:shadow-lg hover:scale-[1.01]'
+            }`}>
+            {enviando ? 'Enviando…' : (!aceitouTermoFinal ? '🔒 Marque o aceite acima para enviar' : '🚀 Enviar currículo')}
           </button>
         </form>
 
         <p className="text-center text-[11px] text-gray-500 mt-4">Prevenção no Radar · Banco de Currículos</p>
+      </div>
+
+      {/* Modal de visualizacao de documentos LGPD */}
+      {modalDoc && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setModalDoc(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-t-xl flex items-center justify-between">
+              <h2 className="font-bold text-base">{modalDoc.titulo}</h2>
+              <button onClick={() => setModalDoc(null)} className="text-white text-xl hover:text-gray-200">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <DocumentoLgpd tipo={modalDoc.tipo} />
+            </div>
+            <div className="px-5 py-3 border-t bg-gray-50 rounded-b-xl flex justify-end">
+              <button onClick={() => setModalDoc(null)} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-sm font-bold">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== DOCUMENTO LGPD - Texto limpo apresentado ao candidato =====
+function DocumentoLgpd({ tipo }) {
+  if (tipo === 'consentimento') {
+    return (
+      <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+        <h3 className="font-bold text-base text-gray-900">Termo de Consentimento — Banco de Currículos</h3>
+        <p className="text-xs text-gray-500">Última atualização: 04/05/2026</p>
+
+        <div>
+          <h4 className="font-bold text-gray-800">📌 Quem coleta seus dados</h4>
+          <p>A empresa onde você está se candidatando (Controladora dos seus dados) em parceria com a plataforma <strong>Radar 360</strong> (Operadora).</p>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">📋 Quais dados coletamos</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Identificação: nome, CPF, RG, data de nascimento, sexo, estado civil</li>
+            <li>Contato: telefone, WhatsApp, e-mail, redes sociais (opcional)</li>
+            <li>Endereço residencial</li>
+            <li>Foto pessoal (opcional)</li>
+            <li>Currículo profissional, experiências, formação, habilidades</li>
+            <li>Cargos de interesse</li>
+            <li>Perfil comportamental DISC (se você optar por preencher)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">🎯 Para que usamos</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Avaliar sua candidatura para vagas em aberto e futuras</li>
+            <li>Comunicar com você sobre o processo seletivo</li>
+            <li>Compor o banco de talentos para oportunidades futuras</li>
+            <li>Realizar entrevistas, inclusive por meio de IA (Recrutador IA)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">⏱️ Por quanto tempo</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li><strong>Se contratado</strong>: seus dados são integrados ao seu cadastro como colaborador</li>
+            <li><strong>Se não contratado</strong>: dados mantidos por <strong>até 12 meses</strong>, depois excluídos ou anonimizados</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">🔗 Com quem compartilhamos</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Apenas com a equipe de RH da empresa autorizada</li>
+            <li>Com a Radar 360 como Operadora da plataforma</li>
+            <li>Com sub-operadores autorizados (hospedagem, IA quando aplicável)</li>
+            <li>Com autoridades quando legalmente exigido</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">🤖 Decisões automatizadas (IA)</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Pré-triagem por IA gera apenas uma <strong>sugestão</strong>, não decisão final</li>
+            <li>A <strong>decisão final é sempre humana</strong></li>
+            <li>Você tem direito de solicitar revisão humana (Art. 20 LGPD)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">⚖️ Seus direitos</h4>
+          <p>A qualquer momento você pode solicitar:</p>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Acesso aos seus dados</li>
+            <li>Correção de dados incompletos ou desatualizados</li>
+            <li>Exclusão dos seus dados</li>
+            <li>Portabilidade (exportar para outro sistema)</li>
+            <li>Revogação deste consentimento</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-gray-800">📞 Como exercer seus direitos</h4>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Por e-mail à empresa onde você se candidatou</li>
+            <li>Pelo Encarregado de Dados do Radar 360: <strong>dpo@prevencaonoradar.com.br</strong></li>
+            <li>ANPD: <strong>www.gov.br/anpd</strong></li>
+          </ul>
+        </div>
+
+        <p className="text-xs italic text-gray-500 border-t pt-3">
+          Ao marcar o aceite no formulário, você confirma que leu este termo e autoriza o tratamento dos seus dados conforme descrito acima.
+        </p>
+      </div>
+    );
+  }
+
+  // Política de Privacidade resumida (versão para candidato)
+  return (
+    <div className="space-y-4 text-sm text-gray-800 leading-relaxed">
+      <h3 className="font-bold text-base text-gray-900">Política de Privacidade — Radar 360</h3>
+      <p className="text-xs text-gray-500">Última atualização: 04/05/2026</p>
+
+      <div>
+        <h4 className="font-bold text-gray-800">Quem somos</h4>
+        <p>O <strong>Radar 360</strong> é uma plataforma utilizada por empresas para gerir RH, processos seletivos, prevenção de perdas e operações. Atuamos como <strong>Operadora</strong> dos dados que as empresas inserem na plataforma.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-gray-800">Quem é o Controlador dos seus dados</h4>
+        <p>A empresa que coleta seu currículo (onde você está se candidatando) é a <strong>Controladora</strong> dos seus dados. Ela define para que serão usados e por quanto tempo.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-gray-800">Compromissos de segurança</h4>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li>Conexão criptografada (HTTPS) em todas as interfaces</li>
+          <li>Senhas armazenadas com criptografia (hash)</li>
+          <li>Isolamento de dados por empresa-cliente</li>
+          <li>Backups automatizados</li>
+          <li>Controle de acesso por perfil</li>
+          <li>Logs de auditoria de acesso a dados sensíveis</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-gray-800">Base legal do tratamento</h4>
+        <p>Para candidatos a vagas: <strong>Consentimento</strong> (Art. 7, I da LGPD). Você pode revogar a qualquer momento.</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-gray-800">Em caso de incidente de segurança</h4>
+        <p>Notificaremos a ANPD e os titulares afetados conforme exigido pela LGPD (Art. 48).</p>
+      </div>
+
+      <div>
+        <h4 className="font-bold text-gray-800">ANPD (autoridade competente)</h4>
+        <p>Caso entenda que seus direitos foram violados, você pode reclamar à <strong>www.gov.br/anpd</strong>.</p>
       </div>
     </div>
   );
