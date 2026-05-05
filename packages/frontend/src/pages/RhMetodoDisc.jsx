@@ -742,7 +742,7 @@ export default function RhMetodoDisc() {
 
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4 print:hidden">
+        <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4 print:hidden">
           <h1 className="text-2xl font-bold">Metodo DISC</h1>
           <p className="text-orange-100 text-sm">Avaliacao de Perfil Comportamental</p>
         </div>

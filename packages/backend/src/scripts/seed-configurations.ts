@@ -27,16 +27,16 @@ async function seedConfigurations() {
 
     // Pegar valores do ambiente (vindos do .env do Docker)
     const configs = [
-      // MinIO
+      // MinIO - endpoint INTERNO (rede docker) usado pelo backend pra upload
       {
         key: 'minio_endpoint',
-        value: process.env.MINIO_PUBLIC_ENDPOINT || process.env.HOST_IP || 'localhost',
-        description: 'Endpoint público do MinIO (IP ou domínio)'
+        value: process.env.MINIO_ENDPOINT || 'minio',
+        description: 'Endpoint interno do MinIO (rede docker) usado pelo backend para upload'
       },
       {
         key: 'minio_port',
-        value: process.env.MINIO_PUBLIC_PORT || '9010',
-        description: 'Porta pública da API do MinIO'
+        value: process.env.MINIO_PORT || '9000',
+        description: 'Porta interna da API do MinIO (padrao 9000)'
       },
       {
         key: 'minio_access_key',
@@ -50,8 +50,8 @@ async function seedConfigurations() {
       },
       {
         key: 'minio_use_ssl',
-        value: process.env.MINIO_PUBLIC_USE_SSL || 'false',
-        description: 'Usar SSL/HTTPS para MinIO'
+        value: 'false',
+        description: 'Usar SSL/HTTPS na rede interna do MinIO (sempre false)'
       },
       {
         key: 'minio_bucket_name',

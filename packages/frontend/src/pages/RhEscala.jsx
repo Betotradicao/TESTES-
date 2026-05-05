@@ -174,7 +174,7 @@ export default function RhEscala() {
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
+        <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">
           <h1 className="text-2xl font-bold">Escala de Trabalho</h1>
           <p className="text-orange-100 text-sm">Planejamento mensal — {setorNome} · {mesNome}</p>
         </div>

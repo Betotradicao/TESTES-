@@ -205,7 +205,7 @@ export default function RhControleASO() {
       <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
 
       <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-6 py-4">
+        <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">
           <h1 className="text-2xl font-bold">Controle de ASO</h1>
           <p className="text-orange-100 text-sm">Atestados de Saúde Ocupacional com alertas de vencimento</p>
         </div>

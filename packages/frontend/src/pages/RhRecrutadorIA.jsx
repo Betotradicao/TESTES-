@@ -74,7 +74,7 @@ export default function RhRecrutadorIA() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <main className="flex-1 p-6">
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 mb-6 text-white">
+        <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl p-6 mb-6 text-white">
           <div className="flex items-center gap-3">
             <span className="text-4xl">🤖</span>
             <div>
