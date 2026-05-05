@@ -8,10 +8,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // Abas espelhando os modulos do menu RH (cada uma vai consumir dados da sua tela origem)
+// "Geral" foi movida pra dentro de Colaboradores como sub-aba
 const ABAS = [
-  { id: 'geral', label: 'Geral', icon: '📊',
-    desc: 'Visão executiva consolidada — KPIs principais de todas as áreas',
-    origem: 'Resumo de todos os módulos abaixo' },
   { id: 'colaboradores', label: 'Colaboradores', icon: '👥',
     desc: 'Perfil demográfico, distribuição, evolução do quadro',
     origem: 'RH > Colaboradores (Cadastro Geral)' },
@@ -41,7 +39,7 @@ const ABAS = [
 export default function RhIndicadores() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [aba, setAba] = useState('geral');
+  const [aba, setAba] = useState('colaboradores');
   const [ano, setAno] = useState(new Date().getFullYear());
   const [empresas, setEmpresas] = useState([]);
   const [empresaId, setEmpresaId] = useState(''); // '' = todas
@@ -149,24 +147,23 @@ export default function RhIndicadores() {
 
         {/* Conteudo */}
         <div className="p-4 md:p-6">
-          {/* Descricao da aba */}
-          <div className="bg-white rounded-lg border p-4 mb-4 flex items-start gap-3">
-            <span className="text-3xl">{abaAtual?.icon}</span>
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-gray-800">{abaAtual?.label}</h2>
-              <p className="text-sm text-gray-600">{abaAtual?.desc}</p>
-              <p className="text-[11px] text-rose-600 mt-1">📍 Dados de: <strong>{abaAtual?.origem}</strong></p>
+          {/* Descricao da aba — escondida na aba Colaboradores (vai pra dentro da sub-aba) */}
+          {aba !== 'colaboradores' && (
+            <div className="bg-white rounded-lg border p-4 mb-4 flex items-start gap-3">
+              <span className="text-3xl">{abaAtual?.icon}</span>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-gray-800">{abaAtual?.label}</h2>
+                <p className="text-sm text-gray-600">{abaAtual?.desc}</p>
+                <p className="text-[11px] text-rose-600 mt-1">📍 Dados de: <strong>{abaAtual?.origem}</strong></p>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Aba Geral — funcional (consome /rh/colaboradores/stats) */}
-          {aba === 'geral' && <AbaGeral loading={loading} stats={stats} colaboradores={colaboradores} ano={ano} />}
-
-          {/* Aba Colaboradores — funcional (calcula tudo a partir do cadastro) */}
-          {aba === 'colaboradores' && <AbaColaboradores loading={loading} colaboradores={colaboradores} ano={ano} />}
+          {/* Aba Colaboradores — funcional (Geral virou sub-aba interna) */}
+          {aba === 'colaboradores' && <AbaColaboradores loading={loading} stats={stats} colaboradores={colaboradores} ano={ano} />}
 
           {/* Outras abas — esqueleto que vai ser conectado conforme cada tela origem fica pronta */}
-          {aba !== 'geral' && aba !== 'colaboradores' && <Esqueleto aba={aba} ano={ano} />}
+          {aba !== 'colaboradores' && <Esqueleto aba={aba} ano={ano} />}
         </div>
       </div>
     </div>
@@ -606,8 +603,9 @@ function admitidosNoMes(colaboradores, ano, mes) {
   });
 }
 
-function AbaColaboradores({ loading, colaboradores, ano }) {
+function AbaColaboradores({ loading, stats, colaboradores, ano }) {
   const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'clt_720' | 'clt_600' | 'aprendiz'
+  const [subAba, setSubAba] = useState('geral'); // 'geral' | 'colaboradores' | 'documentos'
 
   if (loading) return <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>;
 
@@ -803,6 +801,48 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
 
   return (
     <>
+      {/* Descricao da aba — comum as duas sub-abas */}
+      <div className="bg-white rounded-lg border p-4 mb-4 flex items-start gap-3">
+        <span className="text-3xl">👥</span>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-gray-800">Colaboradores</h2>
+          <p className="text-sm text-gray-600">Perfil demográfico, distribuição, evolução do quadro</p>
+          <p className="text-[11px] text-rose-600 mt-1">📍 Dados de: <strong>RH &gt; Colaboradores (Cadastro Geral)</strong></p>
+        </div>
+      </div>
+
+      {/* Sub-abas internas: Geral | Colaboradores | Documentos */}
+      <div className="flex items-center gap-2 mb-4 border-b border-gray-200">
+        <button onClick={() => setSubAba('geral')}
+          className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition ${
+            subAba === 'geral'
+              ? 'border-pink-600 text-pink-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}>
+          📊 Geral
+        </button>
+        <button onClick={() => setSubAba('colaboradores')}
+          className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition ${
+            subAba === 'colaboradores'
+              ? 'border-pink-600 text-pink-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}>
+          👥 Colaboradores
+        </button>
+        <button onClick={() => setSubAba('documentos')}
+          className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition ${
+            subAba === 'documentos'
+              ? 'border-pink-600 text-pink-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}>
+          📂 Documentos
+        </button>
+      </div>
+
+      {subAba === 'geral' && <AbaGeral loading={loading} stats={stats} colaboradores={colaboradores} ano={ano} />}
+      {subAba === 'documentos' && <SubAbaDocumentos colaboradores={colaboradoresFiltrados} />}
+
+      {subAba === 'colaboradores' && (<Fragment>
       {/* Botao de exportar PDF */}
       <div className="flex justify-end mb-3">
         <button onClick={exportarPDF}
@@ -844,7 +884,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
         <Kpi label="Recém Contratados (6m)" valor={recemContratados} cor="pink" />
       </div>
 
-      {/* Tabelas mes a mes */}
+      {/* Tabelas mes a mes (cores alternadas: azul / rosa) */}
       <div className="space-y-4">
         <TabelaMensal
           titulo="ESCOLARIDADE"
@@ -852,6 +892,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           ano={ano} mesLimite={mesAtual}
           classificar={c => c.escolaridade_nome || 'Sem informação'}
           ordemFaixas={null}
+          cor="azul"
         />
         <TabelaMensal
           titulo="GÊNERO"
@@ -862,6 +903,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
             return s === 'M' ? 'Masculino' : s === 'F' ? 'Feminino' : 'Não informado';
           }}
           ordemFaixas={['Masculino', 'Feminino', 'Não informado']}
+          cor="rosa"
         />
         <TabelaMensal
           titulo="FAIXA ETÁRIA"
@@ -870,6 +912,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           classificar={(c, ano, mes) => faixaEtaria(c, ano, mes)}
           ordemFaixas={['16-20', '21-25', '26-30', '31-35', '36-40', '41-50', '51-60', '61+']}
           dependeMes
+          cor="azul"
         />
         <TabelaMensal
           titulo="TEMPO DE EMPRESA"
@@ -878,6 +921,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           classificar={(c, ano, mes) => faixaTempo(c, ano, mes)}
           ordemFaixas={['< 6 meses', '6-12 meses', '1-2 anos', '2-3 anos', '3-5 anos', '5-10 anos', '10+ anos']}
           dependeMes
+          cor="rosa"
         />
         <TabelaMensal
           titulo="POR SETOR"
@@ -885,6 +929,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           ano={ano} mesLimite={mesAtual}
           classificar={c => c.setor_departamento_nome || c.setor_nome || 'Sem setor'}
           ordemFaixas={null}
+          cor="azul"
         />
         <TabelaMensal
           titulo="TIPO DE CARGO"
@@ -892,6 +937,7 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
           ano={ano} mesLimite={mesAtual}
           classificar={c => PALAVRAS_ESTRATEGICO.test(c.cargo_nome || '') ? 'Estratégico' : 'Operacional'}
           ordemFaixas={['Operacional', 'Estratégico']}
+          cor="rosa"
         />
         <TabelaMensalContratados
           titulo="RECÉM CONTRATADOS (6 meses)"
@@ -903,12 +949,395 @@ function AbaColaboradores({ loading, colaboradores, ano }) {
       <div className="text-xs text-gray-400 mt-4 text-center">
         Ano-base: {ano} · Quantidade representa colaboradores ativos no último dia de cada mês · % calculado sobre o total daquele mês
       </div>
+      </Fragment>)}
     </>
   );
 }
 
+// Sub-aba Documentos: lista colaboradores com contagem de docs, alertas de pendencia
+function SubAbaDocumentos({ colaboradores }) {
+  const [statsDoc, setStatsDoc] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState('todos'); // 'todos' | 'pendentes' | 'ok'
+  const [expandidoId, setExpandidoId] = useState(null);
+  const [treeCache, setTreeCache] = useState({}); // { colaboradorId: { obrigatorias, opcionais } }
+  const [loadingTree, setLoadingTree] = useState(false);
+  const [docVisualizando, setDocVisualizando] = useState(null); // { url, nome }
+
+  // Fecha modal com Esc
+  useEffect(() => {
+    if (!docVisualizando) return;
+    const onKey = (e) => { if (e.key === 'Escape') setDocVisualizando(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [docVisualizando]);
+
+  const toggleExpandir = async (colaboradorId) => {
+    if (expandidoId === colaboradorId) { setExpandidoId(null); return; }
+    setExpandidoId(colaboradorId);
+    if (treeCache[colaboradorId]) return;
+    try {
+      setLoadingTree(true);
+      const r = await api.get(`/rh/documentacao/tree-colaborador?colaborador_id=${colaboradorId}`);
+      setTreeCache(prev => ({ ...prev, [colaboradorId]: r.data }));
+    } catch {
+      toast.error('Erro ao carregar árvore de documentos');
+    } finally {
+      setLoadingTree(false);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setCarregando(true);
+        const r = await api.get('/rh/documentacao/stats-por-colaborador');
+        setStatsDoc(Array.isArray(r.data) ? r.data : []);
+      } catch (err) {
+        toast.error('Erro ao carregar documentação');
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, []);
+
+  if (carregando) return <div className="flex justify-center py-20"><RadarLoading size="sm" message="" /></div>;
+
+  // Filtra apenas colaboradores presentes no filtro do bloco pai
+  const idsValidos = new Set(colaboradores.map(c => c.id));
+  const lista = statsDoc.filter(s => idsValidos.has(s.colaborador_id));
+
+  // KPIs
+  const totalColab = lista.length;
+  const totalDocs = lista.reduce((s, r) => s + (r.total_arquivos || 0), 0);
+  const totalSubObrig = lista.reduce((s, r) => s + (r.obrigatorias || 0), 0);
+  const totalSubOpc = lista.reduce((s, r) => s + (r.opcionais || 0), 0);
+  const colabComPendencia = lista.filter(r => (r.obrigatorias_pendentes || 0) > 0).length;
+  const colabOk = lista.filter(r => (r.obrigatorias || 0) > 0 && (r.obrigatorias_pendentes || 0) === 0).length;
+  const colabSemEstrutura = lista.filter(r => (r.total_subpastas || 0) === 0).length;
+  const totalPendencias = lista.reduce((s, r) => s + (r.obrigatorias_pendentes || 0), 0);
+  const pctOk = totalColab ? Math.round((colabOk / totalColab) * 100) : 0;
+
+  // Aplica busca + filtro de pendencia
+  const listaFiltrada = lista.filter(r => {
+    if (busca && !String(r.nome || '').toLowerCase().includes(busca.toLowerCase()) &&
+        !String(r.matricula || '').includes(busca)) return false;
+    if (filtro === 'pendentes' && (r.obrigatorias_pendentes || 0) === 0) return false;
+    if (filtro === 'ok' && ((r.obrigatorias_pendentes || 0) > 0 || (r.obrigatorias || 0) === 0)) return false;
+    return true;
+  });
+
+  return (
+    <>
+      {/* Cards de alerta no topo */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+        <CardDoc label="Colaboradores" valor={totalColab} cor="slate" icone="👥" />
+        <CardDoc label="Total de Documentos" valor={totalDocs} cor="blue" icone="📄" />
+        <CardDoc label="Sub-pastas Obrigatórias" valor={totalSubObrig} cor="indigo" icone="⚠️" />
+        <CardDoc label="Sub-pastas Opcionais" valor={totalSubOpc} cor="emerald" icone="📁" />
+        <CardDoc label="Pendências (obrig. sem arquivo)" valor={totalPendencias} cor="rose" icone="🚨"
+                 destaque={totalPendencias > 0} />
+        <CardDoc label="% Conformidade" valor={pctOk + '%'} cor={pctOk >= 80 ? 'emerald' : pctOk >= 50 ? 'amber' : 'rose'} icone="✅" />
+      </div>
+
+      {/* Alerta consolidado se houver pendencias */}
+      {colabComPendencia > 0 && (
+        <div className="bg-rose-50 border-l-4 border-rose-500 rounded-lg p-4 mb-4 flex items-start gap-3">
+          <span className="text-2xl">🚨</span>
+          <div className="flex-1">
+            <div className="font-bold text-rose-900">
+              {colabComPendencia} colaborador(es) com documentos obrigatórios pendentes
+            </div>
+            <div className="text-sm text-rose-700 mt-1">
+              Total de {totalPendencias} sub-pasta(s) obrigatória(s) sem arquivo enviado.
+              {colabSemEstrutura > 0 && ` ${colabSemEstrutura} colaborador(es) ainda não tem nenhuma pasta criada.`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros + busca */}
+      <div className="bg-white border rounded-lg p-3 mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          {[
+            { id: 'todos', label: 'Todos', count: totalColab },
+            { id: 'pendentes', label: 'Com Pendência', count: colabComPendencia },
+            { id: 'ok', label: 'Conformes', count: colabOk },
+          ].map(b => (
+            <button key={b.id} onClick={() => setFiltro(b.id)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border-2 transition ${
+                filtro === b.id
+                  ? 'bg-pink-600 text-white border-pink-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}>
+              {b.label} <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${filtro === b.id ? 'bg-white/30' : 'bg-gray-100'}`}>{b.count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="🔎 Buscar colaborador por nome ou matrícula"
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-pink-500 focus:border-pink-500" />
+        </div>
+      </div>
+
+      {/* Modal de visualizacao de documento com botao de fechar */}
+      {docVisualizando && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+             onClick={() => setDocVisualizando(null)}>
+          <button onClick={() => setDocVisualizando(null)}
+            className="absolute top-4 right-4 z-50 w-12 h-12 rounded-full bg-white text-gray-900 hover:bg-gray-200 flex items-center justify-center shadow-2xl transition"
+            title="Fechar (Esc)">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="absolute top-4 left-4 z-50 bg-white/90 px-4 py-2 rounded-lg shadow-lg max-w-[60%] truncate">
+            <span className="font-semibold text-gray-900 text-sm">📄 {docVisualizando.nome}</span>
+          </div>
+          <div className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+               onClick={(e) => e.stopPropagation()}>
+            {/\.(pdf)$/i.test(docVisualizando.nome) ? (
+              <iframe src={docVisualizando.url} title={docVisualizando.nome}
+                className="w-[90vw] h-[85vh] bg-white rounded-lg" />
+            ) : /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(docVisualizando.nome) ? (
+              <img src={docVisualizando.url} alt={docVisualizando.nome}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+            ) : (
+              <div className="bg-white p-8 rounded-lg text-center">
+                <p className="text-gray-700 mb-4">Esse tipo de arquivo não pode ser pré-visualizado.</p>
+                <a href={docVisualizando.url} target="_blank" rel="noreferrer"
+                   className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  Baixar arquivo
+                </a>
+              </div>
+            )}
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 px-4 py-2 rounded-full text-xs text-gray-600">
+            Clique fora ou pressione <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] font-mono">Esc</kbd> para fechar
+          </div>
+        </div>
+      )}
+
+      {/* Lista de colaboradores */}
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+              <tr>
+                <th className="px-2 py-3 w-10"></th>
+                <th className="px-4 py-3 text-left">Colaborador</th>
+                <th className="px-4 py-3 text-center">Pastas</th>
+                <th className="px-4 py-3 text-center">Total Docs</th>
+                <th className="px-4 py-3 text-center">Opcionais</th>
+                <th className="px-4 py-3 text-center">Obrigatórios</th>
+                <th className="px-4 py-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {listaFiltrada.length === 0 && (
+                <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum colaborador encontrado</td></tr>
+              )}
+              {listaFiltrada.map(c => {
+                const pendentes = c.obrigatorias_pendentes || 0;
+                const obrigatorias = c.obrigatorias || 0;
+                const opcionais = c.opcionais || 0;
+                const total = c.total_arquivos || 0;
+                const semEstrutura = (c.total_subpastas || 0) === 0;
+                const expandido = expandidoId === c.colaborador_id;
+                const tree = treeCache[c.colaborador_id];
+                return (
+                  <Fragment key={c.colaborador_id}>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-2 py-3 text-center">
+                      <button onClick={() => toggleExpandir(c.colaborador_id)}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold transition ${
+                          expandido
+                            ? 'bg-pink-600 text-white hover:bg-pink-700'
+                            : 'bg-gray-100 text-gray-600 hover:bg-pink-100 hover:text-pink-700'
+                        }`}
+                        title={expandido ? 'Recolher' : 'Expandir documentos'}>
+                        {expandido ? '−' : '+'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {c.foto_url
+                          ? <img src={c.foto_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                          : <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">
+                              {String(c.nome || '?').charAt(0).toUpperCase()}
+                            </div>
+                        }
+                        <div>
+                          <div className="font-semibold text-gray-900">{c.nome}</div>
+                          <div className="text-xs text-gray-500">
+                            {c.matricula ? `Mat. ${c.matricula}` : ''}{c.cargo_nome ? ` · ${c.cargo_nome}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center font-semibold">{c.total_pastas || 0}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-bold">{total}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded">{opcionais}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded font-bold">{obrigatorias}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {semEstrutura ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                          ⚪ Sem estrutura
+                        </span>
+                      ) : pendentes > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-rose-100 text-rose-700 rounded text-xs font-bold">
+                          🚨 {pendentes} pendente(s)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">
+                          ✅ Conforme
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {expandido && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={7} className="px-6 py-4">
+                        {!tree && loadingTree && <div className="text-center text-gray-500 text-sm py-4">Carregando...</div>}
+                        {tree && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* OPCIONAIS */}
+                            <div className="bg-white rounded-lg border-2 border-emerald-200 overflow-hidden">
+                              <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200">
+                                <span className="font-bold text-emerald-800 text-base">📁 Sub-pastas Opcionais</span>
+                                <span className="ml-2 text-sm text-emerald-600">
+                                  ({tree.opcionais.reduce((s, p) => s + p.subpastas.length, 0)} sub-pasta(s))
+                                </span>
+                              </div>
+                              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                                {tree.opcionais.length === 0 && <div className="text-sm text-gray-400 italic">Nenhuma sub-pasta opcional</div>}
+                                {tree.opcionais.map(p => (
+                                  <div key={p.id} className="border border-gray-100 rounded p-3">
+                                    <div className="font-bold text-base text-gray-800 mb-2">📂 {p.nome}</div>
+                                    <div className="ml-3 space-y-2">
+                                      {p.subpastas.map(s => (
+                                        <div key={s.id} className="text-sm">
+                                          <div className="text-gray-700 font-semibold">↳ {s.nome} <span className="text-gray-400 font-normal">({s.documentos.length})</span></div>
+                                          {s.documentos.length === 0 ? (
+                                            <div className="ml-4 text-xs text-gray-400 italic">— sem documento —</div>
+                                          ) : (
+                                            <ul className="ml-4 space-y-1 mt-1">
+                                              {s.documentos.map(d => (
+                                                <li key={d.id}>
+                                                  <button onClick={() => setDocVisualizando(d)}
+                                                    className="text-blue-600 hover:text-blue-800 hover:underline text-sm text-left">
+                                                    📄 {d.nome}
+                                                  </button>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* OBRIGATORIAS */}
+                            <div className="bg-white rounded-lg border-2 border-indigo-200 overflow-hidden">
+                              <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-200">
+                                <span className="font-bold text-indigo-800 text-base">⚠️ Sub-pastas Obrigatórias</span>
+                                <span className="ml-2 text-sm text-indigo-600">
+                                  ({tree.obrigatorias.reduce((s, p) => s + p.subpastas.length, 0)} sub-pasta(s))
+                                </span>
+                              </div>
+                              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                                {tree.obrigatorias.length === 0 && <div className="text-sm text-gray-400 italic">Nenhuma sub-pasta obrigatória</div>}
+                                {tree.obrigatorias.map(p => (
+                                  <div key={p.id} className="border border-gray-100 rounded p-3">
+                                    <div className="font-bold text-base text-gray-800 mb-2">📂 {p.nome}</div>
+                                    <div className="ml-3 space-y-2">
+                                      {p.subpastas.map(s => {
+                                        const faltante = s.documentos.length === 0;
+                                        return (
+                                          <div key={s.id} className="text-sm">
+                                            <div className={`font-semibold flex items-center gap-1 ${faltante ? 'text-rose-700' : 'text-gray-700'}`}>
+                                              ↳ {s.nome}
+                                              {faltante
+                                                ? <span className="ml-1 px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-xs font-bold">FALTANTE</span>
+                                                : <span className="ml-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">OK ({s.documentos.length})</span>
+                                              }
+                                            </div>
+                                            {s.documentos.length > 0 && (
+                                              <ul className="ml-4 space-y-1 mt-1">
+                                                {s.documentos.map(d => (
+                                                  <li key={d.id}>
+                                                    <a href={d.url} target="_blank" rel="noreferrer"
+                                                      className="text-blue-600 hover:text-blue-800 hover:underline text-sm">
+                                                      📄 {d.nome}
+                                                    </a>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CardDoc({ label, valor, cor, icone, destaque }) {
+  const cores = {
+    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+  };
+  return (
+    <div className={`rounded-lg border-2 p-3 ${cores[cor] || cores.slate} ${destaque ? 'ring-2 ring-rose-300 animate-pulse' : ''}`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase font-bold opacity-70">{label}</span>
+        <span className="text-lg">{icone}</span>
+      </div>
+      <div className="text-2xl font-bold">{valor}</div>
+    </div>
+  );
+}
+
 // Tabela com formato planilha: linhas=faixas, colunas=meses + total
-function TabelaMensal({ titulo, colaboradores, ano, mesLimite, classificar, ordemFaixas, dependeMes }) {
+function TabelaMensal({ titulo, colaboradores, ano, mesLimite, classificar, ordemFaixas, dependeMes, cor = 'slate' }) {
+  // Paleta de cores do header (azul/rosa intercalado, fallback slate)
+  const palette = {
+    azul:  { headBg: 'bg-blue-200',  subBg: 'bg-blue-100',  border: 'border-blue-300',  text: 'text-blue-800',  textSub: 'text-blue-700',  textMuted: 'text-blue-300' },
+    rosa:  { headBg: 'bg-pink-200',  subBg: 'bg-pink-100',  border: 'border-pink-300',  text: 'text-pink-800',  textSub: 'text-pink-700',  textMuted: 'text-pink-300' },
+    slate: { headBg: 'bg-slate-300', subBg: 'bg-slate-200', border: 'border-slate-400', text: 'text-slate-800', textSub: 'text-slate-700', textMuted: 'text-slate-400' },
+  };
+  const c = palette[cor] || palette.slate;
   // Pra cada mes, classifica os ativos e conta por faixa
   const dadosPorMes = []; // [{ totais: {faixa: qtd}, total: N }] indexado por mes 0..11
   for (let m = 1; m <= 12; m++) {
@@ -953,18 +1382,18 @@ function TabelaMensal({ titulo, colaboradores, ano, mesLimite, classificar, orde
             ))}
           </colgroup>
           <thead>
-            <tr className="bg-slate-300 border-b border-slate-400">
-              <th className="text-left px-3 py-2 font-bold text-slate-800 uppercase text-sm tracking-wide" colSpan={2} rowSpan={2}>{titulo}</th>
+            <tr className={`${c.headBg} border-b ${c.border}`}>
+              <th className={`text-left px-3 py-2 font-bold ${c.text} uppercase text-sm tracking-wide`} colSpan={2} rowSpan={2}>{titulo}</th>
               {MESES.map((m, i) => (
                 <th key={m} colSpan={2}
-                  className={`text-center px-2 py-1.5 text-xs font-bold border-l border-slate-400 ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-800'}`}>{m}</th>
+                  className={`text-center px-2 py-1.5 text-xs font-bold border-l ${c.border} ${i + 1 > mesLimite ? c.textMuted : c.text}`}>{m}</th>
               ))}
             </tr>
-            <tr className="bg-slate-200 border-b-2 border-slate-400 text-[10px] uppercase">
+            <tr className={`${c.subBg} border-b-2 ${c.border} text-[10px] uppercase`}>
               {MESES.map((m, i) => (
                 <Fragment key={m}>
-                  <th className={`text-center px-1 py-1 font-bold border-l border-slate-300 ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-700'}`}>QTD</th>
-                  <th className={`text-center px-1 py-1 font-bold ${i + 1 > mesLimite ? 'text-slate-400' : 'text-slate-700'}`}>%</th>
+                  <th className={`text-center px-1 py-1 font-bold border-l ${c.border} ${i + 1 > mesLimite ? c.textMuted : c.textSub}`}>QTD</th>
+                  <th className={`text-center px-1 py-1 font-bold ${i + 1 > mesLimite ? c.textMuted : c.textSub}`}>%</th>
                 </Fragment>
               ))}
             </tr>

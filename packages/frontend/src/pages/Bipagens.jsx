@@ -268,11 +268,7 @@ export default function Bipagens() {
       // Adicionar filtros apenas se preenchidos
       if (newFilters.date_from) params.date_from = newFilters.date_from;
       if (newFilters.date_to) params.date_to = newFilters.date_to;
-      if (newFilters.status === 'not_found') {
-        params.not_found_only = 'true';
-      } else if (newFilters.status) {
-        params.status = newFilters.status;
-      }
+      if (newFilters.status) params.status = newFilters.status;
       if (newFilters.notified_filter) params.notified_filter = newFilters.notified_filter;
       // Só adiciona search se tiver 2+ caracteres
       if (newFilters.search && newFilters.search.length >= 2) params.search = newFilters.search;
@@ -1044,7 +1040,6 @@ export default function Bipagens() {
               <option value="pending">Pendente</option>
               <option value="verified">Verificado</option>
               <option value="cancelled">Cancelado</option>
-              <option value="not_found">Não encontrados</option>
             </select>
           </div>
 

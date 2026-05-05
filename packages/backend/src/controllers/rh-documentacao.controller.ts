@@ -57,6 +57,122 @@ export class RhDocumentacaoController {
     }
   }
 
+  /**
+   * Estatisticas de documentacao agrupadas por colaborador (ativos).
+   * Retorna, para cada colaborador: total de subpastas, qtd obrigatorias e opcionais,
+   * total de arquivos, e qtd de obrigatorias pendentes (sem arquivo).
+   */
+  static async obterStatsPorColaborador(req: AuthRequest, res: Response) {
+    try {
+      const empresaId = req.query.empresa_id ? parseInt(String(req.query.empresa_id), 10) : null;
+      const params: any[] = [];
+      let whereEmpresa = '';
+      if (empresaId && !isNaN(empresaId)) {
+        params.push(empresaId);
+        whereEmpresa = ` AND c.company_id = $${params.length}`;
+      }
+      const rows = await AppDataSource.query(
+        `SELECT
+           c.id AS colaborador_id,
+           c.nome,
+           c.matricula,
+           c.foto_url,
+           cg.nome AS cargo_nome,
+           COUNT(DISTINCT p.id)::int AS total_pastas,
+           COUNT(s.id)::int AS total_subpastas,
+           COUNT(s.id) FILTER (WHERE s.obrigatorio = true)::int AS obrigatorias,
+           COUNT(s.id) FILTER (WHERE s.obrigatorio = false)::int AS opcionais,
+           COUNT(s.id) FILTER (
+             WHERE s.obrigatorio = true
+               AND NOT EXISTS (SELECT 1 FROM rh_documentos d WHERE d.subpasta_id = s.id)
+           )::int AS obrigatorias_pendentes,
+           (SELECT COUNT(*)::int FROM rh_documentos d
+              INNER JOIN rh_documento_pastas pp ON pp.id = d.pasta_id
+              WHERE pp.colaborador_id = c.id) AS total_arquivos
+         FROM rh_colaboradores c
+         LEFT JOIN rh_cargos cg ON cg.id = c.cargo_id
+         LEFT JOIN rh_documento_pastas p ON p.colaborador_id = c.id
+         LEFT JOIN rh_documento_subpastas s ON s.pasta_id = p.id
+         WHERE c.status = 'ativo'${whereEmpresa}
+         GROUP BY c.id, c.nome, c.matricula, c.foto_url, cg.nome
+         ORDER BY c.nome ASC`,
+        params
+      );
+      return res.json(rows);
+    } catch (err: any) {
+      console.error('[RH-DOC] obterStatsPorColaborador:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Arvore completa de documentacao de um colaborador, agrupada por sub-pasta obrigatoria/opcional.
+   */
+  static async obterTreeColaborador(req: AuthRequest, res: Response) {
+    try {
+      const colaboradorId = parseInt(String(req.query.colaborador_id), 10);
+      if (!colaboradorId || isNaN(colaboradorId)) {
+        return res.status(400).json({ error: 'colaborador_id obrigatorio' });
+      }
+      const rows = await AppDataSource.query(
+        `SELECT
+           p.id AS pasta_id, p.nome AS pasta_nome, COALESCE(p.ordem, 999999) AS pasta_ordem,
+           s.id AS subpasta_id, s.nome AS subpasta_nome, s.obrigatorio AS subpasta_obrigatorio,
+           COALESCE(s.ordem, 999999) AS subpasta_ordem,
+           d.id AS doc_id, d.nome AS doc_nome, d.arquivo_url AS doc_url,
+           d.tamanho_bytes AS doc_tamanho, d.uploaded_at AS doc_data
+         FROM rh_documento_pastas p
+         LEFT JOIN rh_documento_subpastas s ON s.pasta_id = p.id
+         LEFT JOIN rh_documentos d ON d.subpasta_id = s.id
+         WHERE p.colaborador_id = $1
+         ORDER BY pasta_ordem ASC, p.nome ASC, subpasta_ordem ASC, s.nome ASC, d.uploaded_at DESC`,
+        [colaboradorId]
+      );
+      const pastasMap = new Map<number, any>();
+      for (const r of rows) {
+        if (!pastasMap.has(r.pasta_id)) {
+          pastasMap.set(r.pasta_id, { id: r.pasta_id, nome: r.pasta_nome, subpastas: new Map() });
+        }
+        const pasta = pastasMap.get(r.pasta_id);
+        if (r.subpasta_id) {
+          if (!pasta.subpastas.has(r.subpasta_id)) {
+            pasta.subpastas.set(r.subpasta_id, {
+              id: r.subpasta_id,
+              nome: r.subpasta_nome,
+              obrigatorio: r.subpasta_obrigatorio,
+              documentos: [],
+            });
+          }
+          if (r.doc_id) {
+            pasta.subpastas.get(r.subpasta_id).documentos.push({
+              id: r.doc_id,
+              nome: r.doc_nome,
+              url: r.doc_url,
+              tamanho: r.doc_tamanho,
+              data: r.doc_data,
+            });
+          }
+        }
+      }
+      const pastas = Array.from(pastasMap.values()).map(p => ({
+        ...p,
+        subpastas: Array.from(p.subpastas.values()),
+      }));
+      const obrigatorias: any[] = [];
+      const opcionais: any[] = [];
+      for (const p of pastas) {
+        const subObrig = p.subpastas.filter((s: any) => s.obrigatorio);
+        const subOpc = p.subpastas.filter((s: any) => !s.obrigatorio);
+        if (subObrig.length > 0) obrigatorias.push({ id: p.id, nome: p.nome, subpastas: subObrig });
+        if (subOpc.length > 0) opcionais.push({ id: p.id, nome: p.nome, subpastas: subOpc });
+      }
+      return res.json({ obrigatorias, opcionais });
+    } catch (err: any) {
+      console.error('[RH-DOC] obterTreeColaborador:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   // --- PASTAS ---
 
   /** Lista todas as pastas de um colaborador, com contagem de arquivos */

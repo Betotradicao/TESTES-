@@ -189,6 +189,8 @@ router.delete('/disc-results/:id', authenticateToken, RhController.deletarDiscRe
 
 // Documentacao - Stats
 router.get('/documentacao/stats', authenticateToken, RhDocumentacaoController.obterStats);
+router.get('/documentacao/stats-por-colaborador', authenticateToken, RhDocumentacaoController.obterStatsPorColaborador);
+router.get('/documentacao/tree-colaborador', authenticateToken, RhDocumentacaoController.obterTreeColaborador);
 
 // Documentacao - Pastas
 router.get('/documentacao/pastas', authenticateToken, RhDocumentacaoController.listarPastas);
