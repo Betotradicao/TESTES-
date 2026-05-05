@@ -1409,6 +1409,76 @@ const startServer = async () => {
   console.log('🔄 Sells sync cron job started (every 1 minute)');
 
   // ==========================================
+  // CRON: Re-identificacao automatica de bipagens "[NÃO ENCONTRADO]"
+  // Quando o Oracle volta apos periodo offline, atualiza bipagens
+  // antigas com nome real do produto e precos. Roda a cada 5 minutos.
+  // ==========================================
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const { AppDataSource } = await import('./config/database');
+      const { Bip } = await import('./entities/Bip');
+      const { BipWebhookService } = await import('./services/bip-webhook.service');
+
+      const bipRepo = AppDataSource.getRepository(Bip);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30); // ultimos 30 dias
+
+      const pendentes = await bipRepo.createQueryBuilder('b')
+        .where('b.product_description LIKE :pat', { pat: '[NÃO ENCONTRADO]%' })
+        .andWhere('b.event_date >= :cutoff', { cutoff })
+        .getMany();
+
+      if (pendentes.length === 0) return;
+
+      // Testa Oracle uma vez antes (1 PLU sentinela): se falhar, sai
+      const sentinel = pendentes[0];
+      const test = await BipWebhookService.getProductFromERP(sentinel.product_id, sentinel.cod_loja || 1);
+      if (!test) {
+        // Oracle ainda offline ou produto realmente inexistente — tenta um segundo
+        if (pendentes.length > 1) {
+          const test2 = await BipWebhookService.getProductFromERP(pendentes[1].product_id, pendentes[1].cod_loja || 1);
+          if (!test2) return; // Oracle off, nao adianta tentar mais
+        } else return;
+      }
+
+      console.log(`🔄 [Auto-reidentificar] ${pendentes.length} bipagens [NÃO ENCONTRADO] pendentes — processando...`);
+
+      const cache = new Map<string, any>();
+      let atualizadas = 0;
+
+      for (const bip of pendentes) {
+        if (!bip.product_id) continue;
+        const lojaUsada = bip.cod_loja || 1;
+        const cacheKey = `${bip.product_id}:${lojaUsada}`;
+
+        let erpProduct: any;
+        if (cache.has(cacheKey)) {
+          erpProduct = cache.get(cacheKey);
+        } else {
+          erpProduct = await BipWebhookService.getProductFromERP(bip.product_id, lojaUsada);
+          cache.set(cacheKey, erpProduct);
+        }
+        if (!erpProduct) continue;
+
+        const valvendaNum = parseFloat(String(erpProduct.valvenda || 0)) || 0;
+        const valofertaNum = erpProduct.valoferta != null ? parseFloat(String(erpProduct.valoferta)) : 0;
+        bip.product_description = erpProduct.descricao;
+        bip.product_full_price_cents_kg = Math.round(valvendaNum * 100);
+        bip.product_discount_price_cents_kg = Math.round(valofertaNum * 100) || Math.round(valvendaNum * 100);
+        await bipRepo.save(bip);
+        atualizadas++;
+      }
+
+      if (atualizadas > 0) {
+        console.log(`✅ [Auto-reidentificar] ${atualizadas} bipagens atualizadas (de ${pendentes.length} pendentes)`);
+      }
+    } catch (error) {
+      console.error('❌ Auto-reidentificar cron error:', error);
+    }
+  });
+  console.log('🔄 Auto-reidentificar bipagens cron job started (every 5 minutes)');
+
+  // ==========================================
   // CRON: Sync VectorStore do Garimpador (configurável via tela de IA)
   // Verifica a cada hora se é o momento de sincronizar
   // ==========================================

@@ -268,7 +268,11 @@ export default function Bipagens() {
       // Adicionar filtros apenas se preenchidos
       if (newFilters.date_from) params.date_from = newFilters.date_from;
       if (newFilters.date_to) params.date_to = newFilters.date_to;
-      if (newFilters.status) params.status = newFilters.status;
+      if (newFilters.status === 'not_found') {
+        params.not_found_only = 'true';
+      } else if (newFilters.status) {
+        params.status = newFilters.status;
+      }
       if (newFilters.notified_filter) params.notified_filter = newFilters.notified_filter;
       // Só adiciona search se tiver 2+ caracteres
       if (newFilters.search && newFilters.search.length >= 2) params.search = newFilters.search;
@@ -448,6 +452,24 @@ export default function Bipagens() {
     };
   }, [pagination.page, filters, autoRefreshEnabled, lojaSelecionada]);
 
+  // Re-identifica bipagens "[NÃO ENCONTRADO]" tentando buscar produto no Oracle de novo
+  const handleReidentificar = async () => {
+    if (reidentificando) return;
+    if (!window.confirm('Re-identificar bipagens marcadas como [NÃO ENCONTRADO] dos últimos 30 dias?\n\nO sistema vai buscar cada produto no Oracle e atualizar quando encontrar.')) return;
+    try {
+      setReidentificando(true);
+      const r = await api.post('/bipagens/reidentificar-produtos?days=30');
+      const d = r.data || {};
+      const msg = `Concluído!\n\n• Total verificado: ${d.total || 0}\n• Atualizadas: ${d.atualizadas || 0}\n• Ainda não encontradas: ${d.ainda_nao_encontradas || 0}`;
+      alert(msg);
+      fetchBipages(pagination.page, filters);
+    } catch (err) {
+      alert('Erro ao re-identificar: ' + (err?.response?.data?.message || err.message));
+    } finally {
+      setReidentificando(false);
+    }
+  };
+
   // Aplicar filtros
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -474,26 +496,21 @@ export default function Bipagens() {
 
   // Formatação de data e hora (mantém horário original do banco)
   // Formatação de data/hora da BIPAGEM (event_date)
-  // Bipagens já são salvas com horário local correto
-  // Remove timezone e trata como horário local
+  // O backend roda em UTC (container Docker) e salva event_date como UTC.
+  // Convertemos pra timezone de Sao Paulo (-3) na exibicao.
   const formatDateTime = (dateString) => {
     if (!dateString) return '-';
-
-    // O banco PostgreSQL (timezone Sao_Paulo) salva em horário local
-    // TypeORM adiciona 'Z' (UTC) na serialização mas o valor real já é Brasília
-    // Remover Z pra o navegador tratar como horário local
-    const dateStr = String(dateString).replace('Z', '').replace(/[+-]\d{2}:\d{2}$/, '');
-    const date = new Date(dateStr);
-
-    // Formata usando horário local (não UTC)
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-
-    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    const date = new Date(dateString); // interpreta como UTC se vier com Z
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   // Formatação de data/hora da VENDA DO PDV (sell_date)
@@ -1027,6 +1044,7 @@ export default function Bipagens() {
               <option value="pending">Pendente</option>
               <option value="verified">Verificado</option>
               <option value="cancelled">Cancelado</option>
+              <option value="not_found">Não encontrados</option>
             </select>
           </div>
 

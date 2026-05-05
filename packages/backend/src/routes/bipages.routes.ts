@@ -150,4 +150,8 @@ router.post('/simulate-sale',
   BipagesController.simulateSale
 );
 
+// Re-identifica bipagens com produto "[NÃO ENCONTRADO]" — quando ERP volta apos
+// periodo offline, atualiza os registros antigos com nome real do produto
+router.post('/reidentificar-produtos', BipagesController.reidentificarProdutos);
+
 export default router;

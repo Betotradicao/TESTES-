@@ -162,6 +162,13 @@ export class BipsController {
         query = query.andWhere('bip.notified_at IS NOT NULL');
       }
 
+      // Not found filter (produtos que voltaram do Oracle como [NÃO ENCONTRADO])
+      if (req.query.not_found_only === 'true' || req.query.not_found_only === '1') {
+        query = query.andWhere('bip.product_description LIKE :notFoundPat', {
+          notFoundPat: '[NÃO ENCONTRADO]%'
+        });
+      }
+
       // Combined search filter (product_id OR product_description) - case insensitive
       if (search) {
         query = query.andWhere(

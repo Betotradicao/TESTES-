@@ -183,12 +183,52 @@ function GetSSHGerenciados {
            Where-Object { $_.CommandLine -like "*$emptyConfig*" }
 }
 
-function IsTunnelAlive($t) {
-    $procs = GetSSHGerenciados
-    foreach ($p in $procs) {
-        if ($p.CommandLine -like "*$($t.key)*") { return $true }
+# v6: tunel vivo = ssh.exe rodando E (se tunel tem healthUrl) o endpoint
+# de health do Radar retorna que o ERP/banco está conectado de fato.
+# Detecta tunel "zumbi": ssh.exe vivo mas forward sem funcionar.
+#
+# tunnels.json pode opcionalmente ter "healthUrl" pra cada tunel:
+#   { "name":"Tradicao", "key":"...", "forwards":"-R 1521:...",
+#     "healthUrl":"https://tradicao.prevencaonoradar.com.br/api/health" }
+function IsHealthCheckPassing($url) {
+    try {
+        # PS 5.1 usa TLS 1.0 por default, forca 1.2
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+        $body = $resp.Content
+        # Considera OK se health endpoint diz que o ERP/banco externo esta conectado
+        if ($body -match '"allConnected"\s*:\s*true' -or
+            $body -match '"reachable"\s*:\s*true'   -or
+            $body -match '"connected"\s*:\s*true') {
+            return $true
+        }
+        LogMgr "Health check falhou: body nao indica conexao OK"
+        return $false
+    } catch {
+        LogMgr "Health check erro: $($_.Exception.Message)"
+        return $false
     }
-    return $false
+}
+
+function IsTunnelAlive($t) {
+    # 1) ssh.exe vivo?
+    $procs = GetSSHGerenciados
+    $sshAlive = $false
+    foreach ($p in $procs) {
+        if ($p.CommandLine -like "*$($t.key)*") { $sshAlive = $true; break }
+    }
+    if (-not $sshAlive) { return $false }
+
+    # 2) Se tem healthUrl, valida via Radar API (detecta zumbi)
+    $healthUrl = $null
+    if ($t.PSObject.Properties.Name -contains 'healthUrl') { $healthUrl = $t.healthUrl }
+    if ($healthUrl) {
+        if (-not (IsHealthCheckPassing $healthUrl)) {
+            LogMgr "ZUMBI detectado: tunel '$($t.name)' tem ssh.exe vivo mas health falhou"
+            return $false
+        }
+    }
+    return $true
 }
 
 function MatarTodosGerenciados {

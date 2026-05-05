@@ -488,4 +488,93 @@ export class BipagesController {
       });
     }
   }
+
+  /**
+   * Re-identifica bipagens marcadas como "[NÃO ENCONTRADO]" tentando buscar o
+   * produto novamente no Oracle. Útil quando o ERP estava offline na hora da
+   * bipagem e voltou agora — atualiza os registros antigos com o nome real
+   * do produto e os preços corretos.
+   *
+   * Aceita query params opcionais:
+   *   - days (default 30): quantos dias para trás procurar
+   *   - cod_loja: filtrar por loja específica
+   */
+  static async reidentificarProdutos(req: Request, res: Response): Promise<void> {
+    try {
+      const days = Math.max(1, Math.min(365, parseInt(String(req.query.days || '30'), 10) || 30));
+      const codLoja = req.query.cod_loja ? parseInt(String(req.query.cod_loja), 10) : null;
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+
+      const bipRepo = AppDataSource.getRepository(Bip);
+      const qb = bipRepo.createQueryBuilder('b')
+        .where('b.product_description LIKE :pat', { pat: '[NÃO ENCONTRADO]%' })
+        .andWhere('b.event_date >= :cutoff', { cutoff });
+      if (codLoja !== null && !isNaN(codLoja)) {
+        qb.andWhere('b.cod_loja = :loja', { loja: codLoja });
+      }
+      const bipsNaoEncontradas = await qb.getMany();
+
+      if (bipsNaoEncontradas.length === 0) {
+        res.json({ success: true, total: 0, atualizadas: 0, ainda_nao_encontradas: 0, message: 'Nenhuma bipagem pendente de re-identificacao' });
+        return;
+      }
+
+      // Cache: PLU+codLoja → produto (evita N consultas pra mesmo produto)
+      const cache = new Map<string, any>();
+      let atualizadas = 0;
+      let aindaNaoEncontradas = 0;
+      const errosPLU: string[] = [];
+
+      for (const bip of bipsNaoEncontradas) {
+        if (!bip.product_id) { aindaNaoEncontradas++; continue; }
+        const lojaUsada = bip.cod_loja || 1;
+        const cacheKey = `${bip.product_id}:${lojaUsada}`;
+
+        let erpProduct: any;
+        if (cache.has(cacheKey)) {
+          erpProduct = cache.get(cacheKey);
+        } else {
+          erpProduct = await BipWebhookService.getProductFromERP(bip.product_id, lojaUsada);
+          cache.set(cacheKey, erpProduct);
+        }
+
+        if (!erpProduct) {
+          aindaNaoEncontradas++;
+          if (errosPLU.length < 20) errosPLU.push(bip.product_id);
+          continue;
+        }
+
+        // Atualiza descricao + precos (valvenda/valoferta podem vir como string ou number do ERP)
+        const valvendaNum = parseFloat(String(erpProduct.valvenda || 0)) || 0;
+        const valofertaNum = erpProduct.valoferta != null ? parseFloat(String(erpProduct.valoferta)) : 0;
+        const valvendaCents = Math.round(valvendaNum * 100);
+        const valofertaCents = Math.round(valofertaNum * 100);
+        bip.product_description = erpProduct.descricao;
+        bip.product_full_price_cents_kg = valvendaCents;
+        bip.product_discount_price_cents_kg = valofertaCents || valvendaCents;
+        await bipRepo.save(bip);
+        atualizadas++;
+      }
+
+      console.log(`✅ Re-identificacao concluida: ${atualizadas} atualizadas / ${aindaNaoEncontradas} ainda nao encontradas (de ${bipsNaoEncontradas.length} total)`);
+
+      res.json({
+        success: true,
+        total: bipsNaoEncontradas.length,
+        atualizadas,
+        ainda_nao_encontradas: aindaNaoEncontradas,
+        plus_que_falharam: errosPLU.slice(0, 20),
+        days_searched: days,
+      });
+    } catch (error) {
+      console.error('❌ Erro ao re-identificar produtos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao re-identificar produtos',
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  }
 }
