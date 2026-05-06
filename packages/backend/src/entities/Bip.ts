@@ -98,4 +98,18 @@ export class Bip {
 
   @Column({ type: 'int', nullable: true })
   cod_loja: number | null;
+
+  // Pre-geracao de clipe DVR para bipagens pendentes >3h.
+  // Cron auto-gera; retencao 2 dias (apos isso apaga e usa live-stream sob demanda).
+  @Column({ type: 'jsonb', nullable: true })
+  clip_files: { channel: number; filename: string }[] | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  clip_status: 'ready' | 'pending_retry' | 'failed' | null;
+
+  @Column({ type: 'int', default: 0 })
+  clip_retry_count: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  clip_generated_at: Date | null;
 }

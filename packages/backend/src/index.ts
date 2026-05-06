@@ -1479,6 +1479,158 @@ const startServer = async () => {
   console.log('🔄 Auto-reidentificar bipagens cron job started (every 5 minutes)');
 
   // ==========================================
+  // CRON: Pre-geracao automatica de clipes DVR para bipagens pendentes >3h
+  // Roda a cada 5 min. Bipagens elegiveis: status=pending, event_date < (now - 3h),
+  // clip_status IS NULL ou pending_retry, retry_count < 3.
+  // Gera 1 clipe por canal mapeado em dvr_cameras_bipagens, salva em /uploads/dvr-clips
+  // Retencao 2 dias (apos isso, fallback para live-stream sob demanda).
+  // ==========================================
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const { AppDataSource } = await import('./config/database');
+      const { Bip } = await import('./entities/Bip');
+      const { DVRCFTVService } = await import('./services/dvr-cftv.service');
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const bipRepo = AppDataSource.getRepository(Bip);
+
+      // Bipagens pendentes >3h sem clipe pronto, max 3 retries, ate 7 dias atras
+      const cutoff3h = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const cutoff7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const elegiveis = await bipRepo.createQueryBuilder('b')
+        .where('b.status = :st', { st: 'pending' })
+        .andWhere('b.event_date <= :cutoff3h', { cutoff3h })
+        .andWhere('b.event_date >= :cutoff7d', { cutoff7d })
+        .andWhere('(b.clip_status IS NULL OR b.clip_status = :pr)', { pr: 'pending_retry' })
+        .andWhere('b.clip_retry_count < 3')
+        .orderBy('b.event_date', 'DESC')
+        .limit(10) // processa de 10 em 10 por ciclo (evita avalanche)
+        .getMany();
+
+      if (elegiveis.length === 0) return;
+
+      // Cameras configuradas para bipagens
+      const camerasJson = await ConfigurationService.get('dvr_cameras_bipagens');
+      let cameras: { channel: number; antes?: number; depois?: number }[] = [];
+      try {
+        cameras = JSON.parse(camerasJson || '[]');
+      } catch {
+        cameras = [];
+      }
+      if (cameras.length === 0) return; // nada a fazer
+
+      const clipsDir = path.join(__dirname, '../uploads/dvr-clips');
+      if (!fs.existsSync(clipsDir)) fs.mkdirSync(clipsDir, { recursive: true });
+
+      console.log(`🎬 [Pre-clipe] Tentando gerar clipes para ${elegiveis.length} bipagens (${cameras.length} cameras)...`);
+
+      let okCount = 0;
+      let pendingCount = 0;
+      let failedCount = 0;
+
+      for (const bip of elegiveis) {
+        const eventDate = bip.event_date instanceof Date ? bip.event_date : new Date(bip.event_date);
+        // Formato esperado pela API: "YYYY-MM-DD HH:mm:ss"
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const timeStr = `${eventDate.getFullYear()}-${pad(eventDate.getMonth() + 1)}-${pad(eventDate.getDate())} ${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}:${pad(eventDate.getSeconds())}`;
+
+        const clipFiles: { channel: number; filename: string }[] = [];
+        let camFalhou = false;
+
+        for (const cam of cameras) {
+          try {
+            // Limita duracao a 3min total pra evitar arquivos grandes (antes+depois)
+            const antes = Math.min(cam.antes ?? 12, 30);
+            const depois = Math.min(cam.depois ?? 120, 150);
+            const duracao = antes + depois;
+
+            // Reusa generateClip do DVRCFTVService (gera MP4 e salva no clipsDir)
+            const filename = await DVRCFTVService.generateClip(cam.channel, timeStr, duracao);
+            clipFiles.push({ channel: cam.channel, filename });
+          } catch (err: any) {
+            camFalhou = true;
+            console.error(`🎬 [Pre-clipe] Falha bip ${bip.id} canal ${cam.channel}: ${err?.message || err}`);
+            break; // se 1 camera falhou, abandona essa bipagem (provavelmente tunel offline)
+          }
+        }
+
+        if (camFalhou || clipFiles.length === 0) {
+          // Marca pra retry; apos 3 tentativas marca como failed
+          bip.clip_retry_count = (bip.clip_retry_count || 0) + 1;
+          bip.clip_status = bip.clip_retry_count >= 3 ? 'failed' : 'pending_retry';
+          if (bip.clip_status === 'failed') failedCount++;
+          else pendingCount++;
+        } else {
+          bip.clip_files = clipFiles;
+          bip.clip_status = 'ready';
+          bip.clip_generated_at = new Date();
+          bip.clip_retry_count = 0;
+          okCount++;
+        }
+        await bipRepo.save(bip);
+      }
+
+      console.log(`🎬 [Pre-clipe] Resultado: ${okCount} OK, ${pendingCount} retry, ${failedCount} desistido`);
+    } catch (error) {
+      console.error('❌ Pre-geracao clipes cron error:', error);
+    }
+  });
+  console.log('🎬 Pre-geracao clipes DVR cron job started (every 5 minutes)');
+
+  // ==========================================
+  // CRON: Limpeza de clipes pre-gerados com mais de 2 dias
+  // Roda 1x por dia (3h da manha). Apaga arquivo do disco e zera campos da bipagem.
+  // ==========================================
+  cron.schedule('0 3 * * *', async () => {
+    try {
+      const { AppDataSource } = await import('./config/database');
+      const { Bip } = await import('./entities/Bip');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const bipRepo = AppDataSource.getRepository(Bip);
+      const cutoff2d = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      const expirados = await bipRepo.createQueryBuilder('b')
+        .where('b.clip_status = :st', { st: 'ready' })
+        .andWhere('b.clip_generated_at < :cutoff', { cutoff: cutoff2d })
+        .getMany();
+
+      if (expirados.length === 0) {
+        console.log('🧹 [Clipe-limpeza] Nada a apagar.');
+        return;
+      }
+
+      const clipsDir = path.join(__dirname, '../uploads/dvr-clips');
+      let deletedFiles = 0;
+
+      for (const bip of expirados) {
+        if (Array.isArray(bip.clip_files)) {
+          for (const cf of bip.clip_files) {
+            const fp = path.join(clipsDir, cf.filename);
+            try {
+              if (fs.existsSync(fp)) { fs.unlinkSync(fp); deletedFiles++; }
+            } catch { /* ignore */ }
+          }
+        }
+        bip.clip_files = null;
+        bip.clip_status = null;
+        bip.clip_generated_at = null;
+        bip.clip_retry_count = 0;
+        await bipRepo.save(bip);
+      }
+
+      console.log(`🧹 [Clipe-limpeza] ${deletedFiles} arquivos apagados de ${expirados.length} bipagens (>2 dias).`);
+    } catch (error) {
+      console.error('❌ Clipe-limpeza cron error:', error);
+    }
+  });
+  console.log('🧹 Clipe-limpeza DVR cron job started (daily 3AM, retencao 2 dias)');
+
+  // ==========================================
   // CRON: Sync VectorStore do Garimpador (configurável via tela de IA)
   // Verifica a cada hora se é o momento de sincronizar
   // ==========================================

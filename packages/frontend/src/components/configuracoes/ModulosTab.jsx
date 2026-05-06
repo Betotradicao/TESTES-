@@ -181,18 +181,11 @@ const SECTIONS = [
     icon: '👥',
     color: 'pink',
     modules: [
+      { id: 'rh-indicadores', name: 'Indicadores RH', icon: '📊' },
       { id: 'rh-colaboradores', name: 'Colaboradores', icon: '👥', subs: [
-        { id: 'rh-dashboard', name: 'Dashboard RH' },
-        { id: 'rh-resultados', name: 'Resultados' },
         { id: 'rh-cadastro-geral', name: 'Cadastro Geral' },
-        { id: 'rh-admissoes', name: 'Admissões' },
-        { id: 'rh-desligamentos', name: 'Desligamentos' },
         { id: 'rh-documentacao', name: 'Documentação' },
-      ]},
-      { id: 'rh-saude', name: 'Saúde Ocupacional', icon: '🏥', subs: [
-        { id: 'rh-controle-aso', name: 'Controle de ASO' },
-        { id: 'rh-exames-periodicos', name: 'Exames Periódicos' },
-        { id: 'rh-vencimentos', name: 'Relatório Vencimentos' },
+        { id: 'rh-saude', name: 'Saúde Ocupacional' },
       ]},
       { id: 'rh-ponto', name: 'Ponto e Ausências', icon: '⏰', subs: [
         { id: 'rh-jornadas', name: 'Jornadas de Trabalho' },
@@ -201,9 +194,15 @@ const SECTIONS = [
         { id: 'rh-absenteismo', name: 'Análise Absenteísmo' },
       ]},
       { id: 'rh-recrutamento', name: 'Recrutamento', icon: '💼', subs: [
+        { id: 'rh-recrutador-ia', name: 'Recrutador(a) Inteligente' },
         { id: 'rh-vagas', name: 'Vagas Abertas' },
-        { id: 'rh-candidatos', name: 'Candidatos' },
         { id: 'rh-metodo-disc', name: 'Método DISC' },
+        { id: 'rh-curriculo-modelo', name: 'Modelo de Currículo' },
+        { id: 'rh-curriculo-banco', name: 'Banco de Currículos' },
+      ]},
+      { id: 'rh-pesquisa-clima', name: 'Pesquisa de Clima', icon: '😊', subs: [
+        { id: 'rh-clima-analise', name: 'Análise Pesquisas' },
+        { id: 'rh-clima-criar', name: 'Criar Pesquisas' },
       ]},
       { id: 'rh-treinamentos', name: 'Treinamentos', icon: '📚', subs: [
         { id: 'rh-cadastro-treinamento', name: 'Cadastrar Treinamento' },
@@ -213,13 +212,12 @@ const SECTIONS = [
       { id: 'rh-financeiro', name: 'Financeiro RH', icon: '💵', subs: [
         { id: 'rh-lancamentos', name: 'Lançamentos' },
         { id: 'rh-folha', name: 'Folha de Pagamento' },
-        { id: 'rh-beneficios', name: 'Benefícios' },
       ]},
-      { id: 'rh-indicadores', name: 'Indicadores RH', icon: '📈', subs: [
-        { id: 'rh-dashboard-executivo', name: 'Dashboard Executivo' },
-        { id: 'rh-rotatividade', name: 'Rotatividade (Turnover)' },
-        { id: 'rh-perfil-demografico', name: 'Perfil Demográfico' },
+      { id: 'rh-escala', name: 'Escala de Trabalho', icon: '📅', subs: [
+        { id: 'rh-escala-grid', name: 'Grid Mensal' },
+        { id: 'rh-escala-eventos', name: 'Férias / Licenças' },
       ]},
+      { id: 'rh-departamento-pessoal', name: 'Departamento Pessoal', icon: '📂' },
       { id: 'rh-configuracoes', name: 'Configurações RH', icon: '⚙️' },
     ]
   },

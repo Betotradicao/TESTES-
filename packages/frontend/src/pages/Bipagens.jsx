@@ -13,7 +13,7 @@ import Pagination from '../components/common/Pagination';
 import ScannerGunIcon from '../components/icons/ScannerGunIcon';
 import MotivoCancelamentoModal from '../components/bipagens/MotivoCancelamentoModal';
 import NumericKeypad from '../components/common/NumericKeypad';
-import { getCamerasBipagens, getLiveStreamUrl } from '../services/dvr-cftv.service';
+import { getCamerasBipagens, getLiveStreamUrl, getClipStreamUrl } from '../services/dvr-cftv.service';
 
 // Componente para exibir tempo pendente em tempo real
 function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
@@ -60,8 +60,17 @@ function VideoModal({ bip, cameras, onClose, formatDateTime }) {
   const ss = String(eventDate.getSeconds()).padStart(2, '0');
   const timeStr = `${yyyy}-${mo}-${dd} ${hh}:${mi}:${ss}`;
 
-  // URLs diretas do live stream com antes/depois per-camera
-  const streamUrls = useRef(cameras.map(cam => getLiveStreamUrl(cam.channel, timeStr, cam.antes, cam.depois)));
+  // URLs por camera: usa clipe pre-gerado se disponivel; senao, fallback live-stream
+  // bip.clip_files = [{ channel, filename }] quando o cron ja gerou (bipagem pendente >3h)
+  const streamUrls = useRef(cameras.map(cam => {
+    const preGerado = bip.clip_status === 'ready'
+      && Array.isArray(bip.clip_files)
+      && bip.clip_files.find(cf => Number(cf.channel) === Number(cam.channel));
+    if (preGerado?.filename) {
+      return getClipStreamUrl(preGerado.filename);
+    }
+    return getLiveStreamUrl(cam.channel, timeStr, cam.antes, cam.depois);
+  }));
 
   // Quando um vídeo tem dados suficientes para tocar
   const handleCanPlay = (idx) => {
