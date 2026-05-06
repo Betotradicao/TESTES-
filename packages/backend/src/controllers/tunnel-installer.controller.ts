@@ -951,7 +951,7 @@ pause
 # ============================================================
 
 $VPS_IP = "${vpsIp}"
-$SSH_PORTS = @(22, 443)  # Tenta 22 primeiro, fallback para 443
+$SSH_PORTS = @(22, 2222, 443)  # Tenta 22, 2222 (alt para ISPs que bloqueiam 22), 443
 $ACTIVE_SSH_PORT = $null
 $SSH_KEY = "C:\\ProgramData\\${tunnelDir}\\tunnel_key"
 
@@ -1150,7 +1150,7 @@ echo ============================================================
 echo    INSTALADOR DE TUNEL SSH SEGURO
 echo    Cliente: ${clientName}
 echo    VPS: ${vpsIp}
-echo    Portas SSH: 22 (padrao) / 443 (fallback automatico)
+echo    Portas SSH: 22 / 2222 / 443 (testa em ordem, usa a primeira que funcionar)
 echo ============================================================
 echo.
 
@@ -1227,7 +1227,18 @@ if %errorLevel% equ 0 (
 )
 del "%TEMP%\\ssh-port-test.txt" 2>nul
 
-echo     Porta 22 falhou. Testando SSH na porta 443...
+echo     Porta 22 falhou. Testando SSH na porta 2222 (alternativa para ISPs que bloqueiam 22)...
+ssh -i "C:\\ProgramData\\${tunnelDir}\\tunnel_key" -p 2222 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
+findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo     Porta 2222: SSH OK!
+    set SSH_PORT=2222
+    del "%TEMP%\\ssh-port-test.txt" 2>nul
+    goto :port_found
+)
+del "%TEMP%\\ssh-port-test.txt" 2>nul
+
+echo     Porta 2222 falhou. Testando SSH na porta 443...
 ssh -i "C:\\ProgramData\\${tunnelDir}\\tunnel_key" -p 443 -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 root@${vpsIp} echo ok > "%TEMP%\\ssh-port-test.txt" 2>nul
 findstr /c:"ok" "%TEMP%\\ssh-port-test.txt" >nul 2>&1
 if %errorLevel% equ 0 (
@@ -1239,9 +1250,9 @@ if %errorLevel% equ 0 (
 del "%TEMP%\\ssh-port-test.txt" 2>nul
 
 echo.
-echo     AVISO: Nenhuma porta SSH acessivel (22 e 443 bloqueadas)
+echo     AVISO: Nenhuma porta SSH acessivel (22, 2222 e 443 bloqueadas)
 echo     O servico vai continuar tentando automaticamente apos instalacao.
-echo     Verifique o firewall ou peca ao admin da VPS liberar a porta 443.
+echo     Verifique o firewall ou peca ao admin da VPS liberar uma porta.
 echo.
 set SSH_PORT=22
 
