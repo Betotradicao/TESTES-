@@ -62,6 +62,7 @@ export default function VisionPalavraChave2() {
   // Video
   const [videoUrl, setVideoUrl] = useState(null);
   const [videoTime, setVideoTime] = useState('');
+  const [videoExpandido, setVideoExpandido] = useState(false);
   const [loadingClip, setLoadingClip] = useState(null);
   const videoRef = useRef(null);
 
@@ -80,6 +81,14 @@ export default function VisionPalavraChave2() {
       .then(res => setCamerasPdv(res.data.cameras || []))
       .catch(() => {});
   }, []);
+
+  // Esc fecha o modal de video expandido
+  useEffect(() => {
+    if (!videoExpandido) return;
+    const onKey = (e) => { if (e.key === 'Escape') setVideoExpandido(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [videoExpandido]);
 
   const getCameraForPdv = (pdv) => {
     return camerasPdv.find(c => String(c.pdv) === String(pdv));
@@ -388,10 +397,34 @@ export default function VisionPalavraChave2() {
                   {videoUrl && <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
                   <h2 className="text-sm font-semibold text-purple-700">Video</h2>
                 </div>
-                {videoTime && <span className="text-xs text-gray-500">{videoTime}</span>}
+                <div className="flex items-center gap-2">
+                  {videoTime && <span className="text-xs text-gray-500">{videoTime}</span>}
+                  <button onClick={() => videoUrl && setVideoExpandido(true)}
+                    disabled={!videoUrl}
+                    className={`ml-1 px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition ${
+                      videoUrl
+                        ? 'bg-purple-600 text-white hover:bg-purple-700 cursor-pointer'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={videoUrl ? 'Expandir vídeo (tela grande)' : 'Carregue um vídeo para expandir'}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    Expandir
+                  </button>
+                </div>
               </div>
               <div className="bg-black flex items-center justify-center" style={{ height: '360px' }}>
-                {videoUrl ? (
+                {loadingClip ? (
+                  <div className="text-white text-sm flex flex-col items-center gap-3">
+                    <svg className="animate-spin h-12 w-12 text-purple-400" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span className="font-semibold">Gerando clipe do DVR...</span>
+                    <span className="text-xs text-gray-400">Aguarde, pode levar alguns segundos</span>
+                  </div>
+                ) : videoUrl ? (
                   <video ref={videoRef} src={videoUrl} controls autoPlay
                     style={{ width: '480px', height: '360px', objectFit: 'contain' }} />
                 ) : (
@@ -606,16 +639,9 @@ export default function VisionPalavraChave2() {
                           className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-1"
                           title={!getCameraForPdv(item.pdv) ? `PDV ${item.pdv} sem camera configurada` : 'Reproduzir video'}
                         >
-                          {loadingClip === item.cupomNum ? (
-                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          )}
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
                           Play
                         </button>
                       </td>
@@ -627,6 +653,40 @@ export default function VisionPalavraChave2() {
           </div>
         </div>
       </div>
+
+      {/* Modal de video expandido (tela grande) */}
+      {videoExpandido && videoUrl && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+             onClick={() => setVideoExpandido(false)}>
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] flex flex-col overflow-hidden"
+               onClick={(e) => e.stopPropagation()}
+               style={{ width: '1280px' }}>
+            {/* Header do modal */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <h3 className="font-bold">Video do DVR</h3>
+                {videoTime && <span className="text-sm text-white/90">— {videoTime}</span>}
+              </div>
+              <button onClick={() => setVideoExpandido(false)}
+                className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition"
+                title="Fechar (Esc)">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Player */}
+            <div className="bg-black flex items-center justify-center" style={{ height: 'calc(95vh - 56px)' }}>
+              <video src={videoUrl} controls autoPlay
+                className="w-full h-full"
+                style={{ objectFit: 'contain' }} />
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

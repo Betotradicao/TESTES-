@@ -102,10 +102,13 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Cliente | DVR IP Local | VPS HTTP | VPS RTSP | Codec | Status |
 |---|---|---|---|---|---|
-| [[../clientes/tradicao|Tradição]] | 10.6.1.123 | 18080 | 18554 | H.264 | ✅ |
-| [[../clientes/nunes|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
+| [[../clientes/tradicao\|Tradição]] | 10.6.1.123 (Intelbras MIB 1116) | 18080 | **28101** | transcode H.265→H.264 | ✅ |
+| [[../clientes/nunes\|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
+
+> ⚠️ **REGRA DE OURO**: a porta `dvr_porta_rtsp` no banco TEM que bater com uma das portas que o `tunnels.json` da máquina cliente está fazendo `-R` na VPS. Conferir com `ss -ltn` na VPS antes de salvar config no front. **Doc completo de troubleshoot: `.claude/DVR-CFTV-TROUBLESHOOT.md`** (passos de diagnóstico, URLs RTSP por marca, checklist por cliente).
 
 ## 🔗 Bugs/features relacionados
+- [[../bugs-resolvidos/2026-05-06-dvr-tradicao-rtsp-port-quebrou|2026-05-06 — Tradição: porta RTSP errada após mexer no Nunes]]
 - [[../bugs-resolvidos/2026-04-dvr-h265-h264|DVR H.265 → H.264 para browser]]
 - [[../bugs-resolvidos/2026-03-vision-pdv-dvr|Vision PDV + integração DVR CFTV]]
 
