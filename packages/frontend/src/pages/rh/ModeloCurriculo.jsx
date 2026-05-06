@@ -16,6 +16,22 @@ export default function ModeloCurriculo() {
   const [sucesso, setSucesso] = useState('');
   const flash = (t) => { setSucesso(t); setTimeout(() => setSucesso(''), 2000); };
 
+  // Le estado dos modulos do localStorage (Configuracoes -> Modulos)
+  const isModuleActive = (moduleId) => {
+    try {
+      const saved = localStorage.getItem('modules_config');
+      if (!saved) return true; // sem config = todos ativos por padrao
+      const parsed = JSON.parse(saved);
+      const mod = parsed.find(m => m.id === moduleId);
+      return mod ? mod.active !== false : true;
+    } catch {
+      return true;
+    }
+  };
+
+  const discModuloAtivo = isModuleActive('rh-metodo-disc');
+  const recrutadorIaModuloAtivo = isModuleActive('rh-recrutador-ia');
+
   // Link publico unico: o candidato escolhe a loja na tela inicial do formulario
   const linkPublico = `${window.location.origin}/curriculo`;
 
@@ -244,50 +260,90 @@ export default function ModeloCurriculo() {
 
             <div className="space-y-3">
               {/* Toggle DISC */}
-              <div className="bg-white rounded-xl p-4 border border-purple-200">
+              <div className={`rounded-xl p-4 border transition ${discModuloAtivo ? 'bg-white border-purple-200' : 'bg-gray-100 border-gray-300 opacity-60'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-2xl">🎯</span>
-                      <h4 className="font-bold text-gray-900">Habilitar Teste DISC no final do currículo</h4>
+                      <span className="text-2xl">{discModuloAtivo ? '🎯' : '🔒'}</span>
+                      <h4 className={`font-bold ${discModuloAtivo ? 'text-gray-900' : 'text-gray-500'}`}>Habilitar Teste DISC no final do currículo</h4>
                     </div>
-                    <p className="text-xs text-gray-600">
-                      O candidato responde ~24 perguntas comportamentais. Resultado vai pro perfil dele e ajuda na seleção.
+                    <p className={`text-xs ${discModuloAtivo ? 'text-gray-600' : 'text-gray-400'}`}>
+                      {discModuloAtivo
+                        ? 'O candidato responde ~24 perguntas comportamentais. Resultado vai pro perfil dele e ajuda na seleção.'
+                        : 'Módulo "Método DISC" está desabilitado em Configurações → Módulos. Ative lá para usar.'}
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => { setDiscHabilitado(true); salvarFlag('curriculo_disc_habilitado', true); }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${discHabilitado ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}>
-                      {discHabilitado ? '✓ SIM' : 'SIM'}
+                    <button
+                      disabled={!discModuloAtivo}
+                      onClick={() => { if (!discModuloAtivo) return; setDiscHabilitado(true); salvarFlag('curriculo_disc_habilitado', true); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                        !discModuloAtivo
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : discHabilitado
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                      }`}
+                      title={!discModuloAtivo ? 'Ative o módulo Método DISC em Configurações → Módulos' : ''}>
+                      {discHabilitado && discModuloAtivo ? '✓ SIM' : 'SIM'}
                     </button>
-                    <button onClick={() => { setDiscHabilitado(false); salvarFlag('curriculo_disc_habilitado', false); }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${!discHabilitado ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}>
-                      {!discHabilitado ? '✓ NÃO' : 'NÃO'}
+                    <button
+                      disabled={!discModuloAtivo}
+                      onClick={() => { if (!discModuloAtivo) return; setDiscHabilitado(false); salvarFlag('curriculo_disc_habilitado', false); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                        !discModuloAtivo
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : !discHabilitado
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                      }`}
+                      title={!discModuloAtivo ? 'Ative o módulo Método DISC em Configurações → Módulos' : ''}>
+                      {!discHabilitado && discModuloAtivo ? '✓ NÃO' : 'NÃO'}
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Toggle Pré-entrevista */}
-              <div className="bg-white rounded-xl p-4 border border-purple-200">
+              <div className={`rounded-xl p-4 border transition ${recrutadorIaModuloAtivo ? 'bg-white border-purple-200' : 'bg-gray-100 border-gray-300 opacity-60'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-2xl">🤖</span>
-                      <h4 className="font-bold text-gray-900">Habilitar Pré-Entrevista com Recrutador(a) IA</h4>
+                      <span className="text-2xl">{recrutadorIaModuloAtivo ? '👩‍💻' : '🔒'}</span>
+                      <h4 className={`font-bold ${recrutadorIaModuloAtivo ? 'text-gray-900' : 'text-gray-500'}`}>Habilitar Pré-Entrevista com Recrutador(a) IA</h4>
                     </div>
-                    <p className="text-xs text-gray-600">
-                      Após o currículo, candidato faz uma entrevista rápida com a Helen (IA). RH recebe o relatório e decide se chama.
+                    <p className={`text-xs ${recrutadorIaModuloAtivo ? 'text-gray-600' : 'text-gray-400'}`}>
+                      {recrutadorIaModuloAtivo
+                        ? 'Após o currículo, candidato faz uma entrevista rápida com a Helen (IA). RH recebe o relatório e decide se chama.'
+                        : 'Módulo "Recrutador(a) Inteligente" está desabilitado em Configurações → Módulos. Ative lá para usar.'}
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => { setPreEntrevistaHabilitada(true); salvarFlag('curriculo_preentrevista_habilitada', true); }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${preEntrevistaHabilitada ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}>
-                      {preEntrevistaHabilitada ? '✓ SIM' : 'SIM'}
+                    <button
+                      disabled={!recrutadorIaModuloAtivo}
+                      onClick={() => { if (!recrutadorIaModuloAtivo) return; setPreEntrevistaHabilitada(true); salvarFlag('curriculo_preentrevista_habilitada', true); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                        !recrutadorIaModuloAtivo
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : preEntrevistaHabilitada
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                      }`}
+                      title={!recrutadorIaModuloAtivo ? 'Ative o módulo Recrutador(a) Inteligente em Configurações → Módulos' : ''}>
+                      {preEntrevistaHabilitada && recrutadorIaModuloAtivo ? '✓ SIM' : 'SIM'}
                     </button>
-                    <button onClick={() => { setPreEntrevistaHabilitada(false); salvarFlag('curriculo_preentrevista_habilitada', false); }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold ${!preEntrevistaHabilitada ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}>
-                      {!preEntrevistaHabilitada ? '✓ NÃO' : 'NÃO'}
+                    <button
+                      disabled={!recrutadorIaModuloAtivo}
+                      onClick={() => { if (!recrutadorIaModuloAtivo) return; setPreEntrevistaHabilitada(false); salvarFlag('curriculo_preentrevista_habilitada', false); }}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                        !recrutadorIaModuloAtivo
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : !preEntrevistaHabilitada
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-red-100'
+                      }`}
+                      title={!recrutadorIaModuloAtivo ? 'Ative o módulo Recrutador(a) Inteligente em Configurações → Módulos' : ''}>
+                      {!preEntrevistaHabilitada && recrutadorIaModuloAtivo ? '✓ NÃO' : 'NÃO'}
                     </button>
                   </div>
                 </div>
