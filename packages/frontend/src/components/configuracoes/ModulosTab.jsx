@@ -217,7 +217,7 @@ const SECTIONS = [
         { id: 'rh-escala-grid', name: 'Grid Mensal' },
         { id: 'rh-escala-eventos', name: 'Férias / Licenças' },
       ]},
-      { id: 'rh-departamento-pessoal', name: 'Departamento Pessoal', icon: '📂' },
+      { id: 'rh-dp', name: 'Departamento Pessoal', icon: '📂' },
       { id: 'rh-configuracoes', name: 'Configurações RH', icon: '⚙️' },
     ]
   },
