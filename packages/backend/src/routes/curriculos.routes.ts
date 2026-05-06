@@ -27,6 +27,12 @@ router.post('/habilidades', CurriculosController.criarHabilidade);
 router.put('/habilidades/:id', CurriculosController.atualizarHabilidade);
 router.delete('/habilidades/:id', CurriculosController.deletarHabilidade);
 
+// Catalogo de tipos de vaga (CLT, Aprendiz, etc — editavel)
+router.get('/tipos-vaga', CurriculosController.listarTiposVaga);
+router.post('/tipos-vaga', CurriculosController.criarTipoVaga);
+router.put('/tipos-vaga/:id', CurriculosController.atualizarTipoVaga);
+router.delete('/tipos-vaga/:id', CurriculosController.deletarTipoVaga);
+
 // Banco de curriculos
 router.get('/', CurriculosController.listarCurriculos);
 router.get('/:id', CurriculosController.obterCurriculo);

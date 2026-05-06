@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { CurriculoCargo } from '../entities/CurriculoCargo';
 import { CurriculoHabilidade } from '../entities/CurriculoHabilidade';
+import { CurriculoTipoVaga } from '../entities/CurriculoTipoVaga';
 import { Curriculo, CurriculoStatus } from '../entities/Curriculo';
 import { Company } from '../entities/Company';
 import { RhEmpresa } from '../entities/RhEmpresa';
@@ -131,14 +132,84 @@ export class CurriculosController {
     }
   }
 
+  // ========== TIPOS DE VAGA (catalogo editavel) ==========
+  static async listarTiposVaga(_req: Request, res: Response) {
+    try {
+      const tipos = await AppDataSource.getRepository(CurriculoTipoVaga).find({
+        order: { ordem: 'ASC', nome: 'ASC' },
+      });
+      res.json({ success: true, tipos });
+    } catch (e: any) {
+      console.error('[Curriculos] listarTiposVaga:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async criarTipoVaga(req: Request, res: Response) {
+    try {
+      const { nome, slug } = req.body;
+      if (!nome?.trim()) return res.status(400).json({ success: false, error: 'nome obrigatorio' });
+      const slugFinal = (slug || nome).toString().trim().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      if (!slugFinal) return res.status(400).json({ success: false, error: 'slug invalido' });
+      const repo = AppDataSource.getRepository(CurriculoTipoVaga);
+      const existe = await repo.findOne({ where: { slug: slugFinal } });
+      if (existe) return res.status(400).json({ success: false, error: 'Tipo de vaga ja existe' });
+      const tipo = repo.create({ slug: slugFinal, nome: nome.trim(), ativo: true });
+      await repo.save(tipo);
+      res.json({ success: true, tipo });
+    } catch (e: any) {
+      console.error('[Curriculos] criarTipoVaga:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async atualizarTipoVaga(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const { nome, ativo, ordem } = req.body;
+      const repo = AppDataSource.getRepository(CurriculoTipoVaga);
+      const tipo = await repo.findOne({ where: { id } });
+      if (!tipo) return res.status(404).json({ success: false, error: 'Tipo de vaga nao encontrado' });
+      if (nome !== undefined) tipo.nome = String(nome).trim();
+      if (ativo !== undefined) tipo.ativo = !!ativo;
+      if (ordem !== undefined) tipo.ordem = Number(ordem) || 0;
+      await repo.save(tipo);
+      res.json({ success: true, tipo });
+    } catch (e: any) {
+      console.error('[Curriculos] atualizarTipoVaga:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async deletarTipoVaga(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const repo = AppDataSource.getRepository(CurriculoTipoVaga);
+      const tipo = await repo.findOne({ where: { id } });
+      if (!tipo) return res.status(404).json({ success: false, error: 'Tipo de vaga nao encontrado' });
+      // Protege CLT/aprendiz contra exclusao acidental (so desativa)
+      if (tipo.slug === 'clt' || tipo.slug === 'aprendiz') {
+        return res.status(400).json({ success: false, error: 'Tipos padrao (CLT, Aprendiz) nao podem ser excluidos. Desative ao inves disso.' });
+      }
+      await repo.remove(tipo);
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('[Curriculos] deletarTipoVaga:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // ========== PUBLICO (formulario do candidato) ==========
 
   /** Devolve as listas ativas de cargos, habilidades e lojas para o formulario publico */
   static async obterFormularioPublico(_req: Request, res: Response) {
     try {
-      const [cargos, habilidades, lojas, configsResult] = await Promise.all([
+      const [cargos, habilidades, tiposVaga, lojas, configsResult] = await Promise.all([
         AppDataSource.getRepository(CurriculoCargo).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
+        AppDataSource.getRepository(CurriculoTipoVaga).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         // Fonte: rh_empresas (cadastro local do RH, independente da tabela companies global)
         AppDataSource.getRepository(RhEmpresa).find({
           where: { active: true },
@@ -156,6 +227,7 @@ export class CurriculosController {
         success: true,
         cargos: cargos.map(c => c.nome),
         habilidades: habilidades.map(h => h.nome),
+        tipos_vaga: tiposVaga.map(t => ({ slug: t.slug, nome: t.nome })),
         lojas: (lojas || [])
           .map(l => ({
             id: l.id,
@@ -200,14 +272,21 @@ export class CurriculosController {
       const {
         nome, data_nascimento, whatsapp, email, instagram,
         cep, rua, numero, complemento, bairro, cidade, estado,
-        cargos, habilidades, experiencia_texto,
+        cargos, habilidades, experiencia_texto, disponibilidade_turnos,
         foto_url, resumo, experiencias_detalhadas, formacoes, cursos_adicionais,
         interesse_vaga, cod_loja,
       } = req.body;
 
       if (!nome?.trim()) return res.status(400).json({ success: false, error: 'Nome obrigatorio' });
-      if (interesse_vaga !== 'clt' && interesse_vaga !== 'aprendiz') {
-        return res.status(400).json({ success: false, error: 'Interesse de vaga obrigatorio (CLT ou Aprendiz)' });
+      if (!interesse_vaga || typeof interesse_vaga !== 'string' || !interesse_vaga.trim()) {
+        return res.status(400).json({ success: false, error: 'Interesse de vaga obrigatorio' });
+      }
+      // Valida que o slug enviado existe na tabela de tipos ativos
+      const tipoExiste = await AppDataSource.getRepository(CurriculoTipoVaga).findOne({
+        where: { slug: interesse_vaga, ativo: true }
+      });
+      if (!tipoExiste) {
+        return res.status(400).json({ success: false, error: 'Tipo de vaga invalido ou desativado' });
       }
 
       const repo = AppDataSource.getRepository(Curriculo);
@@ -228,6 +307,7 @@ export class CurriculosController {
         cargos: Array.isArray(cargos) ? cargos : [],
         habilidades: Array.isArray(habilidades) ? habilidades : [],
         experiencia_texto: experiencia_texto || null,
+        disponibilidade_turnos: Array.isArray(disponibilidade_turnos) ? disponibilidade_turnos : [],
         foto_url: foto_url || null,
         resumo: resumo || null,
         interesse_vaga,

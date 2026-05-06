@@ -57,6 +57,13 @@ export default function BancoCurriculos() {
 
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [tiposVaga, setTiposVaga] = useState([]);
+  // Mapa { slug -> nome } para exibicao das pills (resolve "HORISTA" no lugar de "Aprendiz")
+  const tipoVagaNome = (slug) => {
+    if (!slug) return '';
+    const t = tiposVaga.find(x => x.slug === slug);
+    return t ? t.nome : slug.toUpperCase();
+  };
   const [emProcesso, setEmProcesso] = useState({}); // { curriculo_id: { vaga_titulo, etapa } }
 
   const [filtros, setFiltros] = useState({
@@ -90,12 +97,14 @@ export default function BancoCurriculos() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, h] = await Promise.all([
+        const [c, h, t] = await Promise.all([
           api.get('/curriculos/cargos'),
           api.get('/curriculos/habilidades'),
+          api.get('/curriculos/tipos-vaga').catch(() => ({ data: { tipos: [] } })),
         ]);
         setCargos((c.data?.cargos || []).filter(x => x.ativo));
         setHabilidades((h.data?.habilidades || []).filter(x => x.ativo));
+        setTiposVaga((t.data?.tipos || []).filter(x => x.ativo));
       } catch {}
       // Mapeia candidatos em processo (vagas com selecionados)
       try {
@@ -210,8 +219,11 @@ export default function BancoCurriculos() {
               </FiltroSelect>
               <FiltroSelect label="Tipo de vaga" value={filtros.interesse_vaga} onChange={v => setFiltros({ ...filtros, interesse_vaga: v })}>
                 <option value="">Todos</option>
-                <option value="clt">💼 CLT</option>
-                <option value="aprendiz">🎓 Aprendiz</option>
+                {tiposVaga.map(t => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.slug === 'clt' ? '💼' : t.slug === 'aprendiz' ? '🎓' : '🎯'} {t.nome}
+                  </option>
+                ))}
               </FiltroSelect>
               <FiltroSelect label="Cargo" value={filtros.cargo} onChange={v => setFiltros({ ...filtros, cargo: v })}>
                 <option value="">Todos</option>
@@ -257,6 +269,7 @@ export default function BancoCurriculos() {
                       <th className="px-2 py-1.5 text-left font-semibold">Email</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Localização</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Cargos de Interesse</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">Disponibilidade</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Experiências</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Perfil Primário</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Perfil Secundário</th>
@@ -310,7 +323,7 @@ export default function BancoCurriculos() {
                           <td className="px-2 py-1.5 whitespace-nowrap">
                             {cv.interesse_vaga ? (
                               <span className="inline-block text-xs px-2.5 py-1 rounded-full font-bold border bg-slate-100 text-slate-700 border-slate-300">
-                                {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 Aprendiz'}
+                                {cv.interesse_vaga === 'clt' ? '💼' : cv.interesse_vaga === 'aprendiz' ? '🎓' : '🎯'} {tipoVagaNome(cv.interesse_vaga)}
                               </span>
                             ) : <span className="text-gray-300">—</span>}
                           </td>
@@ -363,6 +376,30 @@ export default function BancoCurriculos() {
                               )}
                               {(!cv.cargos || cv.cargos.length === 0) && <span className="text-gray-300">—</span>}
                             </div>
+                          </td>
+                          {/* Disponibilidade de Horario */}
+                          <td className="px-2 py-1.5">
+                            {(cv.disponibilidade_turnos && cv.disponibilidade_turnos.length > 0) ? (
+                              <div className="flex flex-wrap gap-1">
+                                {cv.disponibilidade_turnos.includes('qualquer') ? (
+                                  <span className="text-xs px-2 py-0.5 bg-emerald-50 border border-emerald-300 text-emerald-700 rounded-full font-semibold whitespace-nowrap">✨ Qualquer</span>
+                                ) : (
+                                  <>
+                                    {cv.disponibilidade_turnos.includes('manha') && (
+                                      <span className="text-xs px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-700 rounded-full font-semibold whitespace-nowrap">🌅 Manhã</span>
+                                    )}
+                                    {cv.disponibilidade_turnos.includes('intermediario') && (
+                                      <span className="text-xs px-2 py-0.5 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded-full font-semibold whitespace-nowrap">☀️ Interm.</span>
+                                    )}
+                                    {cv.disponibilidade_turnos.includes('tarde') && (
+                                      <span className="text-xs px-2 py-0.5 bg-orange-50 border border-orange-300 text-orange-700 rounded-full font-semibold whitespace-nowrap">🌇 Tarde</span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
                           </td>
                           {/* Experiencias */}
                           <td className="px-2 py-1.5">
@@ -452,6 +489,7 @@ export default function BancoCurriculos() {
       {selecionado && (
         <DetalheCV
           cv={selecionado}
+          tiposVaga={tiposVaga}
           onFechar={() => setSelecionado(null)}
           onAtualizarStatus={(status) => salvarStatus(selecionado.id, 'status', status)}
           onAtualizarObs={(obs) => salvarStatus(selecionado.id, 'observacao_rh', obs)}
@@ -494,7 +532,12 @@ function FiltroSelect({ label, value, onChange, children }) {
   );
 }
 
-function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir }) {
+function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir }) {
+  const tipoVagaNome = (slug) => {
+    if (!slug) return '';
+    const t = tiposVaga.find(x => x.slug === slug);
+    return t ? t.nome : slug.toUpperCase();
+  };
   const [obs, setObs] = useState(cv.observacao_rh || '');
   const st = STATUS_LABEL[cv.status] || STATUS_LABEL.novo;
   const salvarObs = () => onAtualizarObs(obs);
@@ -520,7 +563,7 @@ function DetalheCV({ cv, onFechar, onAtualizarStatus, onAtualizarObs, onAtualiza
             <span className={`text-sm px-3 py-1 rounded-full font-bold border-2 border-white/30 ${st.bg}`}>{st.emoji} {st.label}</span>
             {cv.interesse_vaga && (
               <span className="text-sm px-3 py-1 rounded-full font-bold border-2 border-white/30 bg-white/20 text-white">
-                {cv.interesse_vaga === 'clt' ? '💼 CLT' : '🎓 APRENDIZ'}
+                {cv.interesse_vaga === 'clt' ? '💼' : cv.interesse_vaga === 'aprendiz' ? '🎓' : '🎯'} {(tipoVagaNome(cv.interesse_vaga) || '').toUpperCase()}
               </span>
             )}
             <span className="text-sm opacity-90">Recebido em {new Date(cv.created_at).toLocaleString('pt-BR')}</span>

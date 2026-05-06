@@ -59,9 +59,10 @@ export class Curriculo {
   @Column({ type: 'text', nullable: true })
   resumo: string | null;
 
-  // Tipo de vaga que o candidato quer (obrigatorio ao enviar): 'clt' | 'aprendiz'
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  interesse_vaga: 'clt' | 'aprendiz' | null;
+  // Tipo de vaga que o candidato quer (slug em curriculo_tipos_vaga)
+  // Obrigatorio ao enviar. Padroes: 'clt', 'aprendiz' — admin pode criar mais
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  interesse_vaga: string | null;
 
   // Array de objetos: { funcao, empresa, empresa_instagram, tempo_anos, tempo_meses, descricao }
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
@@ -92,6 +93,10 @@ export class Curriculo {
 
   @Column({ type: 'text', nullable: true })
   experiencia_texto: string | null;
+
+  // Disponibilidade de turnos (array de strings): manha, intermediario, tarde, qualquer
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  disponibilidade_turnos: string[];
 
   @Column({ type: 'text', nullable: true })
   observacao_rh: string | null;

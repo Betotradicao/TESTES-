@@ -4,6 +4,7 @@ import api from '../utils/api';
 export default function CurriculoPublico() {
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [tiposVaga, setTiposVaga] = useState([{ slug: 'clt', nome: 'CLT' }, { slug: 'aprendiz', nome: 'Menor Aprendiz' }]);
   const [lojas, setLojas] = useState([]);
   // Loja escolhida pelo candidato na tela inicial (usa id da empresa)
   const [lojaEscolhidaId, setLojaEscolhidaId] = useState(null);
@@ -54,6 +55,7 @@ export default function CurriculoPublico() {
     formacoes: [],
     cursos_adicionais: [],
     experiencia_texto: '',
+    disponibilidade_turnos: [],
   });
 
   useEffect(() => {
@@ -62,6 +64,9 @@ export default function CurriculoPublico() {
         const res = await api.get('/curriculos/publico/formulario');
         setCargos(res.data?.cargos || []);
         setHabilidades(res.data?.habilidades || []);
+        if (Array.isArray(res.data?.tipos_vaga) && res.data.tipos_vaga.length > 0) {
+          setTiposVaga(res.data.tipos_vaga);
+        }
         const listaLojas = res.data?.lojas || [];
         setLojas(listaLojas);
         // Configs (DISC + pre-entrevista)
@@ -230,7 +235,7 @@ export default function CurriculoPublico() {
     e.preventDefault();
     setErro('');
     if (!form.nome.trim()) { setErro('Informe seu nome completo.'); return; }
-    if (!form.interesse_vaga) { setErro('Selecione o interesse de vaga (CLT ou Aprendiz).'); window.scrollTo(0, 0); return; }
+    if (!form.interesse_vaga) { setErro('Selecione o interesse de vaga.'); window.scrollTo(0, 0); return; }
     setEnviando(true);
     try {
       const payload = {
@@ -649,27 +654,23 @@ export default function CurriculoPublico() {
               🎯 Interesse de vaga <span className="text-red-500">*</span>
             </h2>
             <p className="text-xs text-gray-500 mb-2">Selecione UMA opção (obrigatório)</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition ${form.interesse_vaga === 'clt' ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-200' : 'border-gray-200 hover:border-rose-300'}`}>
-                <input type="radio" name="interesse_vaga" value="clt"
-                  checked={form.interesse_vaga === 'clt'}
-                  onChange={() => setForm({ ...form, interesse_vaga: 'clt' })}
-                  className="w-4 h-4 accent-rose-500" required />
-                <div>
-                  <div className="text-sm font-bold text-gray-800">CLT</div>
-                  <div className="text-[11px] text-gray-500">Contrato efetivo, carteira assinada</div>
-                </div>
-              </label>
-              <label className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition ${form.interesse_vaga === 'aprendiz' ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-200' : 'border-gray-200 hover:border-rose-300'}`}>
-                <input type="radio" name="interesse_vaga" value="aprendiz"
-                  checked={form.interesse_vaga === 'aprendiz'}
-                  onChange={() => setForm({ ...form, interesse_vaga: 'aprendiz' })}
-                  className="w-4 h-4 accent-rose-500" required />
-                <div>
-                  <div className="text-sm font-bold text-gray-800">APRENDIZ</div>
-                  <div className="text-[11px] text-gray-500">Jovem aprendiz / primeiro emprego</div>
-                </div>
-              </label>
+            <div className={`grid gap-2 ${tiposVaga.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+              {tiposVaga.map(t => (
+                <label key={t.slug}
+                  className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition ${
+                    form.interesse_vaga === t.slug
+                      ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-200'
+                      : 'border-gray-200 hover:border-rose-300'
+                  }`}>
+                  <input type="radio" name="interesse_vaga" value={t.slug}
+                    checked={form.interesse_vaga === t.slug}
+                    onChange={() => setForm({ ...form, interesse_vaga: t.slug })}
+                    className="w-4 h-4 accent-rose-500" required />
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">{t.nome}</div>
+                  </div>
+                </label>
+              ))}
             </div>
           </section>
 
@@ -734,13 +735,13 @@ export default function CurriculoPublico() {
           {/* ===== HABILIDADES ===== */}
           <section>
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-bold text-gray-800">🔧 Habilidades práticas</h2>
+              <h2 className="text-sm font-bold text-gray-800">⭐ Pontos Fortes</h2>
               <button type="button" onClick={addHabilidadeNova}
                 className="text-xs px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full font-bold hover:bg-indigo-200">
-                + Outra habilidade
+                + Outro ponto forte
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-2">Marque o que você sabe fazer</p>
+            <p className="text-xs text-gray-500 mb-2">Marque o que mais combina com você</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {habilidades.map(h => (
                 <label key={h} className={`flex items-center gap-2 p-2 border-2 rounded-lg cursor-pointer text-xs ${form.habilidades.includes(h) ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200'}`}>
@@ -868,11 +869,52 @@ export default function CurriculoPublico() {
             </div>
           </section>
 
+          {/* ===== DISPONIBILIDADE DE HORARIO ===== */}
+          <section>
+            <h2 className="text-sm font-bold text-gray-800 mb-1">⏰ Disponibilidade de horário</h2>
+            <p className="text-xs text-gray-500 mb-2">Marque os turnos que você pode trabalhar</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { id: 'manha', label: 'Turno Manhã', emoji: '🌅' },
+                { id: 'intermediario', label: 'Turno Intermediário', emoji: '☀️' },
+                { id: 'tarde', label: 'Turno Tarde', emoji: '🌇' },
+                { id: 'qualquer', label: 'Disponibilidade pra qualquer horário', emoji: '✨' },
+              ].map(opt => {
+                const checked = (form.disponibilidade_turnos || []).includes(opt.id);
+                return (
+                  <label key={opt.id}
+                    className={`flex items-center gap-2 p-2 border-2 rounded-lg cursor-pointer text-xs transition ${
+                      checked ? 'border-rose-400 bg-rose-50' : 'border-gray-200 hover:border-rose-200'
+                    }`}>
+                    <input type="checkbox" checked={checked}
+                      onChange={() => {
+                        setForm(f => {
+                          const atual = f.disponibilidade_turnos || [];
+                          // Se marcou "qualquer", desmarca os outros (e vice-versa)
+                          if (opt.id === 'qualquer') {
+                            return { ...f, disponibilidade_turnos: checked ? [] : ['qualquer'] };
+                          }
+                          const semQualquer = atual.filter(x => x !== 'qualquer');
+                          const novo = checked
+                            ? semQualquer.filter(x => x !== opt.id)
+                            : [...semQualquer, opt.id];
+                          return { ...f, disponibilidade_turnos: novo };
+                        });
+                      }}
+                      className="w-4 h-4 accent-rose-500" />
+                    <span className="text-base">{opt.emoji}</span>
+                    <span className="font-medium">{opt.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+
           {/* ===== CAMPO LIVRE ===== */}
           <section>
             <h2 className="text-sm font-bold text-gray-800 mb-1">📝 Informações adicionais (opcional)</h2>
             <textarea value={form.experiencia_texto} onChange={e => setForm({ ...form, experiencia_texto: e.target.value })}
-              rows={3} placeholder="Idiomas, disponibilidade de horário, CNH, etc…"
+              rows={3} placeholder="Idiomas, CNH, particularidades, etc…"
               className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
           </section>
 

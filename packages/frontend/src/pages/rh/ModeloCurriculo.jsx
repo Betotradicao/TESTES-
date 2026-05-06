@@ -10,6 +10,7 @@ export default function ModeloCurriculo() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
+  const [tiposVaga, setTiposVaga] = useState([]);
   const [discHabilitado, setDiscHabilitado] = useState(false);
   const [preEntrevistaHabilitada, setPreEntrevistaHabilitada] = useState(false);
   const [erro, setErro] = useState('');
@@ -37,13 +38,15 @@ export default function ModeloCurriculo() {
 
   const carregar = async () => {
     try {
-      const [c, h, cfg] = await Promise.all([
+      const [c, h, t, cfg] = await Promise.all([
         api.get('/curriculos/cargos'),
         api.get('/curriculos/habilidades'),
+        api.get('/curriculos/tipos-vaga'),
         api.get('/config/configurations').catch(() => ({ data: {} }))
       ]);
       setCargos(c.data?.cargos || []);
       setHabilidades(h.data?.habilidades || []);
+      setTiposVaga(t.data?.tipos || []);
       // Le flags do banco (configurations)
       const cfgs = cfg.data || {};
       setDiscHabilitado(String(cfgs.curriculo_disc_habilitado || 'false') === 'true');
@@ -60,23 +63,36 @@ export default function ModeloCurriculo() {
 
   useEffect(() => { carregar(); }, []);
 
+  // Resolve a URL base por tipo: 'cargo' | 'habilidade' | 'tipo-vaga'
+  const urlBase = (tipo) =>
+    tipo === 'cargo' ? '/curriculos/cargos'
+    : tipo === 'habilidade' ? '/curriculos/habilidades'
+    : '/curriculos/tipos-vaga';
+
+  const labelTipo = (tipo) =>
+    tipo === 'cargo' ? 'Cargo'
+    : tipo === 'habilidade' ? 'Ponto forte'
+    : 'Tipo de vaga';
+
   const adicionar = async (tipo) => {
-    const nome = window.prompt(tipo === 'cargo' ? 'Novo cargo (ex: REPOSITOR, BALCONISTA):' : 'Nova habilidade (ex: ATENDIMENTO AO CLIENTE):');
+    const placeholder =
+      tipo === 'cargo' ? 'Novo cargo (ex: REPOSITOR, BALCONISTA):'
+      : tipo === 'habilidade' ? 'Novo ponto forte (ex: ATENDIMENTO AO CLIENTE):'
+      : 'Novo tipo de vaga (ex: ESTÁGIO, PJ, JOVEM APRENDIZ):';
+    const nome = window.prompt(placeholder);
     if (!nome?.trim()) return;
     try {
-      const url = tipo === 'cargo' ? '/curriculos/cargos' : '/curriculos/habilidades';
-      await api.post(url, { nome: nome.trim() });
+      await api.post(urlBase(tipo), { nome: nome.trim() });
       await carregar();
-      flash(`${tipo === 'cargo' ? 'Cargo' : 'Habilidade'} adicionado`);
+      flash(`${labelTipo(tipo)} adicionado`);
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
 
   const renomear = async (tipo, item) => {
     const novo = window.prompt('Novo nome:', item.nome);
-    if (!novo?.trim() || novo.trim().toUpperCase() === item.nome) return;
+    if (!novo?.trim() || novo.trim() === item.nome) return;
     try {
-      const url = tipo === 'cargo' ? `/curriculos/cargos/${item.id}` : `/curriculos/habilidades/${item.id}`;
-      await api.put(url, { nome: novo.trim() });
+      await api.put(`${urlBase(tipo)}/${item.id}`, { nome: novo.trim() });
       await carregar();
       flash('Renomeado');
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
@@ -84,8 +100,7 @@ export default function ModeloCurriculo() {
 
   const toggleAtivo = async (tipo, item) => {
     try {
-      const url = tipo === 'cargo' ? `/curriculos/cargos/${item.id}` : `/curriculos/habilidades/${item.id}`;
-      await api.put(url, { ativo: !item.ativo });
+      await api.put(`${urlBase(tipo)}/${item.id}`, { ativo: !item.ativo });
       await carregar();
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
   };
@@ -93,8 +108,7 @@ export default function ModeloCurriculo() {
   const deletar = async (tipo, item) => {
     if (!window.confirm(`Excluir "${item.nome}"?`)) return;
     try {
-      const url = tipo === 'cargo' ? `/curriculos/cargos/${item.id}` : `/curriculos/habilidades/${item.id}`;
-      await api.delete(url);
+      await api.delete(`${urlBase(tipo)}/${item.id}`);
       await carregar();
       flash('Removido');
     } catch (e) { setErro(e?.response?.data?.error || e.message); }
@@ -217,18 +231,52 @@ export default function ModeloCurriculo() {
             )}
           </div>
 
-          {/* Habilidades */}
+          {/* Tipos de Vaga */}
           <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <span className="text-xl">🔧</span>
-              <h3 className="font-bold text-gray-800">Habilidades (experiências práticas)</h3>
+              <span className="text-xl">🎯</span>
+              <h3 className="font-bold text-gray-800">Tipos de Vaga</h3>
+              <span className="text-xs text-gray-500 ml-1">{tiposVaga.length} item(s)</span>
+              <button onClick={() => adicionar('tipo-vaga')} className="ml-auto text-sm px-3 py-1 bg-emerald-500 text-white rounded-lg font-bold hover:bg-emerald-600">
+                + Adicionar
+              </button>
+            </div>
+            {tiposVaga.length === 0 ? (
+              <div className="text-sm text-gray-400 italic text-center py-4">Nenhum tipo de vaga cadastrado. Adicione o primeiro.</div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tiposVaga.map(t => {
+                  const padrao = t.slug === 'clt' || t.slug === 'aprendiz';
+                  return (
+                    <div key={t.id} className={`group flex items-center gap-1 border-2 rounded-full pl-3 pr-1 py-1 ${t.ativo ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-100 opacity-60'}`}>
+                      <span className="text-xs font-semibold text-gray-700">{t.nome}</span>
+                      <button onClick={() => toggleAtivo('tipo-vaga', t)} className="text-[10px] text-gray-500 hover:text-gray-700 px-1" title={t.ativo ? 'Desativar' : 'Ativar'}>
+                        {t.ativo ? '✓' : '○'}
+                      </button>
+                      <button onClick={() => renomear('tipo-vaga', t)} className="text-[10px] text-gray-500 hover:text-gray-700 px-1" title="Renomear">✏️</button>
+                      {!padrao && (
+                        <button onClick={() => deletar('tipo-vaga', t)} className="text-[10px] text-red-500 hover:text-red-700 px-1" title="Excluir">🗑️</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-2">CLT e Aprendiz são padrão (não podem ser excluídos, apenas desativados).</p>
+          </div>
+
+          {/* Pontos Fortes */}
+          <div className="bg-white border-2 border-gray-100 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className="text-xl">⭐</span>
+              <h3 className="font-bold text-gray-800">Pontos Fortes</h3>
               <span className="text-xs text-gray-500 ml-1">{habilidades.length} item(s)</span>
               <button onClick={() => adicionar('habilidade')} className="ml-auto text-sm px-3 py-1 bg-indigo-500 text-white rounded-lg font-bold hover:bg-indigo-600">
                 + Adicionar
               </button>
             </div>
             {habilidades.length === 0 ? (
-              <div className="text-sm text-gray-400 italic text-center py-4">Nenhuma habilidade cadastrada. Adicione a primeira.</div>
+              <div className="text-sm text-gray-400 italic text-center py-4">Nenhum ponto forte cadastrado. Adicione o primeiro.</div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {habilidades.map(h => (
