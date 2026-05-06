@@ -43,9 +43,18 @@ export class FixRhConfigTablesColumns1784722000000 implements MigrationInterface
       );
     }
 
-    // 2. Adiciona coluna dias em prazos de experiencia
+    // 2. Colunas faltantes em tabelas especificas que faziam INSERT/UPDATE falharem
     await queryRunner.query(
       `ALTER TABLE IF EXISTS public.rh_prazos_experiencia ADD COLUMN IF NOT EXISTS dias INT`
+    );
+    await queryRunner.query(
+      `ALTER TABLE IF EXISTS public.rh_tipos_ausencia ADD COLUMN IF NOT EXISTS cor VARCHAR(20)`
+    );
+    await queryRunner.query(
+      `ALTER TABLE IF EXISTS public.rh_tipos_treinamento ADD COLUMN IF NOT EXISTS categoria VARCHAR(100)`
+    );
+    await queryRunner.query(
+      `ALTER TABLE IF EXISTS public.rh_status_treinamento ADD COLUMN IF NOT EXISTS cor VARCHAR(20)`
     );
   }
 
