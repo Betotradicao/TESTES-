@@ -161,10 +161,9 @@ export default function VisionPalavraChave2() {
     setError('');
     setVideoUrl(null);
 
-    // Gera o MP4 completo antes de servir (transcodificacao robusta)
-    // Limitado a 30s (10 antes + 20 depois) pra feedback rapido enquanto validamos
-    const antes = Math.min(cam.antes || 15, 10);
-    const depois = Math.min(cam.depois || 120, 20);
+    // Usa antes/depois configurados por canal (coluna "Pal. Chave 2" em Configurações de Rede)
+    const antes = cam.antes ?? 15;
+    const depois = cam.depois ?? 120;
     const duracao = antes + depois;
     try {
       const res = await api.get('/dvr-cftv/pos/generate-clip', {

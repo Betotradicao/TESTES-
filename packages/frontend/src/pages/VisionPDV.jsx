@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { searchPOS, getLiveStreamUrl, getCupom, getCanaisConfig } from '../services/dvr-cftv.service';
+import { api } from '../utils/api';
 
 const PERIODOS = [
   { value: 'hoje', label: 'Hoje' },
@@ -58,6 +59,7 @@ export default function VisionPDV() {
   const [loadingCupom, setLoadingCupom] = useState(null);
   const [showCupom, setShowCupom] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [camerasPdv, setCamerasPdv] = useState([]);
   const videoRef = useRef(null);
 
   // Carregar canais configurados do backend
@@ -70,6 +72,11 @@ export default function VisionPDV() {
         }
       })
       .catch(err => console.error('Erro ao carregar canais:', err));
+
+    // Carregar config por camera (antes/depois por canal)
+    api.get('/dvr-cftv/config/cameras-pdv')
+      .then(res => setCamerasPdv(res.data.cameras || []))
+      .catch(() => {});
   }, []);
 
   const handleSearch = async () => {
@@ -112,8 +119,12 @@ export default function VisionPDV() {
     setVideoTime(item.Time);
     setError('');
     try {
-      // Streaming direto do DVR (sem esperar gerar clipe)
-      const url = getLiveStreamUrl(item.Channel, item.Time);
+      // Streaming direto do DVR — usa antes/depois configurados por canal (Configurações de Rede → DVR/CFTV)
+      // Se canal não tiver config, cai no fallback global do backend
+      const cam = camerasPdv.find(c => Number(c.channel) === Number(item.Channel));
+      const antes = cam?.antes;
+      const depois = cam?.depois;
+      const url = getLiveStreamUrl(item.Channel, item.Time, antes, depois);
       setVideoUrl(url);
     } catch (err) {
       setError('Erro ao iniciar vídeo: ' + (err.response?.data?.error || err.message));
