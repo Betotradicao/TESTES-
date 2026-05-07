@@ -40,6 +40,25 @@ Ver feature completa: [[../bugs-resolvidos/2026-04-bifurcacao-postgresql-nunes|B
 - `vdonlineprod` só tem ~13 dias — pra períodos anteriores usar `vdadet{MMYY}`
 - Custo PG = `vopr_custoentrada * qtde + vopr_icmsvalor` (fórmula atual em [[gestao-inteligente.service.ts]])
 
+## 🏷️ Cadastro de Produtos (`produtos`)
+Tabela principal: `public.produtos` (campos prefixados `prod_`).
+- `prod_codigo` — numeric(8,0). **Códigos MISTOS de 5 e 6 dígitos** (22.3k de 5 dígitos + 32.5k de 6 dígitos). Não há padrão único.
+- `prod_codbarras` — varchar(13). EAN.
+- `prod_descricao` — nome.
+- `prod_balanca` — **convenção do RP INFO usa 3 valores, NÃO o 'S' do Oracle Intersolid:**
+  - `'P'` = Pesável (~919 produtos) — vendido por peso
+  - `'U'` = Unidade (~262 produtos) — vendido por unidade na balança
+  - `'N'` = Não é balança (~53.9k)
+- Outras: `prod_grup_codigo/nome`, `prod_dpto_codigo`, `prod_marca`, `prod_peso`, `prod_dataalt`.
+
+⚠️ Qualquer query/filtro de "produto de balança" no Nunes precisa usar `prod_balanca IN ('P','U')`, não `= 'S'`.
+
+## 🔢 EAN de balança (formato brasileiro)
+Bipagem de produto de balança vem como EAN-13 começando com `2`:
+- Formato: `2 + PLU(6) + valor(5) + DV(1)`
+- Exemplo: `2400750000066` → PLU=`400750`, valor=`00006` (R$ 0,06), DV=`6`
+- Sistema bipagens precisa decompor o EAN e buscar o PLU em `produtos.prod_codigo` filtrando `prod_balanca IN ('P','U')`. Se cair em produto com `prod_balanca='N'`, é EAN bipado incorretamente (não era balança).
+
 ## 💰 Fórmula de Custo (aproximação atual)
 Fórmula nossa bate dentro de ~1,5% do "custo" que o app do RP INFO mostra. Diferença vem de impostos adicionais (PIS/COFINS com crédito, ICMS desonerado, apurações mensais) que nosso sistema não reproduz. É **aproximação gerencial**, não apuração fiscal.
 

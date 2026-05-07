@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
+import LgpdTab from '../components/configuracoes/LgpdTab';
 
 const TABS = [
+  { key: 'lgpd', label: '🛡️ Privacidade e LGPD', custom: true },
   { key: 'empresas', label: 'Empresas', custom: true },
   { key: 'turnos', label: 'Turnos', custom: true },
   { key: 'cargos', label: 'Cargos', custom: true },
@@ -51,8 +53,13 @@ const FIELD_LABELS = {
 export default function RhConfiguracoes() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [searchParams] = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(TABS[0].key);
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = searchParams.get('tab');
+    if (t && TABS.some(tab => tab.key === t)) return t;
+    return 'empresas';
+  });
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -201,7 +208,9 @@ export default function RhConfiguracoes() {
 
         {/* Content */}
         <div className="p-6">
-          {currentTab?.custom && activeTab === 'feriados' ? (
+          {currentTab?.custom && activeTab === 'lgpd' ? (
+            <LgpdTab />
+          ) : currentTab?.custom && activeTab === 'feriados' ? (
             <FeriadosTab />
           ) : currentTab?.custom && activeTab === 'empresas' ? (
             <EmpresasTab />

@@ -17,6 +17,14 @@
 - **Multi-loja** (diferente de [[tradicao|Tradição]] que é loja única)
 - Quando busca dados, o filtro `codLoja` precisa sempre ser respeitado
 - Interface tem seletor de loja no canto superior esquerdo
+- **PLU de balança = 6 dígitos** (ver seção EAN abaixo)
+
+## 🔢 EAN de balança — usa **6 dígitos** de PLU
+Formato do EAN-13 que a balança gera:
+```
+2 + PLU(6) + valor(5) + DV(1) = 13 dígitos
+```
+Cada cliente é configurado diferente: Tradição usa 5, SuperVital e Nunes usam 6.
 
 ## 🐛 Bugs já resolvidos neste cliente
 - [[../bugs-resolvidos/2026-04-15-tiposSaida-gestao|NF Transferência contaminando valor na Gestão Inteligente]]

@@ -5,6 +5,20 @@ import { MENU_SUBMENUS } from '../constants/menuConstants';
 import { useLoja } from '../contexts/LojaContext';
 import { api } from '../utils/api';
 
+// Modulos que dao "direito" ao menu CONFIGURACOES aparecer.
+// Se nenhum deles estiver ativo (ex: cliente so usa RH), o menu some.
+const CONFIGURACOES_REQUIRED_MODULES = [
+  // Gestao no Radar
+  'gestao-inteligente', 'estoque-margem', 'compras', 'pricing', 'ofertas',
+  // Marketing no Radar
+  'disparo-whatsapp', 'marketing-chatbot',
+  // Vision 360
+  'vision-pdv', 'vision-facial', 'vision-bipagens',
+  // Garimpador 360
+  'garimpa-fornecedores', 'garimpa-ranking-forn', 'garimpa-ranking-conc',
+  'garimpa-projecao', 'garimpa-fora-mix', 'garimpa-pesquisar', 'garimpa-ecommerce',
+];
+
 export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const [expandedSections, setExpandedSections] = useState(() => {
     try {
@@ -1256,6 +1270,12 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           if (item.id === 'configuracoes' && user?.type === 'employee') {
             return false;
           }
+          // Configuracoes so aparece se algum modulo de Gestao/Marketing/Vision/Garimpador estiver ativo
+          // (cliente que so usa RH nao precisa dessa tela)
+          if (item.id === 'configuracoes') {
+            const algumModuloAlvoAtivo = CONFIGURACOES_REQUIRED_MODULES.some(id => isModuleActive(id));
+            if (!algumModuloAlvoAtivo) return false;
+          }
           // Hide Configurações de REDE for non-master users
           if (item.id === 'configuracoes-rede' && !user?.isMaster) {
             return false;
@@ -1267,8 +1287,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
 
           // Modo TOTALMENTE INVISIVEL: esconde modulo se estiver inativo
           if (visibilityMode === 'hidden') {
-            // Configuracoes sempre visivel
-            if (item.id === 'configuracoes' || item.id === 'configuracoes-rede' || item.id === 'configuracoes-tabelas') return true;
+            // Configuracoes de REDE / TABELAS sempre visiveis (regra de Master)
+            if (item.id === 'configuracoes-rede' || item.id === 'configuracoes-tabelas') return true;
             const itemKey = item.moduleId || item.id;
             const itemAtivo = itemKey ? isModuleActive(itemKey) : true;
             // Recursivo: trata nestedSection percorrendo seus items

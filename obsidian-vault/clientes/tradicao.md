@@ -16,6 +16,14 @@ Cliente de supermercado **loja única**, hospedado na VPS 46. É o cliente de **
 - **Loja única** (diferente de [[supervital|SuperVital]] que é multi-loja)
 - É a "rede local" do usuário — mais fácil de testar na hora
 - Primeiro cliente a receber novos deploys geralmente
+- **PLU de balança = 5 dígitos** (ver seção EAN abaixo)
+
+## 🔢 EAN de balança — usa **5 dígitos** de PLU
+Formato do EAN-13 que a balança gera:
+```
+2 + PLU(5) + valor(6) + DV(1) = 13 dígitos
+```
+Cada cliente é configurado diferente: Tradição usa 5, SuperVital e Nunes usam 6.
 
 ## 🚀 Deploy
 Ver [[../arquitetura/deploy|Deploy Multi-Tenant]].
