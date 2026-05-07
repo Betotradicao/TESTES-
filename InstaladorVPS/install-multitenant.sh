@@ -9,8 +9,15 @@ main() {
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
 # Suporte a múltiplos clientes com subdomínios
-# VERSÃO 5.3: Atualizado Abr/2026
-#   NOVO (v5.3):
+# VERSÃO 5.4: Atualizado Mai/2026
+#   NOVO (v5.4):
+#   - Marketing > Chatbot WhatsApp (construtor visual estilo n8n)
+#     Editor drag-and-drop com React Flow, blocos: Mensagem, Pergunta,
+#     IA (OpenAI), Atendente, Encerrar. Engine grafo (conexoes com
+#     condicoes). Fluxo exemplo pronto: Ofertas/Horario/Curriculos/
+#     Endereco/Atendente. Tabelas: mkt_chatbot_fluxos/blocos/conexoes/
+#     contatos/sessoes/mensagens (migration auto)
+#   v5.3:
 #   - Modulo RH completo (Cadastro, Documentacao, ASO, DP, Lancamentos
 #     Folha, Indicadores, Pesquisa Clima, Recrutador IA, Banco Curriculos)
 #   - Setor (FK rh_colaboradores -> sectors), CLT/Aprendiz, EPIs/EPCs
@@ -42,7 +49,7 @@ echo "╔═══════════════════════�
 echo "║                                                            ║"
 echo "║   INSTALADOR MULTI-TENANT - PREVENÇÃO NO RADAR            ║"
 echo "║   Sistema com subdomínios por cliente                      ║"
-echo "║   VERSÃO: 5.3 (Abril 2026)                                 ║"
+echo "║   VERSÃO: 5.4 (Maio 2026)                                  ║"
 echo "║                                                            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""

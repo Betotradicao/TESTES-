@@ -99,3 +99,6 @@ check-*.sh
 # Arquivos locais de dados
 APONTAMENTOS*.xlsx
 *.xlsx
+*.xlsm
+exportacao_folha_*.TXT
+exportacao_folha_*.txt

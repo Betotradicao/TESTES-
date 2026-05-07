@@ -74,6 +74,7 @@ import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
 import MarketingWhatsapp from './pages/MarketingWhatsapp';
 import DisparoWhatsapp from './pages/DisparoWhatsapp';
+import MarketingChatbot from './pages/MarketingChatbot';
 import RhDashboard from './pages/RhDashboard';
 import RhConfiguracoes from './pages/RhConfiguracoes';
 import RhCadastroGeral from './pages/RhCadastroGeral';
@@ -618,6 +619,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DisparoWhatsapp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/marketing/chatbot"
+              element={
+                <ProtectedRoute>
+                  <MarketingChatbot />
                 </ProtectedRoute>
               }
             />
