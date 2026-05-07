@@ -277,6 +277,7 @@ export class RhRecrutadorController {
     try {
       const status = req.query.status as string | undefined;
       const vagaId = req.query.vaga_id ? Number(req.query.vaga_id) : undefined;
+      const curriculoId = req.query.curriculo_id ? Number(req.query.curriculo_id) : undefined;
       const params: any[] = [];
       let where = '1=1';
       if (status) {
@@ -286,6 +287,10 @@ export class RhRecrutadorController {
       if (vagaId) {
         params.push(vagaId);
         where += ` AND e.vaga_id = $${params.length}`;
+      }
+      if (curriculoId) {
+        params.push(curriculoId);
+        where += ` AND e.curriculo_id = $${params.length}`;
       }
       const rows = await AppDataSource.query(
         `SELECT e.id, e.token, e.candidato_nome, e.candidato_telefone, e.status,

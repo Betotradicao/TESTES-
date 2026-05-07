@@ -9,6 +9,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 // ============ PUBLICO (sem auth) ============
 // Formulario carregado pelo candidato + envio do curriculo
 router.get('/publico/formulario', CurriculosController.obterFormularioPublico);
+router.get('/publico/vagas', CurriculosController.listarVagasPublicasPorLoja);
 router.post('/publico/upload-foto', upload.single('foto'), CurriculosController.uploadFotoPublico);
 router.post('/publico/enviar', CurriculosController.enviarCurriculoPublico);
 

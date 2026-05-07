@@ -8,6 +8,14 @@ export default function CurriculoPublico() {
   const [lojas, setLojas] = useState([]);
   // Loja escolhida pelo candidato na tela inicial (usa id da empresa)
   const [lojaEscolhidaId, setLojaEscolhidaId] = useState(null);
+  // Vagas abertas dessa loja (carregadas apos selecionar loja)
+  const [vagasAbertas, setVagasAbertas] = useState([]);
+  const [carregandoVagas, setCarregandoVagas] = useState(false);
+  const [vagasInteresse, setVagasInteresse] = useState([]); // ids
+  const [viuVagas, setViuVagas] = useState(false);
+  const [buscaVaga, setBuscaVaga] = useState('');
+  const [vagaDetalheId, setVagaDetalheId] = useState(null); // id da vaga em detalhe
+  const [beneficiosCatalogo, setBeneficiosCatalogo] = useState([]); // [{nome, valor}]
   // Tela intermediaria de dicas (foto + redes sociais) entre loja e formulario
   const [viuDicas, setViuDicas] = useState(false);
   const [aceitouLgpd, setAceitouLgpd] = useState(false);
@@ -58,6 +66,18 @@ export default function CurriculoPublico() {
     disponibilidade_turnos: [],
   });
 
+  // Quando o candidato escolhe a loja, carrega as vagas abertas
+  useEffect(() => {
+    if (lojaEscolhidaId == null) { setVagasAbertas([]); setViuVagas(false); setVagasInteresse([]); return; }
+    const lj = lojas.find(l => l.id === lojaEscolhidaId);
+    const codLoja = lj?.cod_loja ?? null;
+    setCarregandoVagas(true);
+    api.get(`/curriculos/publico/vagas${codLoja != null ? `?cod_loja=${codLoja}` : ''}`)
+      .then(({ data }) => setVagasAbertas(Array.isArray(data?.vagas) ? data.vagas : []))
+      .catch(() => setVagasAbertas([]))
+      .finally(() => setCarregandoVagas(false));
+  }, [lojaEscolhidaId, lojas]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -69,6 +89,8 @@ export default function CurriculoPublico() {
         }
         const listaLojas = res.data?.lojas || [];
         setLojas(listaLojas);
+        // Catalogo de beneficios (com valor) pra mostrar nas vagas
+        setBeneficiosCatalogo(Array.isArray(res.data?.beneficios_catalogo) ? res.data.beneficios_catalogo : []);
         // Configs (DISC + pre-entrevista)
         if (res.data?.config) setConfig(res.data.config);
         // SEMPRE mostra a tela de selecao de loja primeiro (mesmo com 1 unica loja),
@@ -89,16 +111,22 @@ export default function CurriculoPublico() {
       const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await r.json();
       if (!data.erro) {
+        // Tudo MAIÚSCULO pra evitar variacoes ("Sao Paulo", "SAO PAULO", "são paulo" etc)
         setForm(f => ({
           ...f,
-          rua: data.logradouro || f.rua,
-          bairro: data.bairro || f.bairro,
-          cidade: data.localidade || f.cidade,
-          estado: data.uf || f.estado,
+          rua: (data.logradouro || f.rua || '').toUpperCase(),
+          bairro: (data.bairro || f.bairro || '').toUpperCase(),
+          cidade: (data.localidade || f.cidade || '').toUpperCase(),
+          estado: (data.uf || f.estado || '').toUpperCase(),
         }));
       }
     } catch {}
     finally { setBuscandoCep(false); }
+  };
+
+  const formatCep = (v) => {
+    const d = (v || '').replace(/\D/g, '').slice(0, 8);
+    return d.length > 5 ? `${d.slice(0,5)}-${d.slice(5)}` : d;
   };
 
   const subirFoto = async (e) => {
@@ -251,7 +279,7 @@ export default function CurriculoPublico() {
         })),
       };
       const lojaSel = lojas.find(l => l.id === lojaEscolhidaId);
-      const r = await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaSel?.cod_loja ?? null });
+      const r = await api.post('/curriculos/publico/enviar', { ...payload, cod_loja: lojaSel?.cod_loja ?? null, vagas_interesse_ids: vagasInteresse });
       // Captura o id retornado pra amarrar DISC e pre-entrevista a este curriculo
       if (r?.data?.id) setCurriculoId(r.data.id);
       setEnviado(true);
@@ -327,6 +355,399 @@ export default function CurriculoPublico() {
                 );
               })}
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de DETALHE de uma vaga especifica
+  if (lojaEscolhidaId != null && !viuVagas && vagaDetalheId != null) {
+    const lj = lojas.find(l => l.id === lojaEscolhidaId);
+    const tituloLoja = lj ? (lj.apelido || lj.nome || (lj.is_principal ? 'MATRIZ' : (lj.cod_loja ? `LOJA ${lj.cod_loja}` : 'LOJA'))) : '';
+    const cidadeLoja = lj ? [lj.cidade, lj.estado].filter(Boolean).join(' - ') : '';
+    const TURNO_LABEL = { manha: 'Manhã', intermediario: 'Intermediário', tarde: 'Tarde', qualquer: 'Qualquer horário' };
+    const v = vagasAbertas.find(x => x.id === vagaDetalheId);
+    if (!v) {
+      // Vaga sumiu — volta pra lista
+      setTimeout(() => setVagaDetalheId(null), 0);
+      return null;
+    }
+    const marcado = vagasInteresse.includes(v.id);
+    const turnos = Array.isArray(v.turnos) ? v.turnos : [];
+    const beneficiosArr = (v.beneficios || '').split(',').map(s => s.trim()).filter(Boolean);
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header com voltar */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+            <button
+              onClick={() => setVagaDetalheId(null)}
+              className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-2xl text-gray-600"
+              title="Voltar pra lista de vagas"
+            >‹</button>
+            <div className="flex-1">
+              <h1 className="font-bold text-lg text-gray-900 leading-tight">{v.cargo_nome || v.titulo}</h1>
+              <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">{tituloLoja}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 py-6 pb-32">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            {/* Linha de meta-infos */}
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-700 mb-4 pb-4 border-b border-gray-100">
+              <span className="flex items-center gap-1.5">📍 <span>{cidadeLoja || tituloLoja}</span></span>
+              <span className="flex items-center gap-1.5">💼 <span>1 posição</span></span>
+              <span className="flex items-center gap-1.5">💰 <span>{v.salario_min != null && Number(v.salario_min) > 0 ? `R$ ${Number(v.salario_min).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}</span></span>
+              {turnos.length > 0 && <span className="flex items-center gap-1.5">⏰ <span>{turnos.map(t => TURNO_LABEL[t] || t).join(' / ')}</span></span>}
+            </div>
+
+            {/* Badges de modalidade */}
+            <div className="flex flex-wrap gap-2 mb-5">
+              <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md">CLT</span>
+              {v.experiencia_obrigatoria && (
+                <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-md">
+                  Experiência {v.experiencia_meses_minimo ? `${v.experiencia_meses_minimo} meses` : 'requerida'}
+                </span>
+              )}
+            </div>
+
+            {/* Descrição */}
+            {v.descricao && (
+              <section className="mb-6">
+                <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">📝 Descrição da vaga / Atividades</h2>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{v.descricao}</p>
+              </section>
+            )}
+
+            {/* Requisitos */}
+            {v.requisitos && (
+              <section className="mb-6">
+                <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">📋 Requisitos</h2>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{v.requisitos}</p>
+              </section>
+            )}
+
+            {/* Benefícios */}
+            {beneficiosArr.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">🎁 Benefícios</h2>
+                <ul className="space-y-1">
+                  {beneficiosArr.map((b, i) => (
+                    <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
+                      <span className="text-emerald-500 mt-0.5">✓</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Disponibilidade */}
+            {turnos.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">🕐 Disponibilidade de horário</h2>
+                <div className="flex flex-wrap gap-2">
+                  {turnos.map(t => (
+                    <span key={t} className="px-3 py-1.5 bg-sky-50 border border-sky-200 text-sky-700 text-sm font-semibold rounded-full">
+                      {TURNO_LABEL[t] || t}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+
+        {/* Botão fixo no rodapé */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 p-4 shadow-lg z-20">
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
+            <button
+              onClick={() => setVagaDetalheId(null)}
+              className="px-4 py-3 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition whitespace-nowrap"
+            >
+              ← Voltar
+            </button>
+            <button
+              onClick={() => {
+                if (!marcado) setVagasInteresse(prev => [...prev, v.id]);
+                setVagaDetalheId(null);
+              }}
+              className={`flex-1 px-6 py-3.5 font-bold rounded-xl shadow-lg transition ${marcado ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-rose-500 hover:bg-rose-600 text-white'}`}
+            >
+              {marcado ? '✓ Já tenho interesse · Voltar à lista' : '❤️ Quero me candidatar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela intermediaria: Vagas em aberto pra essa loja (apos escolher loja, antes das dicas)
+  if (lojaEscolhidaId != null && !viuVagas) {
+    const lj = lojas.find(l => l.id === lojaEscolhidaId);
+    const tituloLoja = lj ? (lj.apelido || lj.nome || (lj.is_principal ? 'MATRIZ' : (lj.cod_loja ? `LOJA ${lj.cod_loja}` : 'LOJA'))) : '';
+    const TURNO_LABEL = { manha: 'Manhã', intermediario: 'Intermediário', tarde: 'Tarde', qualquer: 'Qualquer horário' };
+    const cidadeLoja = lj ? [lj.cidade, lj.estado].filter(Boolean).join(' - ') : '';
+
+    // Filtro de busca local (igual no Solides)
+    const vagasFiltradasBusca = vagasAbertas.filter(v => {
+      if (!buscaVaga.trim()) return true;
+      const q = buscaVaga.toLowerCase().trim();
+      return (v.titulo || '').toLowerCase().includes(q)
+        || (v.cargo_nome || '').toLowerCase().includes(q)
+        || (v.descricao || '').toLowerCase().includes(q);
+    });
+
+    const diasDesde = (iso) => {
+      if (!iso) return null;
+      const d = new Date(iso);
+      const hoje = new Date();
+      const diff = Math.floor((hoje - d) / (1000 * 60 * 60 * 24));
+      if (diff <= 0) return 'hoje';
+      if (diff === 1) return 'há 1 dia';
+      return `há ${diff} dias`;
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Faixa rosa superior — compacta, encostada no card de busca */}
+        <div className="bg-gradient-to-r from-pink-500 to-rose-600 h-20 md:h-24 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 -mt-10 pb-8">
+          {/* Card de busca/filtro */}
+          <div className="bg-white rounded-2xl shadow-lg p-5 md:p-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end">
+              <div>
+                <label className="text-xs font-bold text-gray-700 mb-1.5 block">Local</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-300 rounded-xl bg-white">
+                  <span className="text-gray-500">📍</span>
+                  <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-xs font-bold">{tituloLoja}</span>
+                  <button onClick={() => setLojaEscolhidaId(null)} className="ml-auto text-xs text-gray-500 hover:text-rose-600 font-medium">trocar</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-700 mb-1.5 block">Qual vaga você procura?</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-300 rounded-xl bg-white">
+                  <span className="text-gray-400">🔍</span>
+                  <input
+                    type="text"
+                    value={buscaVaga}
+                    onChange={(e) => setBuscaVaga(e.target.value)}
+                    placeholder="Nome da vaga ou cargo"
+                    className="flex-1 outline-none text-sm bg-transparent"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => {}}
+                className="px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl shadow transition whitespace-nowrap"
+              >
+                Buscar vagas
+              </button>
+            </div>
+          </div>
+
+          {/* Header com nome da empresa e contador */}
+          <div className="mb-5">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Vagas em <span className="text-rose-600">{tituloLoja}</span> {cidadeLoja && <span className="text-gray-500 text-lg font-normal">· {cidadeLoja}</span>}</h1>
+            {vagasAbertas.length > 0 && (
+              <p className="text-sm text-gray-600 mt-1">
+                Mostrando {vagasFiltradasBusca.length === vagasAbertas.length ? `1 - ${vagasAbertas.length}` : vagasFiltradasBusca.length} de <strong>{vagasAbertas.length} vaga{vagasAbertas.length > 1 ? 's' : ''} encontrada{vagasAbertas.length > 1 ? 's' : ''}</strong>
+                {vagasInteresse.length > 0 && <span className="ml-3 text-rose-600 font-bold">· ❤️ {vagasInteresse.length} marcada{vagasInteresse.length > 1 ? 's' : ''}</span>}
+              </p>
+            )}
+            <div className="border-b border-gray-200 mt-3"></div>
+          </div>
+
+          {/* Estados de loading / vazio */}
+          {carregandoVagas ? (
+            <div className="bg-white rounded-2xl shadow p-12 text-center">
+              <div className="inline-block animate-spin text-4xl mb-3">⏳</div>
+              <p className="text-gray-500">Carregando vagas disponíveis…</p>
+            </div>
+          ) : vagasAbertas.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-lg p-10 text-center border-2 border-dashed border-gray-300">
+              <div className="text-7xl mb-4">📭</div>
+              <p className="text-gray-800 font-extrabold text-xl">Nenhuma vaga aberta no momento</p>
+              <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">Mas não desanime! Cadastre seu currículo e te chamamos assim que abrir vaga compatível com seu perfil.</p>
+              <button
+                onClick={() => setViuVagas(true)}
+                className="mt-6 px-8 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition"
+              >
+                Cadastrar mesmo assim →
+              </button>
+            </div>
+          ) : vagasFiltradasBusca.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow p-10 text-center">
+              <div className="text-5xl mb-3">🔍</div>
+              <p className="text-gray-700 font-bold">Nenhuma vaga encontrada com "{buscaVaga}"</p>
+              <button onClick={() => setBuscaVaga('')} className="mt-3 text-sm text-rose-600 hover:underline font-semibold">Limpar busca</button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {vagasFiltradasBusca.map(v => {
+                  const marcado = vagasInteresse.includes(v.id);
+                  const turnos = Array.isArray(v.turnos) ? v.turnos : [];
+                  const beneficiosArr = (v.beneficios || '').split(',').map(s => s.trim()).filter(Boolean);
+                  const dias = diasDesde(v.data_abertura);
+                  return (
+                    <div
+                      key={v.id}
+                      className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden ${marcado ? 'border-rose-500 ring-2 ring-rose-200' : 'border-gray-200 hover:border-rose-300 hover:shadow-md'}`}
+                    >
+                      <div className="p-5">
+                        {/* Título */}
+                        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-3">
+                          {v.cargo_nome || v.titulo}
+                        </h3>
+
+                        {/* Linha de meta-infos compacta */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-3 pb-3 border-b border-gray-100">
+                          <span className="flex items-center gap-1"><span className="text-rose-500">📍</span> {cidadeLoja || tituloLoja}</span>
+                          <span className="flex items-center gap-1">💼 1 posição</span>
+                          {v.salario_min != null && Number(v.salario_min) > 0 && (
+                            <span className="flex items-center gap-1 font-semibold text-emerald-700">💰 R$ {Number(v.salario_min).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          )}
+                          {v.experiencia_obrigatoria && (
+                            <span className="flex items-center gap-1">⏳ {v.experiencia_meses_minimo ? `${v.experiencia_meses_minimo} meses exp.` : 'Com experiência'}</span>
+                          )}
+                        </div>
+
+                        {/* Badge CLT */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md">CLT</span>
+                          {turnos.map(t => (
+                            <span key={t} className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-md">
+                              🕐 {TURNO_LABEL[t] || t}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Descrição da vaga / Atividades */}
+                        {v.descricao && (
+                          <section className="mb-4">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-1.5">📝 Descrição da vaga / Atividades</h4>
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{v.descricao}</p>
+                          </section>
+                        )}
+
+                        {/* Requisitos */}
+                        {v.requisitos && (
+                          <section className="mb-4">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-1.5">📋 Requisitos</h4>
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{v.requisitos}</p>
+                          </section>
+                        )}
+
+                        {/* Benefícios com valor (do catálogo, se cadastrado) */}
+                        {beneficiosArr.length > 0 && (
+                          <section className="mb-4">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-1.5">🎁 Benefícios</h4>
+                            <ul className="space-y-1">
+                              {beneficiosArr.map((b, i) => {
+                                const cat = beneficiosCatalogo.find(x => (x.nome || '').trim().toUpperCase() === b.trim().toUpperCase());
+                                const valor = cat?.valor != null && Number(cat.valor) > 0
+                                  ? Number(cat.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                  : null;
+                                return (
+                                  <li key={i} className="text-xs text-gray-700 flex items-start gap-1.5">
+                                    <span className="text-emerald-500 mt-0.5">✓</span>
+                                    <span>{b}{valor && <span className="ml-1 text-emerald-700 font-semibold">· {valor}</span>}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </section>
+                        )}
+
+                        {/* Disponibilidade de horário */}
+                        {turnos.length > 0 && (
+                          <section className="mb-2">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-1.5">🕐 Disponibilidade de horário</h4>
+                            <div className="flex flex-wrap gap-1.5">
+                              {turnos.map(t => (
+                                <span key={t} className="px-2.5 py-1 bg-sky-50 border border-sky-200 text-sky-700 text-xs rounded-full font-semibold">
+                                  {TURNO_LABEL[t] || t}
+                                </span>
+                              ))}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* Data de postagem */}
+                        {dias && (
+                          <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-100">Postada {dias}</p>
+                        )}
+                      </div>
+
+                      {/* Botão grande no rodapé — candidata direto */}
+                      <button
+                        onClick={() => setVagasInteresse(prev => marcado ? prev.filter(x => x !== v.id) : [...prev, v.id])}
+                        className={`w-full px-5 py-3 font-bold text-sm transition ${marcado ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-rose-500 hover:bg-rose-600 text-white'}`}
+                      >
+                        {marcado ? '✓ Vaga selecionada — clique pra desmarcar' : '❤️ Quero me candidatar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Cards de ação no rodapé — estilo igual aos cards de vaga */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* CARD 1: Continuar com vagas selecionadas (rosa) */}
+                <div className={`bg-white rounded-2xl shadow-sm border-2 transition-all overflow-hidden ${vagasInteresse.length > 0 ? 'border-rose-500 ring-2 ring-rose-200' : 'border-gray-200 opacity-60'}`}>
+                  <div className="p-5">
+                    <h3 className="font-bold text-gray-900 text-lg leading-tight mb-2 flex items-center gap-2">
+                      <span className="text-rose-500">❤️</span>
+                      {vagasInteresse.length > 0
+                        ? <>{vagasInteresse.length} vaga{vagasInteresse.length > 1 ? 's' : ''} selecionada{vagasInteresse.length > 1 ? 's' : ''}</>
+                        : <>Quero me candidatar</>}
+                    </h3>
+                    <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+                      {vagasInteresse.length > 0
+                        ? <>Continue o cadastro pra <strong>concorrer às vagas marcadas</strong> e ainda ficar no banco de talentos da empresa.</>
+                        : <>Marque uma ou mais vagas clicando em <strong className="text-rose-600">"Quero me candidatar"</strong> e continue por aqui.</>}
+                    </p>
+                    {vagasInteresse.length > 0 && (
+                      <p className="text-xs text-gray-500">💡 Você pode marcar mais vagas antes de continuar</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setViuVagas(true)}
+                    disabled={vagasInteresse.length === 0}
+                    className="w-full px-5 py-3 font-bold text-sm transition bg-rose-500 hover:bg-rose-600 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {vagasInteresse.length > 0 ? 'Continuar cadastro →' : 'Selecione vagas pra continuar'}
+                  </button>
+                </div>
+
+                {/* CARD 2: Só deixar currículo (neutro/cinza) */}
+                <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 hover:border-gray-400 transition-all overflow-hidden">
+                  <div className="p-5">
+                    <h3 className="font-bold text-gray-900 text-lg leading-tight mb-2 flex items-center gap-2">
+                      <span>📝</span>
+                      Não tenho interesse nessas vagas
+                    </h3>
+                    <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+                      Deixe seu currículo no nosso <strong>banco de talentos</strong> e te chamamos quando abrir uma vaga compatível com seu perfil.
+                    </p>
+                    <p className="text-xs text-gray-500">✨ Sem compromisso de candidatura imediata</p>
+                  </div>
+                  <button
+                    onClick={() => { setVagasInteresse([]); setViuVagas(true); }}
+                    className="w-full px-5 py-3 font-bold text-sm transition bg-gray-700 hover:bg-gray-800 text-white"
+                  >
+                    Só deixar meu currículo →
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -631,19 +1052,29 @@ export default function CurriculoPublico() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold uppercase text-gray-500 mb-1">CEP</label>
-                <div className="flex gap-1">
-                  <input type="text" value={form.cep} onChange={e => setForm({ ...form, cep: e.target.value })}
-                    onBlur={() => buscarCep(form.cep)} placeholder="00000-000"
-                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400" />
-                  {buscandoCep && <span className="text-xs text-gray-500 self-center px-2">🔎</span>}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.cep}
+                    onChange={e => {
+                      const v = formatCep(e.target.value);
+                      setForm({ ...form, cep: v });
+                      if (v.replace(/\D/g, '').length === 8) buscarCep(v);
+                    }}
+                    onBlur={() => buscarCep(form.cep)}
+                    maxLength={9}
+                    placeholder="00000-000"
+                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-400"
+                  />
+                  {buscandoCep && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 animate-pulse">⏳</span>}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">Digite e saia do campo</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Digite o CEP — Rua, Bairro, Cidade e UF preenchem sozinhos</p>
               </div>
-              <Field label="Rua" value={form.rua} onChange={v => setForm({ ...form, rua: v })} />
+              <Field label="Rua" value={form.rua} onChange={v => setForm({ ...form, rua: (v || '').toUpperCase() })} />
               <Field label="Número" value={form.numero} onChange={v => setForm({ ...form, numero: v })} />
-              <Field label="Complemento" value={form.complemento} onChange={v => setForm({ ...form, complemento: v })} />
-              <Field label="Bairro" value={form.bairro} onChange={v => setForm({ ...form, bairro: v })} />
-              <Field label="Cidade" value={form.cidade} onChange={v => setForm({ ...form, cidade: v })} />
+              <Field label="Complemento" value={form.complemento} onChange={v => setForm({ ...form, complemento: (v || '').toUpperCase() })} />
+              <Field label="Bairro" value={form.bairro} onChange={v => setForm({ ...form, bairro: (v || '').toUpperCase() })} />
+              <Field label="Cidade" value={form.cidade} onChange={v => setForm({ ...form, cidade: (v || '').toUpperCase() })} />
               <Field label="Estado (UF)" value={form.estado} onChange={v => setForm({ ...form, estado: v.toUpperCase().slice(0, 2) })} />
             </div>
           </section>

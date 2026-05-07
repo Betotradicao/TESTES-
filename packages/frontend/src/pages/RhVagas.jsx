@@ -9,11 +9,21 @@ import RadarLoading from '../components/RadarLoading';
 const STATUS_COLORS = {
   'Aberta': 'bg-green-100 text-green-800',
   'Em Selecao': 'bg-blue-100 text-blue-800',
-  'Fechada': 'bg-gray-100 text-gray-800',
+  'Contratado(a)': 'bg-purple-100 text-purple-800',
+  'Fechada': 'bg-purple-100 text-purple-800', // alias antigo
   'Cancelada': 'bg-red-100 text-red-800',
 };
 
-const STATUS_OPTIONS = ['Aberta', 'Em Selecao', 'Fechada', 'Cancelada'];
+const STATUS_OPTIONS = ['Aberta', 'Em Selecao', 'Contratado(a)', 'Cancelada'];
+// Vagas antigas usavam "Fechada" — tratamos como sinonimo de "Contratado(a)" pra nao perder historico
+const STATUS_FINALIZADO_VALUES = ['Contratado(a)', 'Fechada'];
+
+const TURNOS = [
+  { key: 'manha', label: 'Turno Manhã', emoji: '🌅' },
+  { key: 'intermediario', label: 'Turno Intermediário', emoji: '☀️' },
+  { key: 'tarde', label: 'Turno Tarde', emoji: '🌆' },
+  { key: 'qualquer', label: 'Qualquer horário', emoji: '✨' },
+];
 
 const initialForm = {
   titulo: '',
@@ -31,6 +41,7 @@ const initialForm = {
   cod_loja: '',
   experiencia_obrigatoria: false,
   experiencia_meses_minimo: '',
+  turnos: [],
 };
 
 const novoSelecionado = (curriculo) => ({
@@ -61,6 +72,8 @@ export default function RhVagas() {
   const [departamentos, setDepartamentos] = useState([]);
   const [beneficiosCatalogo, setBeneficiosCatalogo] = useState([]);
   const [lojas, setLojas] = useState([]);
+  const [filtroLoja, setFiltroLoja] = useState(''); // '' = Todas
+  const [filtroStatus, setFiltroStatus] = useState(''); // '' = Todos
 
   // Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -149,6 +162,7 @@ export default function RhVagas() {
         cod_loja: vaga.cod_loja != null ? String(vaga.cod_loja) : '',
         experiencia_obrigatoria: !!vaga.experiencia_obrigatoria,
         experiencia_meses_minimo: vaga.experiencia_meses_minimo != null ? String(vaga.experiencia_meses_minimo) : '',
+        turnos: Array.isArray(vaga.turnos) ? vaga.turnos : [],
       });
     } else {
       setEditando(null);
@@ -207,15 +221,27 @@ export default function RhVagas() {
     setFormData(prev => ({ ...prev, selecionados: prev.selecionados.filter((_, i) => i !== idx) }));
   };
 
-  const visualizarCurriculo = async (curriculoId) => {
+  const visualizarCurriculo = (curriculoId) => {
+    // Abre o curriculo completo (mesmo modal do Banco de Curriculos) em nova aba
+    window.open(`/rh/curriculos/banco?id=${curriculoId}`, '_blank', 'noopener');
+  };
+
+  const atualizarStatusInteressado = async (curriculoId, novoStatus, vagaId = null) => {
     try {
-      setCarregandoCurriculo(true);
-      const { data } = await api.get(`/curriculos/${curriculoId}`);
-      setCurriculoVisualizar(data);
+      await api.put(`/curriculos/${curriculoId}`, { status: novoStatus });
+      // Quando candidato vira "selecionado", a vaga muda de "Aberta" pra "Em Selecao" (se ainda estiver aberta)
+      if (novoStatus === 'selecionado' && vagaId) {
+        const vaga = vagas.find(v => v.id === vagaId);
+        if (vaga && vaga.status === 'Aberta') {
+          try {
+            await api.put(`/rh/vagas/${vagaId}`, { ...vaga, status: 'Em Selecao' });
+          } catch { /* nao bloqueia */ }
+        }
+      }
+      toast.success(novoStatus === 'selecionado' ? '✓ Candidato selecionado' : novoStatus === 'recusado' ? '🚫 Candidato recusado' : novoStatus === 'em_analise' ? '🔎 Em análise' : 'Status atualizado');
+      await fetchAll();
     } catch (err) {
-      toast.error('Erro ao carregar curriculo');
-    } finally {
-      setCarregandoCurriculo(false);
+      toast.error('Erro ao atualizar status do candidato');
     }
   };
 
@@ -258,23 +284,37 @@ export default function RhVagas() {
       toast.error('Cargo e obrigatorio');
       return;
     }
+    // Auto-gera titulo com base no cargo selecionado se nao informado
+    const cargoSelecionado = cargos.find(c => String(c.id) === String(formData.cargo_id));
+    const codLojaSelecionada = formData.cod_loja !== '' && formData.cod_loja != null ? Number(formData.cod_loja) : null;
+    const basePayload = {
+      ...formData,
+      titulo: (formData.titulo && formData.titulo.trim()) || cargoSelecionado?.nome || 'Vaga',
+      experiencia_obrigatoria: !!formData.experiencia_obrigatoria,
+      experiencia_meses_minimo: formData.experiencia_obrigatoria && formData.experiencia_meses_minimo !== ''
+        ? Number(formData.experiencia_meses_minimo) : null,
+      turnos: Array.isArray(formData.turnos) ? formData.turnos : [],
+    };
+
+    // Fan-out: criando vaga com "Todas as lojas" e ha lojas cadastradas → clona uma por loja
+    const ehFanOut = !editando && codLojaSelecionada == null && lojas.length > 0;
+    if (ehFanOut) {
+      const ok = window.confirm(`Isso vai criar ${lojas.length} vagas (uma pra cada loja). Continuar?`);
+      if (!ok) return;
+    }
+
     try {
       setSalvando(true);
-      // Auto-gera titulo com base no cargo selecionado se nao informado
-      const cargoSelecionado = cargos.find(c => String(c.id) === String(formData.cargo_id));
-      const payload = {
-        ...formData,
-        titulo: (formData.titulo && formData.titulo.trim()) || cargoSelecionado?.nome || 'Vaga',
-        cod_loja: formData.cod_loja !== '' && formData.cod_loja != null ? Number(formData.cod_loja) : null,
-        experiencia_obrigatoria: !!formData.experiencia_obrigatoria,
-        experiencia_meses_minimo: formData.experiencia_obrigatoria && formData.experiencia_meses_minimo !== ''
-          ? Number(formData.experiencia_meses_minimo) : null,
-      };
       if (editando) {
-        await api.put(`/rh/vagas/${editando.id}`, payload);
+        await api.put(`/rh/vagas/${editando.id}`, { ...basePayload, cod_loja: codLojaSelecionada });
         toast.success('Vaga atualizada com sucesso');
+      } else if (ehFanOut) {
+        await Promise.all(
+          lojas.map(l => api.post('/rh/vagas', { ...basePayload, cod_loja: l.codLoja ?? null }))
+        );
+        toast.success(`${lojas.length} vagas criadas (uma pra cada loja)`);
       } else {
-        await api.post('/rh/vagas', payload);
+        await api.post('/rh/vagas', { ...basePayload, cod_loja: codLojaSelecionada });
         toast.success('Vaga criada com sucesso');
       }
       fecharModal();
@@ -298,6 +338,19 @@ export default function RhVagas() {
       console.error(err);
     }
   };
+
+  // Vagas filtradas (afeta cards e tabela)
+  // Cards: refletem APENAS o filtro de loja (pra nao zerar todos quando seleciona um status)
+  const vagasFiltradasPorLoja = filtroLoja === ''
+    ? vagas
+    : vagas.filter(v => String(v.cod_loja ?? '') === String(filtroLoja));
+  // Tabela: aplica tambem o filtro de status (clique nos cards)
+  const matchStatus = (statusVaga, filtro) => {
+    if (filtro === '') return true;
+    if (filtro === 'Contratado(a)') return STATUS_FINALIZADO_VALUES.includes(statusVaga);
+    return statusVaga === filtro;
+  };
+  const vagasFiltradas = vagasFiltradasPorLoja.filter(v => matchStatus(v.status, filtroStatus));
 
   if (loading) {
     return (
@@ -341,25 +394,77 @@ export default function RhVagas() {
         </div>
 
         <div className="p-6">
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <p className="text-sm text-gray-600">Total Vagas</p>
-              <p className="text-2xl font-bold text-gray-900">{vagas.length}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-              <p className="text-sm text-gray-600">Abertas</p>
-              <p className="text-2xl font-bold text-green-600">{vagas.filter((v) => v.status === 'Aberta').length}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-              <p className="text-sm text-gray-600">Em Selecao</p>
-              <p className="text-2xl font-bold text-blue-600">{vagas.filter((v) => v.status === 'Em Selecao').length}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <p className="text-sm text-gray-600">Fechadas</p>
-              <p className="text-2xl font-bold text-gray-600">{vagas.filter((v) => v.status === 'Fechada').length}</p>
-            </div>
+          {/* Filtro de Loja */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 flex items-center gap-3 flex-wrap">
+            <label className="text-sm font-semibold text-gray-700">🏢 Loja:</label>
+            <select
+              value={filtroLoja}
+              onChange={(e) => setFiltroLoja(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-w-[260px]"
+            >
+              <option value="">Todas as lojas</option>
+              {lojas.map((l) => (
+                <option key={l.id ?? l.codLoja} value={l.codLoja ?? ''}>
+                  {l.codLoja != null ? `Loja ${l.codLoja} - ` : ''}{l.apelido || l.nomeFantasia || `Loja ${l.id}`}
+                </option>
+              ))}
+            </select>
+            {filtroLoja !== '' && (
+              <span className="text-xs text-gray-500">
+                Mostrando vagas de <strong>{(() => {
+                  const l = lojas.find(x => String(x.codLoja) === String(filtroLoja));
+                  return l ? (l.apelido || l.nomeFantasia || `Loja ${l.codLoja}`) : `Loja ${filtroLoja}`;
+                })()}</strong>
+              </span>
+            )}
           </div>
+
+          {/* Stats clicaveis — funcionam como filtro de status. Cards refletem filtro de loja. */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {[
+              { key: 'Aberta', label: 'Abertas', cor: 'green' },
+              { key: 'Em Selecao', label: 'Em Seleção', cor: 'blue' },
+              { key: 'Contratado(a)', label: 'Contratado(a)', cor: 'purple' },
+              { key: 'Cancelada', label: 'Canceladas', cor: 'red' },
+            ].map(card => {
+              const ativo = filtroStatus === card.key;
+              const count = vagasFiltradasPorLoja.filter(v => matchStatus(v.status, card.key)).length;
+              const corText = { green: 'text-green-600', blue: 'text-blue-600', purple: 'text-purple-600', red: 'text-red-600' }[card.cor];
+              const corBorder = { green: 'border-green-400', blue: 'border-blue-400', purple: 'border-purple-400', red: 'border-red-400' }[card.cor];
+              const corBorderLeve = { green: 'border-green-200', blue: 'border-blue-200', purple: 'border-purple-200', red: 'border-red-200' }[card.cor];
+              return (
+                <button
+                  key={card.key}
+                  type="button"
+                  onClick={() => setFiltroStatus(ativo ? '' : card.key)}
+                  className={`text-left bg-white rounded-lg shadow-sm p-4 border-2 transition-all hover:shadow-md ${ativo ? `${corBorder} ring-2 ring-offset-1 ring-orange-400` : corBorderLeve}`}
+                  title={ativo ? 'Clique pra remover o filtro' : `Filtrar por ${card.label}`}
+                >
+                  <p className="text-sm text-gray-600 flex items-center justify-between">
+                    {card.label}
+                    {ativo && <span className="text-[10px] uppercase font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">filtrando</span>}
+                  </p>
+                  <p className={`text-2xl font-bold ${corText}`}>{count}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Titulo contextual da loja */}
+          {(() => {
+            const lojaSel = filtroLoja !== '' ? lojas.find(x => String(x.codLoja) === String(filtroLoja)) : null;
+            const nomeLoja = lojaSel ? (lojaSel.apelido || lojaSel.nomeFantasia || `Loja ${lojaSel.codLoja}`) : null;
+            return (
+              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <span>🏢</span>
+                {nomeLoja ? (
+                  <>Vagas que <span className="text-orange-600">{nomeLoja}</span> está precisando</>
+                ) : (
+                  <>Vagas de <span className="text-orange-600">todas as lojas</span></>
+                )}
+              </h2>
+            );
+          })()}
 
           {/* Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -368,27 +473,35 @@ export default function RhVagas() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8"></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loja</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-rose-600 uppercase">❤️ Interessados</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-amber-600 uppercase">🔎 Em Análise</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-blue-600 uppercase">🎯 Selecionados</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">🚫 Recusados</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Titulo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salario</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Benefícios</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Experiência</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Abertura</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dias Em Aberto</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {vagas.length === 0 ? (
+                  {vagasFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                        Nenhuma vaga cadastrada
+                        {vagas.length === 0 ? 'Nenhuma vaga cadastrada' : 'Nenhuma vaga pra essa loja'}
                       </td>
                     </tr>
                   ) : (
-                    vagas.flatMap((v) => {
+                    vagasFiltradas.flatMap((v) => {
                       const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
+                      const interessados = Array.isArray(v.interessados) ? v.interessados : [];
                       const isExpanded = expandedVagaId === v.id;
-                      const podeExpandir = sels.length > 0;
+                      const podeExpandir = sels.length > 0 || interessados.length > 0;
                       const rows = [];
                       rows.push(
                         <tr key={v.id} className="hover:bg-gray-50">
@@ -403,25 +516,119 @@ export default function RhVagas() {
                               </button>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {v.titulo}
-                            {sels.length > 0 && (
-                              <span className="ml-2 inline-block text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold">
-                                {sels.length} candidato{sels.length > 1 ? 's' : ''}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{v.cargo_nome || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{v.departamento_nome || '-'}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">
-                            {v.salario_min ? formatCurrency(v.salario_min) : '-'}
+                            {(() => {
+                              if (v.cod_loja == null) return <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Todas</span>;
+                              const l = lojas.find(x => String(x.codLoja) === String(v.cod_loja));
+                              const nome = l?.apelido || l?.nomeFantasia || `Loja ${v.cod_loja}`;
+                              return <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium border border-orange-200">🏢 {nome}</span>;
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[v.status] || 'bg-gray-100 text-gray-800'}`}>
-                              {v.status}
+                              {v.status === 'Fechada' ? 'Contratado(a)' : v.status}
                             </span>
                           </td>
+                          {(() => {
+                            // Separa interessados por status. 4 colunas distintas agora:
+                            //   'novo' = INTERESSADOS (pendentes — aguardando primeira decisao)
+                            //   'em_analise' = EM ANÁLISE (sendo avaliado)
+                            //   'selecionado' / 'aprovado' / 'contratado' = SELECIONADOS
+                            //   'recusado' / 'reprovado' (alias antigo) = RECUSADOS
+                            const intPendentes = interessados.filter(c => !c.status || c.status === 'novo');
+                            const intEmAnalise = interessados.filter(c => c.status === 'em_analise');
+                            const intSelecionados = interessados.filter(c => c.status === 'selecionado' || c.status === 'aprovado' || c.status === 'contratado');
+                            const intRecusados = interessados.filter(c => c.status === 'recusado' || c.status === 'reprovado');
+                            return (
+                              <>
+                                <td className="px-4 py-3 text-center">
+                                  {intPendentes.length > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os interessados"
+                                    >❤️ {intPendentes.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {intEmAnalise.length > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os em análise"
+                                    >🔎 {intEmAnalise.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {(sels.length + intSelecionados.length) > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os selecionados"
+                                    >🎯 {sels.length + intSelecionados.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {intRecusados.length > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os recusados"
+                                    >🚫 {intRecusados.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                              </>
+                            );
+                          })()}
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {v.titulo}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{v.cargo_nome || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {v.salario_min ? formatCurrency(v.salario_min) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {(() => {
+                              const lista = (v.beneficios || '').split(',').map(s => s.trim()).filter(Boolean);
+                              if (lista.length === 0) return <span className="text-gray-300">—</span>;
+                              return (
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {lista.map((b, i) => (
+                                    <span key={i} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-medium">
+                                      {b}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {v.experiencia_obrigatoria ? (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
+                                ✓ {v.experiencia_meses_minimo ? `${v.experiencia_meses_minimo} meses` : 'Sim'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Não exige</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-600">{formatDate(v.data_abertura)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {(() => {
+                              if (!v.data_abertura) return <span className="text-gray-300">—</span>;
+                              if (STATUS_FINALIZADO_VALUES.includes(v.status) || v.status === 'Cancelada') {
+                                return <span className="text-gray-400 text-xs">—</span>;
+                              }
+                              const dias = Math.floor((Date.now() - new Date(v.data_abertura).getTime()) / (1000 * 60 * 60 * 24));
+                              const cor = dias <= 7 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : dias <= 30 ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-red-50 text-red-700 border-red-200';
+                              return (
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${cor}`}>
+                                  {dias === 0 ? 'Hoje' : dias === 1 ? '1 dia' : `${dias} dias`}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="px-4 py-3 text-sm">
                             <div className="flex gap-3">
                               <button
@@ -443,7 +650,9 @@ export default function RhVagas() {
                       if (isExpanded && podeExpandir) {
                         rows.push(
                           <tr key={`${v.id}-expand`} className="bg-blue-50">
-                            <td colSpan={8} className="px-4 py-3">
+                            <td colSpan={15} className="px-4 py-3 space-y-4">
+                              {sels.length > 0 && (
+                              <div>
                               <div className="text-xs font-bold text-blue-900 mb-2">🎯 Candidatos selecionados ({sels.length})</div>
                               <div className="overflow-x-auto">
                                 <table className="min-w-full text-xs">
@@ -519,6 +728,84 @@ export default function RhVagas() {
                                   </tbody>
                                 </table>
                               </div>
+                              </div>
+                              )}
+
+                              {/* Candidatos INTERESSADOS (vieram do formulario publico) */}
+                              {interessados.length > 0 && (
+                                <div className={sels.length > 0 ? 'pt-4 mt-4 border-t border-blue-200' : ''}>
+                                  <div className="text-xs font-bold text-rose-900 mb-2">❤️ Candidatos interessados ({interessados.length}) — vieram do formulário público</div>
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-rose-100 text-rose-900">
+                                          <th className="px-2 py-1.5 text-left">Nº</th>
+                                          <th className="px-2 py-1.5 text-left">Nome</th>
+                                          <th className="px-2 py-1.5 text-left">WhatsApp</th>
+                                          <th className="px-2 py-1.5 text-left">Email</th>
+                                          <th className="px-2 py-1.5 text-left">Cidade</th>
+                                          <th className="px-2 py-1.5 text-left">Recebido em</th>
+                                          <th className="px-2 py-1.5 text-left">Status</th>
+                                          <th className="px-2 py-1.5 text-center">Ações</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {interessados.map((c, i) => {
+                                          const st = c.status || 'novo';
+                                          const isSel = st === 'selecionado' || st === 'aprovado' || st === 'contratado';
+                                          const isRec = st === 'recusado' || st === 'reprovado';
+                                          const stLabel = isSel ? '✓ Selecionado' : isRec ? '🚫 Recusado' : st === 'em_analise' ? '🔎 Em análise' : '🆕 Novo';
+                                          const stCls = isSel ? 'bg-blue-100 text-blue-800' : isRec ? 'bg-gray-200 text-gray-700' : 'bg-rose-100 text-rose-800';
+                                          return (
+                                            <tr key={`int-${c.curriculo_id}-${i}`} className="border-t border-rose-200 bg-white">
+                                              <td className="px-2 py-1.5 font-mono font-bold">{c.curriculo_id}</td>
+                                              <td className="px-2 py-1.5">
+                                                <button
+                                                  onClick={() => visualizarCurriculo(c.curriculo_id)}
+                                                  className="text-rose-700 hover:underline font-semibold"
+                                                >
+                                                  {c.nome}
+                                                </button>
+                                              </td>
+                                              <td className="px-2 py-1.5 text-gray-700">{c.whatsapp || '-'}</td>
+                                              <td className="px-2 py-1.5 text-gray-700">{c.email || '-'}</td>
+                                              <td className="px-2 py-1.5 text-gray-700">{c.cidade || '-'}</td>
+                                              <td className="px-2 py-1.5 text-gray-600">
+                                                {c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                                              </td>
+                                              <td className="px-2 py-1.5">
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${stCls}`}>{stLabel}</span>
+                                              </td>
+                                              <td className="px-2 py-1.5">
+                                                <div className="flex gap-1 justify-center flex-wrap">
+                                                  <button
+                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'em_analise', v.id)}
+                                                    disabled={st === 'em_analise'}
+                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${st === 'em_analise' ? 'bg-amber-200 text-amber-700 cursor-default' : 'bg-amber-500 hover:bg-amber-600 text-white'}`}
+                                                    title="Marcar como em análise"
+                                                  >🔎 Em Análise</button>
+                                                  <button
+                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'selecionado', v.id)}
+                                                    disabled={isSel}
+                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${isSel ? 'bg-blue-200 text-blue-700 cursor-default' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+                                                    title="Marcar como selecionado (a vaga vira 'Em Seleção')"
+                                                  >✓ Selecionar</button>
+                                                  <button
+                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'recusado', v.id)}
+                                                    disabled={isRec}
+                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${isRec ? 'bg-gray-300 text-gray-600 cursor-default' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+                                                    title="Marcar como recusado"
+                                                  >🚫 Recusar</button>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -536,19 +823,42 @@ export default function RhVagas() {
         {modalAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className={`bg-white rounded-xl shadow-xl w-full ${formData.status === 'Em Selecao' ? 'max-w-6xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}>
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">{editando ? 'Editar Vaga' : 'Nova Vaga'}</h2>
-                <button onClick={fecharModal} className="text-gray-400 hover:text-gray-600">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              <div className="px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <span>{editando ? '✏️' : '🆕'}</span>
+                    {editando ? 'Editar Vaga' : 'Nova Vaga'}
+                  </h2>
+                  <p className="text-xs text-white/80 mt-0.5">Preencha os dados da vaga abaixo</p>
+                </div>
+                <button onClick={fecharModal} className="text-white/80 hover:text-white text-3xl leading-none">×</button>
               </div>
 
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cargo *</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🏢 Loja</label>
+                    <select
+                      name="cod_loja"
+                      value={formData.cod_loja}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium"
+                    >
+                      <option value="">Todas as lojas (cria 1 vaga pra cada)</option>
+                      {lojas.map((l) => (
+                        <option key={l.id ?? l.codLoja} value={l.codLoja ?? ''}>
+                          {l.codLoja != null ? `Loja ${l.codLoja} - ` : ''}{l.apelido || l.nomeFantasia || `Loja ${l.id}`}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[11px] text-gray-500 italic">
+                      {!editando && formData.cod_loja === '' && lojas.length > 0
+                        ? `⚠️ Ao salvar vai gerar ${lojas.length} vagas (uma pra cada loja)`
+                        : 'Vaga aparece pra candidatos desta loja no formulário público'}
+                    </span>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">💼 Cargo *</label>
                     <select
                       name="cargo_id"
                       value={formData.cargo_id}
@@ -562,21 +872,7 @@ export default function RhVagas() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                    <select
-                      name="departamento_id"
-                      value={formData.departamento_id}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="">Selecione...</option>
-                      {departamentos.map((d) => (
-                        <option key={d.id} value={d.id}>{d.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Abertura</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📅 Data Abertura</label>
                     <input
                       type="date"
                       name="data_abertura"
@@ -586,7 +882,7 @@ export default function RhVagas() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Salario Base</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">💰 Salário Base</label>
                     <input
                       type="number"
                       name="salario_min"
@@ -598,25 +894,8 @@ export default function RhVagas() {
                     />
                     <span className="text-[11px] text-gray-500 italic">Preenchido automaticamente pelo cargo (editavel)</span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Loja</label>
-                    <select
-                      name="cod_loja"
-                      value={formData.cod_loja}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="">Todas as lojas</option>
-                      {lojas.map((l) => (
-                        <option key={l.id ?? l.codLoja} value={l.codLoja ?? ''}>
-                          {l.codLoja != null ? `Loja ${l.codLoja} - ` : ''}{l.apelido || l.nomeFantasia || `Loja ${l.id}`}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-[11px] text-gray-500 italic">Vaga aparece pra candidatos desta loja no formulário público</span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📊 Status</label>
                     <select
                       name="status"
                       value={formData.status}
@@ -628,8 +907,38 @@ export default function RhVagas() {
                       ))}
                     </select>
                   </div>
+                  <div className="md:col-span-2 bg-sky-50 border border-sky-200 rounded-lg p-3">
+                    <label className="block text-sm font-semibold text-gray-800 mb-1">🕐 Disponibilidade de horário</label>
+                    <p className="text-xs text-gray-500 mb-2">Marque os turnos disponíveis para esta vaga</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {TURNOS.map(t => {
+                        const marcado = (formData.turnos || []).includes(t.key);
+                        return (
+                          <label
+                            key={t.key}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition ${marcado ? 'bg-white border-sky-500' : 'bg-white border-gray-200 hover:border-sky-300'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={marcado}
+                              onChange={() => {
+                                setFormData(prev => {
+                                  const atuais = Array.isArray(prev.turnos) ? prev.turnos : [];
+                                  const novo = marcado ? atuais.filter(x => x !== t.key) : [...atuais, t.key];
+                                  return { ...prev, turnos: novo };
+                                });
+                              }}
+                              className="w-4 h-4 text-sky-500 rounded"
+                            />
+                            <span className="text-lg">{t.emoji}</span>
+                            <span className="text-sm font-medium">{t.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">Precisa experiência?</label>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">⏳ Precisa experiência?</label>
                     <div className="flex items-center gap-4 mb-2">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -666,27 +975,72 @@ export default function RhVagas() {
                     )}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">📝 Descrição / Atividades</label>
+                      {(() => {
+                        const cargoSel = cargos.find(c => String(c.id) === String(formData.cargo_id));
+                        const atividadesCargo = cargoSel?.descritivo_atividades || '';
+                        if (!atividadesCargo) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (formData.descricao && !window.confirm('Substituir o conteúdo atual pelas atividades do cargo?')) return;
+                              setFormData(prev => ({ ...prev, descricao: atividadesCargo }));
+                            }}
+                            className="text-xs px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded font-medium transition flex items-center gap-1"
+                            title="Copia as atividades cadastradas no cargo (Configurações RH > Cargos)"
+                          >
+                            📋 Trazer atividades do cargo
+                          </button>
+                        );
+                      })()}
+                    </div>
                     <textarea
                       name="descricao"
                       value={formData.descricao}
                       onChange={handleChange}
-                      rows={3}
+                      rows={4}
+                      placeholder="Descreva as atividades da vaga ou clique em 'Trazer atividades do cargo'"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
+                    {!formData.cargo_id && (
+                      <p className="text-[11px] text-gray-500 italic mt-1">Selecione um cargo acima pra habilitar "Trazer atividades do cargo".</p>
+                    )}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Requisitos</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">📋 Requisitos</label>
+                      {(() => {
+                        const cargoSel = cargos.find(c => String(c.id) === String(formData.cargo_id));
+                        const requisitosCargo = cargoSel?.requisitos || '';
+                        if (!requisitosCargo) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (formData.requisitos && !window.confirm('Substituir o conteúdo atual pelos requisitos do cargo?')) return;
+                              setFormData(prev => ({ ...prev, requisitos: requisitosCargo }));
+                            }}
+                            className="text-xs px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded font-medium transition flex items-center gap-1"
+                            title="Copia os requisitos cadastrados no cargo (Configurações RH > Cargos)"
+                          >
+                            📋 Trazer requisitos do cargo
+                          </button>
+                        );
+                      })()}
+                    </div>
                     <textarea
                       name="requisitos"
                       value={formData.requisitos}
                       onChange={handleChange}
                       rows={3}
+                      placeholder="Ex: Ensino Médio completo, disponibilidade de horário..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Beneficios</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🎁 Benefícios</label>
                     {beneficiosCatalogo.length === 0 ? (
                       <p className="text-xs text-gray-500 italic px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
                         Nenhum beneficio cadastrado em Configuracoes RH &gt; Beneficios.

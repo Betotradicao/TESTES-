@@ -344,7 +344,8 @@ export class RhController {
     if (Array.isArray(v) || (v !== null && typeof v === 'object')) {
       return { sql: '::jsonb', value: JSON.stringify(v) };
     }
-    return { sql: '', value: v ?? null };
+    // String vazia vira NULL pra evitar erro de cast em colunas numericas/timestamps
+    return { sql: '', value: v === '' ? null : (v ?? null) };
   }
 
   private static async criarConfig(req: AuthRequest, res: Response, table: string, fields: string[]) {
@@ -412,10 +413,10 @@ export class RhController {
     return RhController.listarConfig(req, res, 'rh_cargos');
   }
   static async criarCargo(req: AuthRequest, res: Response) {
-    return RhController.criarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'epis_epcs_obrigatorios_ids']);
+    return RhController.criarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'requisitos', 'epis_epcs_obrigatorios_ids']);
   }
   static async atualizarCargo(req: AuthRequest, res: Response) {
-    return RhController.atualizarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'epis_epcs_obrigatorios_ids']);
+    return RhController.atualizarConfig(req, res, 'rh_cargos', ['nome', 'descricao', 'salario_base', 'descritivo_atividades', 'requisitos', 'epis_epcs_obrigatorios_ids']);
   }
   static async deletarCargo(req: AuthRequest, res: Response) {
     return RhController.deletarConfig(req, res, 'rh_cargos');
@@ -914,7 +915,22 @@ export class RhController {
         params.push(status);
       }
       const rows = await AppDataSource.query(
-        `SELECT v.*, ca.nome AS cargo_nome, d.nome AS departamento_nome
+        `SELECT v.*, ca.nome AS cargo_nome, d.nome AS departamento_nome,
+                COALESCE(
+                  (SELECT json_agg(json_build_object(
+                    'curriculo_id', c.id,
+                    'nome', c.nome,
+                    'whatsapp', c.whatsapp,
+                    'email', c.email,
+                    'cidade', c.cidade,
+                    'created_at', c.created_at,
+                    'status', c.status,
+                    'foto_url', c.foto_url
+                  ) ORDER BY c.created_at DESC)
+                   FROM curriculos c
+                   WHERE c.vagas_interesse_ids @> jsonb_build_array(v.id)),
+                  '[]'::json
+                ) AS interessados
          FROM rh_vagas v
          LEFT JOIN rh_cargos ca ON ca.id = v.cargo_id
          LEFT JOIN rh_departamentos d ON d.id = v.departamento_id
@@ -931,11 +947,13 @@ export class RhController {
 
   static async criarVaga(req: AuthRequest, res: Response) {
     try {
-      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo } = req.body;
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo, turnos } = req.body;
+      // String vazia vira NULL pra evitar erro de cast em colunas numericas/date
+      const nn = (v: any) => (v === '' || v === undefined ? null : v);
       const result = await AppDataSource.query(
-        `INSERT INTO rh_vagas (cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17) RETURNING *`,
-        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas || 1, salario_min, salario_max, data_abertura, data_fechamento, status || 'Aberta', motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (experiencia_meses_minimo ?? null) : null]
+        `INSERT INTO rh_vagas (cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo, turnos)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18::jsonb) RETURNING *`,
+        [nn(cargo_id), nn(departamento_id), titulo, descricao, quantidade_vagas || 1, nn(salario_min), nn(salario_max), nn(data_abertura), nn(data_fechamento), status || 'Aberta', motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (nn(experiencia_meses_minimo)) : null, JSON.stringify(Array.isArray(turnos) ? turnos : [])]
       );
       res.status(201).json(result[0]);
     } catch (error) {
@@ -947,11 +965,12 @@ export class RhController {
   static async atualizarVaga(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo } = req.body;
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo, turnos } = req.body;
+      const nn = (v: any) => (v === '' || v === undefined ? null : v);
       const result = await AppDataSource.query(
-        `UPDATE rh_vagas SET cargo_id=$1, departamento_id=$2, titulo=$3, descricao=$4, quantidade_vagas=$5, salario_min=$6, salario_max=$7, data_abertura=$8, data_fechamento=$9, status=$10, motivo_fechamento=$11, requisitos=$12, beneficios=$13, selecionados=$14::jsonb, cod_loja=$15, experiencia_obrigatoria=$16, experiencia_meses_minimo=$17
-         WHERE id=$18 RETURNING *`,
-        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (experiencia_meses_minimo ?? null) : null, id]
+        `UPDATE rh_vagas SET cargo_id=$1, departamento_id=$2, titulo=$3, descricao=$4, quantidade_vagas=$5, salario_min=$6, salario_max=$7, data_abertura=$8, data_fechamento=$9, status=$10, motivo_fechamento=$11, requisitos=$12, beneficios=$13, selecionados=$14::jsonb, cod_loja=$15, experiencia_obrigatoria=$16, experiencia_meses_minimo=$17, turnos=$18::jsonb
+         WHERE id=$19 RETURNING *`,
+        [nn(cargo_id), nn(departamento_id), titulo, descricao, quantidade_vagas || 1, nn(salario_min), nn(salario_max), nn(data_abertura), nn(data_fechamento), status, motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (nn(experiencia_meses_minimo)) : null, JSON.stringify(Array.isArray(turnos) ? turnos : []), id]
       );
       if (result.length === 0) return res.status(404).json({ error: 'Vaga nao encontrada' });
       res.json(result[0]);

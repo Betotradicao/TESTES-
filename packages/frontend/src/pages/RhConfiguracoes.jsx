@@ -625,6 +625,31 @@ function EmpresasTab() {
   const [modal, setModal] = useState(null); // null | { ...formData }
   const [salvando, setSalvando] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // Busca endereço pelo CEP via ViaCEP (auto-preenche rua, bairro, cidade, UF)
+  const buscarCep = async (cepRaw) => {
+    const cep = (cepRaw || '').replace(/\D/g, '');
+    if (cep.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const d = await r.json();
+      if (d?.erro) return;
+      setModal(m => m && ({
+        ...m,
+        rua: (d.logradouro || m.rua || '').toUpperCase(),
+        bairro: (d.bairro || m.bairro || '').toUpperCase(),
+        cidade: (d.localidade || m.cidade || '').toUpperCase(),
+        estado: (d.uf || m.estado || '').toUpperCase(),
+      }));
+    } catch {} finally { setBuscandoCep(false); }
+  };
+
+  const formatCep = (v) => {
+    const d = (v || '').replace(/\D/g, '').slice(0, 8);
+    return d.length > 5 ? `${d.slice(0,5)}-${d.slice(5)}` : d;
+  };
 
   const VAZIO = {
     id: null,
@@ -883,8 +908,24 @@ function EmpresasTab() {
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   <div className="col-span-2 md:col-span-2">
                     <label className="text-xs font-semibold uppercase text-gray-600">CEP</label>
-                    <input type="text" value={modal.cep} onChange={e => setCampo('cep', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={modal.cep}
+                        onChange={e => {
+                          const v = formatCep(e.target.value);
+                          setCampo('cep', v);
+                          if (v.replace(/\D/g, '').length === 8) buscarCep(v);
+                        }}
+                        onBlur={e => buscarCep(e.target.value)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                      {buscandoCep && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-500 animate-pulse">⏳</span>
+                      )}
+                    </div>
                   </div>
                   <div className="col-span-2 md:col-span-3">
                     <label className="text-xs font-semibold uppercase text-gray-600">Rua</label>
@@ -1430,7 +1471,7 @@ function CargosTab() {
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(null);
   const [salvando, setSalvando] = useState(false);
-  const VAZIO = { id: null, nome: '', descricao: '', salario_base: '', descritivo_atividades: '', epis_epcs_obrigatorios_ids: [] };
+  const VAZIO = { id: null, nome: '', descricao: '', salario_base: '', descritivo_atividades: '', requisitos: '', epis_epcs_obrigatorios_ids: [] };
 
   const carregar = async () => {
     setLoading(true);
@@ -1455,6 +1496,7 @@ function CargosTab() {
     id: c.id, nome: c.nome || '', descricao: c.descricao || '',
     salario_base: c.salario_base || (sugestoesSalarios[c.id]?.salario_medio || ''),
     descritivo_atividades: c.descritivo_atividades || '',
+    requisitos: c.requisitos || '',
     epis_epcs_obrigatorios_ids: Array.isArray(c.epis_epcs_obrigatorios_ids) ? c.epis_epcs_obrigatorios_ids : [],
   });
 
@@ -1467,6 +1509,7 @@ function CargosTab() {
         descricao: modal.descricao || null,
         salario_base: modal.salario_base ? Number(modal.salario_base) : null,
         descritivo_atividades: modal.descritivo_atividades || null,
+        requisitos: modal.requisitos || null,
         epis_epcs_obrigatorios_ids: modal.epis_epcs_obrigatorios_ids || [],
       };
       if (modal.id) await api.put(`/rh/configuracoes/cargos/${modal.id}`, payload);
@@ -1513,6 +1556,7 @@ function CargosTab() {
                 <th className="text-left px-4 py-3 text-sm font-medium">Salário Base da Categoria</th>
                 <th className="text-left px-4 py-3 text-sm font-medium">EPIs/EPCs</th>
                 <th className="text-left px-4 py-3 text-sm font-medium">Atividades</th>
+                <th className="text-left px-4 py-3 text-sm font-medium">Requisitos</th>
                 <th className="text-right px-4 py-3 text-sm font-medium">Ações</th>
               </tr>
             </thead>
@@ -1545,6 +1589,9 @@ function CargosTab() {
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-700 max-w-xs truncate">
                       {c.descritivo_atividades || <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 max-w-xs truncate">
+                      {c.requisitos || <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <button onClick={() => abrirEdicao(c)} className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3">Editar</button>
@@ -1587,6 +1634,15 @@ function CargosTab() {
                   onChange={e => setModal(m => ({ ...m, descritivo_atividades: e.target.value }))}
                   rows={5}
                   placeholder="Descreva as atividades obrigatórias do cargo, uma por linha..."
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs uppercase text-gray-500 font-semibold">Requisitos</label>
+                <p className="text-[10px] text-gray-500 mb-1">Pode trazer estes requisitos automaticamente ao criar uma vaga deste cargo.</p>
+                <textarea value={modal.requisitos}
+                  onChange={e => setModal(m => ({ ...m, requisitos: e.target.value }))}
+                  rows={4}
+                  placeholder="Ex: Ensino Médio completo, experiência mínima de 6 meses, disponibilidade de horário..."
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div>

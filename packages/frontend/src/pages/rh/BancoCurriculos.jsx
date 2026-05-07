@@ -33,9 +33,11 @@ const STATUS_LABEL = {
   novo: { label: 'Novo', emoji: '🆕', bg: 'bg-sky-100 text-sky-800 border-sky-200' },
   em_analise: { label: 'Em análise', emoji: '🔎', bg: 'bg-amber-100 text-amber-800 border-amber-200' },
   aprovado: { label: 'Aprovado', emoji: '✅', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  reprovado: { label: 'Reprovado', emoji: '❌', bg: 'bg-rose-100 text-rose-800 border-rose-200' },
+  recusado: { label: 'Recusado', emoji: '🚫', bg: 'bg-rose-100 text-rose-800 border-rose-200' },
   contratado: { label: 'Contratado', emoji: '🎉', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
 };
+// Alias antigo: vagas/curriculos antigos podem ter status='reprovado' — exibir igual a 'recusado'
+STATUS_LABEL.reprovado = STATUS_LABEL.recusado;
 
 // Cores e nomes dos perfis DISC (mesmo padrao do RhMetodoDiscResultados)
 const DISC_NOME = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
@@ -233,7 +235,7 @@ export default function BancoCurriculos() {
               </FiltroSelect>
               <FiltroSelect label="Status" value={filtros.status} onChange={v => setFiltros({ ...filtros, status: v })}>
                 <option value="">Todos</option>
-                {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                {['novo','em_analise','aprovado','recusado','contratado'].map(k => { const v = STATUS_LABEL[k]; return <option key={k} value={k}>{v.emoji} {v.label}</option>; })}
               </FiltroSelect>
               <FiltroSelect label="Tipo de vaga" value={filtros.interesse_vaga} onChange={v => setFiltros({ ...filtros, interesse_vaga: v })}>
                 <option value="">Todos</option>
@@ -557,8 +559,17 @@ function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualiza
     return t ? t.nome : slug.toUpperCase();
   };
   const [obs, setObs] = useState(cv.observacao_rh || '');
+  const [entrevistasIA, setEntrevistasIA] = useState([]);
   const st = STATUS_LABEL[cv.status] || STATUS_LABEL.novo;
   const salvarObs = () => onAtualizarObs(obs);
+
+  // Busca entrevistas IA (pré-entrevista) deste candidato
+  useEffect(() => {
+    if (!cv?.id) return;
+    api.get(`/rh/recrutador/entrevistas?curriculo_id=${cv.id}`)
+      .then(({ data }) => setEntrevistasIA(Array.isArray(data) ? data : []))
+      .catch(() => setEntrevistasIA([]));
+  }, [cv?.id]);
 
   const experiencias = Array.isArray(cv.experiencias_detalhadas) ? cv.experiencias_detalhadas : [];
   const formacoes = Array.isArray(cv.formacoes) ? cv.formacoes : [];
@@ -774,6 +785,62 @@ function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualiza
                 </section>
               )}
 
+              {/* Seção: Perfil DISC */}
+              {(cv.disc?.perfil_primario || cv.disc?.perfil_secundario) && (
+                <section className="pt-5 border-t-2 border-gray-100">
+                  <h3 className="text-base font-bold uppercase tracking-wider text-gray-700 mb-3">🧠 Perfil DISC</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {cv.disc?.perfil_primario && (
+                      <div className={`px-4 py-3 rounded-lg border-2 ${DISC_COR[cv.disc.perfil_primario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_primario]?.border || 'border-gray-300'}`}>
+                        <div className="text-[10px] uppercase font-bold tracking-wider opacity-70">Primário</div>
+                        <div className={`text-lg font-bold ${DISC_COR[cv.disc.perfil_primario]?.text || 'text-gray-800'}`}>
+                          {cv.disc.perfil_primario} — {DISC_NOME[cv.disc.perfil_primario]}
+                        </div>
+                      </div>
+                    )}
+                    {cv.disc?.perfil_secundario && (
+                      <div className={`px-4 py-3 rounded-lg border-2 ${DISC_COR[cv.disc.perfil_secundario]?.bg || 'bg-gray-100'} ${DISC_COR[cv.disc.perfil_secundario]?.border || 'border-gray-300'}`}>
+                        <div className="text-[10px] uppercase font-bold tracking-wider opacity-70">Secundário</div>
+                        <div className={`text-lg font-bold ${DISC_COR[cv.disc.perfil_secundario]?.text || 'text-gray-800'}`}>
+                          {cv.disc.perfil_secundario} — {DISC_NOME[cv.disc.perfil_secundario]}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Seção: Pré-Entrevista IA */}
+              {entrevistasIA.length > 0 && (
+                <section className="pt-5 border-t-2 border-gray-100">
+                  <h3 className="text-base font-bold uppercase tracking-wider text-gray-700 mb-3">🤖 Pré-Entrevista IA</h3>
+                  <div className="space-y-2">
+                    {entrevistasIA.map(e => (
+                      <a
+                        key={e.id}
+                        href={`/rh/recrutador/entrevistas/${e.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-violet-50 hover:bg-violet-100 border-2 border-violet-200 rounded-lg transition group"
+                      >
+                        <div>
+                          <div className="font-semibold text-violet-900 group-hover:underline">
+                            {e.vaga_titulo || 'Entrevista'} →
+                          </div>
+                          <div className="text-xs text-violet-700 mt-0.5">
+                            {e.created_at && new Date(e.created_at).toLocaleString('pt-BR')}
+                            {' · '}
+                            <span className="px-1.5 py-0.5 bg-white rounded text-[10px] font-bold uppercase">{e.status}</span>
+                            {e.score_final != null && <span className="ml-2">Score: <strong>{e.score_final}</strong></span>}
+                          </div>
+                        </div>
+                        <span className="text-violet-600 text-2xl">▶</span>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Seção de avaliação do RH */}
               <section className="pt-5 border-t-2 border-gray-100">
                 <h3 className="text-base font-bold uppercase tracking-wider text-gray-700 mb-3">⭐ Avaliação do RH</h3>
@@ -798,12 +865,17 @@ function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualiza
         {/* Rodapé com ações */}
         <div className="p-4 border-t bg-gray-50 flex justify-between gap-2 flex-wrap">
           <div className="flex gap-2 flex-wrap">
-            {Object.entries(STATUS_LABEL).map(([key, s]) => (
-              <button key={key} onClick={() => onAtualizarStatus(key)}
-                className={`text-sm px-4 py-2 border-2 rounded-lg font-bold ${cv.status === key ? s.bg + ' border-current' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                {s.emoji} {s.label}
-              </button>
-            ))}
+            {['novo','em_analise','aprovado','recusado','contratado'].map((key) => {
+              const s = STATUS_LABEL[key];
+              // Marca botao Recusado como ativo se status atual for 'recusado' ou alias antigo 'reprovado'
+              const ativo = cv.status === key || (key === 'recusado' && cv.status === 'reprovado');
+              return (
+                <button key={key} onClick={() => onAtualizarStatus(key)}
+                  className={`text-sm px-4 py-2 border-2 rounded-lg font-bold ${ativo ? s.bg + ' border-current' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                  {s.emoji} {s.label}
+                </button>
+              );
+            })}
           </div>
           <div className="flex gap-2">
             <button onClick={onExcluir} className="text-sm px-4 py-2 border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50">🗑️ Excluir</button>

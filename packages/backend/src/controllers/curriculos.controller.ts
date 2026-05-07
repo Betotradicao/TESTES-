@@ -203,10 +203,39 @@ export class CurriculosController {
 
   // ========== PUBLICO (formulario do candidato) ==========
 
+  /** Lista vagas abertas pra exibir ao candidato apos ele escolher a loja */
+  static async listarVagasPublicasPorLoja(req: Request, res: Response) {
+    try {
+      const codLoja = req.query.cod_loja != null && req.query.cod_loja !== ''
+        ? Number(req.query.cod_loja) : null;
+      const params: any[] = [];
+      let where = `v.status = 'Aberta' OR v.status = 'Em Selecao'`;
+      if (codLoja != null) {
+        params.push(codLoja);
+        where = `(v.status = 'Aberta' OR v.status = 'Em Selecao') AND (v.cod_loja IS NULL OR v.cod_loja = $${params.length})`;
+      }
+      const rows = await AppDataSource.query(
+        `SELECT v.id, v.titulo, v.descricao, v.requisitos, v.beneficios,
+                v.salario_min, v.experiencia_obrigatoria, v.experiencia_meses_minimo,
+                v.turnos, v.cod_loja, v.data_abertura,
+                ca.nome AS cargo_nome
+         FROM rh_vagas v
+         LEFT JOIN rh_cargos ca ON ca.id = v.cargo_id
+         WHERE ${where}
+         ORDER BY v.id DESC LIMIT 50`,
+        params
+      );
+      res.json({ vagas: rows });
+    } catch (e: any) {
+      console.error('listarVagasPublicasPorLoja error:', e);
+      res.status(500).json({ vagas: [], error: e.message });
+    }
+  }
+
   /** Devolve as listas ativas de cargos, habilidades e lojas para o formulario publico */
   static async obterFormularioPublico(_req: Request, res: Response) {
     try {
-      const [cargos, habilidades, tiposVaga, lojas, configsResult] = await Promise.all([
+      const [cargos, habilidades, tiposVaga, lojas, configsResult, beneficiosCat] = await Promise.all([
         AppDataSource.getRepository(CurriculoCargo).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoHabilidade).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
         AppDataSource.getRepository(CurriculoTipoVaga).find({ where: { ativo: true }, order: { ordem: 'ASC', nome: 'ASC' } }),
@@ -220,6 +249,8 @@ export class CurriculosController {
         AppDataSource.query(
           `SELECT key, value FROM configurations WHERE key IN ('curriculo_disc_habilitado', 'curriculo_preentrevista_habilitada')`
         ).catch(() => []),
+        // Catalogo de beneficios (com valor) pra exibir nas vagas
+        AppDataSource.query(`SELECT nome, valor FROM rh_beneficios WHERE ativo IS NOT FALSE ORDER BY nome`).catch(() => []),
       ]);
       const cfgMap: Record<string, string> = {};
       (configsResult || []).forEach((c: any) => { cfgMap[c.key] = c.value; });
@@ -244,6 +275,7 @@ export class CurriculosController {
           disc_habilitado: String(cfgMap.curriculo_disc_habilitado || 'false') === 'true',
           preentrevista_habilitada: String(cfgMap.curriculo_preentrevista_habilitada || 'false') === 'true',
         },
+        beneficios_catalogo: (beneficiosCat || []).map((b: any) => ({ nome: b.nome, valor: b.valor })),
       });
     } catch (e: any) {
       console.error('[Curriculos] obterFormularioPublico:', e);
@@ -274,7 +306,7 @@ export class CurriculosController {
         cep, rua, numero, complemento, bairro, cidade, estado,
         cargos, habilidades, experiencia_texto, disponibilidade_turnos,
         foto_url, resumo, experiencias_detalhadas, formacoes, cursos_adicionais,
-        interesse_vaga, cod_loja,
+        interesse_vaga, cod_loja, vagas_interesse_ids,
       } = req.body;
 
       if (!nome?.trim()) return res.status(400).json({ success: false, error: 'Nome obrigatorio' });
@@ -318,6 +350,22 @@ export class CurriculosController {
         status: 'novo',
       });
       await repo.save(cv);
+
+      // Salva ids das vagas que o candidato marcou interesse (coluna jsonb)
+      if (Array.isArray(vagas_interesse_ids) && vagas_interesse_ids.length > 0) {
+        try {
+          await AppDataSource.query(
+            `UPDATE curriculos SET vagas_interesse_ids = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(vagas_interesse_ids.map(Number).filter(Boolean)), cv.id]
+          );
+          // Se algum candidato se candidatou, vagas viram "Em Selecao"
+          await AppDataSource.query(
+            `UPDATE rh_vagas SET status = 'Em Selecao' WHERE status = 'Aberta' AND id = ANY($1::int[])`,
+            [vagas_interesse_ids.map(Number).filter(Boolean)]
+          );
+        } catch (e) { console.warn('[Curriculos] vagas_interesse save:', e); }
+      }
+
       res.json({ success: true, id: cv.id });
     } catch (e: any) {
       console.error('[Curriculos] enviarCurriculoPublico:', e);
@@ -423,9 +471,13 @@ export class CurriculosController {
       if (!cv) return res.status(404).json({ success: false, error: 'Curriculo nao encontrado' });
 
       if (status !== undefined) {
+        // Aceita aliases vindos da tela de Vagas: 'selecionado' = 'aprovado', 'recusado' = 'reprovado'
+        const statusNormalizado = status === 'selecionado' ? 'aprovado'
+          : status === 'recusado' ? 'reprovado'
+          : status;
         const statusOk: CurriculoStatus[] = ['novo', 'em_analise', 'aprovado', 'reprovado', 'contratado'];
-        if (!statusOk.includes(status)) return res.status(400).json({ success: false, error: 'status invalido' });
-        cv.status = status;
+        if (!statusOk.includes(statusNormalizado)) return res.status(400).json({ success: false, error: 'status invalido' });
+        cv.status = statusNormalizado;
       }
       if (avaliacao_rh !== undefined) {
         const n = Number(avaliacao_rh);
