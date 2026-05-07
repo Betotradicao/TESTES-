@@ -221,15 +221,18 @@ export default function BancoCurriculos() {
               </FiltroSelect>
               <FiltroSelect label="Cidade" value={filtros.cidade} onChange={v => setFiltros({ ...filtros, cidade: v })}>
                 <option value="">Todas</option>
-                {Array.from(new Set((curriculos || []).map(c => (c.cidade || '').trim()).filter(Boolean)))
+                {Array.from(new Set((curriculos || [])
+                    .map(c => (c.cidade || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase())
+                    .filter(Boolean)))
                   .sort((a, b) => a.localeCompare(b, 'pt-BR'))
                   .map(cid => <option key={cid} value={cid}>{cid}</option>)}
               </FiltroSelect>
               <FiltroSelect label="Bairro" value={filtros.bairro} onChange={v => setFiltros({ ...filtros, bairro: v })}>
                 <option value="">Todos</option>
                 {Array.from(new Set((curriculos || [])
-                    .filter(c => !filtros.cidade || (c.cidade || '').trim() === filtros.cidade)
-                    .map(c => (c.bairro || '').trim()).filter(Boolean)))
+                    .filter(c => !filtros.cidade || (c.cidade || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase() === filtros.cidade)
+                    .map(c => (c.bairro || '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase())
+                    .filter(Boolean)))
                   .sort((a, b) => a.localeCompare(b, 'pt-BR'))
                   .map(b => <option key={b} value={b}>{b}</option>)}
               </FiltroSelect>
@@ -282,6 +285,7 @@ export default function BancoCurriculos() {
                     <tr>
                       <th className="px-2 py-1.5 text-left font-semibold">Nº</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Candidato</th>
+                      <th className="px-2 py-1.5 text-center font-semibold">Idade</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Status</th>
                       <th className="px-2 py-1.5 text-left font-semibold">Vaga</th>
                       <th className="px-2 py-1.5 text-left font-semibold">WhatsApp</th>
@@ -332,6 +336,20 @@ export default function BancoCurriculos() {
                                 )}
                               </div>
                             </div>
+                          </td>
+                          {/* Idade */}
+                          <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                            {(() => {
+                              if (!cv.data_nascimento) return <span className="text-gray-300 text-xs">—</span>;
+                              const nasc = new Date(cv.data_nascimento);
+                              if (isNaN(nasc.getTime())) return <span className="text-gray-300 text-xs">—</span>;
+                              const hoje = new Date();
+                              let idade = hoje.getFullYear() - nasc.getFullYear();
+                              const m = hoje.getMonth() - nasc.getMonth();
+                              if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+                              if (idade < 0 || idade > 120) return <span className="text-gray-300 text-xs">—</span>;
+                              return <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-semibold">{idade} anos</span>;
+                            })()}
                           </td>
                           {/* Status */}
                           <td className="px-2 py-1.5 whitespace-nowrap">
