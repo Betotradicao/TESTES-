@@ -93,4 +93,11 @@ router.put('/update-profile', authenticateToken, AuthController.updateProfile);
 router.get('/admin-users', authenticateToken, isMaster, AuthController.listAdminUsers);
 router.post('/master-reset-admin-password', authenticateToken, isMaster, AuthController.masterResetAdminPassword);
 
+// Master-only: gera link de primeiro acesso pra um admin (token de uso unico, valido 72h)
+router.post('/admin-setup-link', authenticateToken, isMaster, AuthController.gerarLinkSetupAdmin);
+
+// Publicos (validados pelo token na URL): cliente abre o link e configura email/usuario/senha
+router.get('/admin-setup/:token', AuthController.validarTokenSetupAdmin);
+router.post('/admin-setup/:token', AuthController.consumirTokenSetupAdmin);
+
 export default router;

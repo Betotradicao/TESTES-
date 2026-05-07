@@ -253,6 +253,154 @@ export class AuthController {
     }
   }
 
+  // ============================================================
+  // LINK DE PRIMEIRO ACESSO (admin setup)
+  // Master gera token unico (72h, single-use) que o cliente abre
+  // numa URL publica e define email/usuario/senha do proprio admin.
+  // ============================================================
+
+  static async gerarLinkSetupAdmin(req: Request, res: Response) {
+    try {
+      const callerIsMaster = (req as any).user?.isMaster || (req as any).user?.role === UserRole.MASTER;
+      if (!callerIsMaster) return res.status(403).json({ error: 'Apenas o usuario master' });
+
+      const { adminUserId } = req.body;
+      if (!adminUserId) return res.status(400).json({ error: 'adminUserId e obrigatorio' });
+
+      const userRepo = AppDataSource.getRepository(User);
+      const targetAdmin = await userRepo.findOne({ where: { id: adminUserId }, relations: ['company'] });
+      if (!targetAdmin) return res.status(404).json({ error: 'Admin nao encontrado' });
+      if (targetAdmin.isMaster) return res.status(400).json({ error: 'Nao e permitido gerar link pra master' });
+
+      // Invalida tokens antigos do mesmo admin que ainda nao foram usados
+      await AppDataSource.query(
+        `UPDATE admin_setup_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`,
+        [adminUserId]
+      );
+
+      // Cria novo token (gen_random_uuid via default + retorna o valor)
+      const callerId = (req as any).user?.id || null;
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72h
+      const inserted = await AppDataSource.query(
+        `INSERT INTO admin_setup_tokens (user_id, created_by_user_id, expires_at)
+         VALUES ($1, $2, $3) RETURNING token, expires_at`,
+        [adminUserId, callerId, expiresAt]
+      );
+      const tokenRow = inserted[0];
+
+      // URL publica (frontend monta com host atual no front; aqui retornamos so o token + path)
+      return res.json({
+        token: tokenRow.token,
+        expires_at: tokenRow.expires_at,
+        path: `/admin-setup/${tokenRow.token}`,
+        admin: {
+          id: targetAdmin.id,
+          name: targetAdmin.name,
+          email: targetAdmin.email,
+          username: targetAdmin.username,
+          company: targetAdmin.company ? {
+            nomeFantasia: targetAdmin.company.nomeFantasia,
+            razaoSocial: targetAdmin.company.razaoSocial,
+          } : null,
+        },
+      });
+    } catch (err) {
+      console.error('gerarLinkSetupAdmin error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async validarTokenSetupAdmin(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+      const rows = await AppDataSource.query(
+        `SELECT t.*, u.name AS user_name, u.email AS user_email, u.username AS user_username,
+                c.nome_fantasia, c.razao_social
+         FROM admin_setup_tokens t
+         JOIN users u ON u.id = t.user_id
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE t.token = $1`,
+        [token]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Link invalido' });
+      const t = rows[0];
+      if (t.used_at) return res.status(410).json({ error: 'Este link ja foi utilizado' });
+      if (new Date(t.expires_at) < new Date()) return res.status(410).json({ error: 'Este link expirou' });
+
+      return res.json({
+        valid: true,
+        empresa: {
+          nomeFantasia: t.nome_fantasia,
+          razaoSocial: t.razao_social,
+        },
+        admin: {
+          name: t.user_name,
+          email: t.user_email,
+          username: t.user_username,
+        },
+        expiresAt: t.expires_at,
+      });
+    } catch (err) {
+      console.error('validarTokenSetupAdmin error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async consumirTokenSetupAdmin(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+      const { email, username, password, name } = req.body;
+
+      if (!email || !username || !password) {
+        return res.status(400).json({ error: 'Email, usuario e senha sao obrigatorios' });
+      }
+      if (!isPasswordStrong(password)) {
+        return res.status(400).json({ error: PASSWORD_POLICY_ERROR });
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(username) || username.length < 3) {
+        return res.status(400).json({ error: 'Usuario deve ter ao menos 3 caracteres (letras, numeros, _ ou -)' });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'Email invalido' });
+      }
+
+      const rows = await AppDataSource.query(
+        `SELECT * FROM admin_setup_tokens WHERE token = $1`, [token]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Link invalido' });
+      const t = rows[0];
+      if (t.used_at) return res.status(410).json({ error: 'Este link ja foi utilizado' });
+      if (new Date(t.expires_at) < new Date()) return res.status(410).json({ error: 'Este link expirou' });
+
+      const userRepo = AppDataSource.getRepository(User);
+      const user = await userRepo.findOne({ where: { id: t.user_id } });
+      if (!user) return res.status(404).json({ error: 'Admin nao encontrado' });
+      if (user.isMaster) return res.status(400).json({ error: 'Operacao nao permitida pra master' });
+
+      // Garantir unicidade de email e username (excluindo o proprio user)
+      const emailDup = await userRepo.findOne({ where: { email } });
+      if (emailDup && emailDup.id !== user.id) return res.status(409).json({ error: 'Email ja em uso' });
+      const userDup = await userRepo.findOne({ where: { username } });
+      if (userDup && userDup.id !== user.id) return res.status(409).json({ error: 'Usuario ja em uso' });
+
+      user.email = email;
+      user.username = username;
+      user.password = await bcrypt.hash(password, 10);
+      if (name && name.trim()) user.name = name.trim();
+      await userRepo.save(user);
+
+      // Marca token como usado (desativa o link)
+      await AppDataSource.query(
+        `UPDATE admin_setup_tokens SET used_at = NOW() WHERE token = $1`, [token]
+      );
+
+      return res.json({ success: true, message: 'Acesso configurado com sucesso. Faça login pra continuar.' });
+    } catch (err) {
+      console.error('consumirTokenSetupAdmin error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   static async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;

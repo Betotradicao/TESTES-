@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SetupCheck from './components/SetupCheck';
 import Login from './pages/Login';
 import FirstSetup from './pages/FirstSetup';
+import AdminSetup from './pages/AdminSetup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
@@ -137,6 +138,7 @@ function App() {
             <Routes>
             {/* Public Routes - First Setup MUST be accessible without auth */}
             <Route path="/first-setup" element={<FirstSetup />} />
+            <Route path="/admin-setup/:token" element={<AdminSetup />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />

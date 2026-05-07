@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import PasswordRequirements from '../PasswordRequirements';
+import { passwordValidationError } from '../../utils/passwordPolicy';
 
 export default function ResetSenhaAdminTab() {
   const { user } = useAuth();
@@ -14,6 +16,12 @@ export default function ResetSenhaAdminTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Estados do "Gerar link de primeiro acesso"
+  const [linkAdminUserId, setLinkAdminUserId] = useState('');
+  const [gerandoLink, setGerandoLink] = useState(false);
+  const [linkGerado, setLinkGerado] = useState(null); // { url, expires_at, admin }
+  const [linkErro, setLinkErro] = useState('');
+  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     loadAdmins();
@@ -44,8 +52,9 @@ export default function ResetSenhaAdminTab() {
       setError('Informe sua senha master');
       return;
     }
-    if (newAdminPassword.length < 6) {
-      setError('A nova senha do admin deve ter no minimo 6 caracteres');
+    const pwdErr = passwordValidationError(newAdminPassword);
+    if (pwdErr) {
+      setError(pwdErr);
       return;
     }
     if (newAdminPassword !== confirmPassword) {
@@ -69,6 +78,37 @@ export default function ResetSenhaAdminTab() {
       setError(err.response?.data?.error || 'Erro ao redefinir senha do admin');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const gerarLinkPrimeiroAcesso = async () => {
+    setLinkErro('');
+    setLinkGerado(null);
+    setCopiado(false);
+    if (!linkAdminUserId) {
+      setLinkErro('Selecione o admin pra gerar o link');
+      return;
+    }
+    try {
+      setGerandoLink(true);
+      const { data } = await api.post('/auth/admin-setup-link', { adminUserId: linkAdminUserId });
+      const url = `${window.location.origin}${data.path}`;
+      setLinkGerado({ ...data, url });
+    } catch (err) {
+      setLinkErro(err.response?.data?.error || 'Erro ao gerar link');
+    } finally {
+      setGerandoLink(false);
+    }
+  };
+
+  const copiarLink = async () => {
+    if (!linkGerado?.url) return;
+    try {
+      await navigator.clipboard.writeText(linkGerado.url);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      setLinkErro('Não foi possível copiar — selecione o texto manualmente');
     }
   };
 
@@ -109,6 +149,72 @@ export default function ResetSenhaAdminTab() {
           {success}
         </div>
       )}
+
+      {/* CARD: Gerar link de primeiro acesso */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="bg-emerald-100 rounded-full p-2">
+            <svg className="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900">🔑 Gerar link de primeiro acesso</h4>
+            <p className="text-xs text-gray-600 mt-1">Envie o link pro cliente. Ele abre, define email/usuário/senha próprios e o link expira automaticamente. Válido por 72h e só funciona 1 vez.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Admin do cliente</label>
+            <select
+              value={linkAdminUserId}
+              onChange={(e) => setLinkAdminUserId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="">Selecione o admin...</option>
+              {admins.map(a => {
+                const empresa = a.company?.nomeFantasia || a.company?.razaoSocial || 'Sem empresa';
+                const id = a.name || a.username || a.email || a.id;
+                return <option key={a.id} value={a.id}>{empresa} - {id}</option>;
+              })}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={gerarLinkPrimeiroAcesso}
+            disabled={gerandoLink || !linkAdminUserId}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-medium transition"
+          >
+            {gerandoLink ? 'Gerando…' : 'Gerar link'}
+          </button>
+        </div>
+
+        {linkErro && <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-2">{linkErro}</div>}
+
+        {linkGerado && (
+          <div className="mt-4 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-lg">
+            <p className="text-sm font-semibold text-emerald-900 mb-2">✅ Link gerado pra <strong>{linkGerado.admin?.company?.nomeFantasia || 'cliente'}</strong></p>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                readOnly
+                value={linkGerado.url}
+                onClick={(e) => e.target.select()}
+                className="flex-1 px-3 py-2 bg-white border border-emerald-300 rounded text-sm font-mono"
+              />
+              <button
+                type="button"
+                onClick={copiarLink}
+                className="px-3 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-medium whitespace-nowrap"
+              >
+                {copiado ? '✓ Copiado!' : '📋 Copiar'}
+              </button>
+            </div>
+            <p className="text-xs text-emerald-800">⏰ Expira em: {new Date(linkGerado.expires_at).toLocaleString('pt-BR')} · 🔒 Uso único</p>
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-5">
         <div>
@@ -166,10 +272,11 @@ export default function ResetSenhaAdminTab() {
               value={newAdminPassword}
               onChange={(e) => setNewAdminPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Minimo 6 caracteres"
+              placeholder="Senha forte"
               required
               autoComplete="new-password"
             />
+            <PasswordRequirements password={newAdminPassword} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -184,6 +291,9 @@ export default function ResetSenhaAdminTab() {
               required
               autoComplete="new-password"
             />
+            {confirmPassword && newAdminPassword !== confirmPassword && (
+              <p className="mt-1 text-xs text-red-600">As senhas não coincidem</p>
+            )}
           </div>
         </div>
 

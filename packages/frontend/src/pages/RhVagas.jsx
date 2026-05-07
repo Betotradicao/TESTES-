@@ -28,6 +28,9 @@ const initialForm = {
   requisitos: '',
   beneficios: '',
   selecionados: [],
+  cod_loja: '',
+  experiencia_obrigatoria: false,
+  experiencia_meses_minimo: '',
 };
 
 const novoSelecionado = (curriculo) => ({
@@ -57,6 +60,7 @@ export default function RhVagas() {
   const [sugestoesSalarios, setSugestoesSalarios] = useState({}); // { cargo_id: salario_medio }
   const [departamentos, setDepartamentos] = useState([]);
   const [beneficiosCatalogo, setBeneficiosCatalogo] = useState([]);
+  const [lojas, setLojas] = useState([]);
 
   // Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -78,12 +82,13 @@ export default function RhVagas() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [vagasRes, cargosRes, deptRes, benRes, sugRes] = await Promise.all([
+      const [vagasRes, cargosRes, deptRes, benRes, sugRes, lojasRes] = await Promise.all([
         api.get('/rh/vagas'),
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/configuracoes/departamentos'),
         api.get('/rh/configuracoes/beneficios'),
         api.get('/rh/configuracoes/cargos/sugestao-salarios').catch(() => ({ data: [] })),
+        api.get('/rh/empresas').catch(() => ({ data: [] })),
       ]);
       setVagas(vagasRes.data || []);
       setCargos(cargosRes.data || []);
@@ -93,6 +98,8 @@ export default function RhVagas() {
       const sugMap = {};
       (sugRes.data || []).forEach(s => { sugMap[s.cargo_id] = s.salario_medio; });
       setSugestoesSalarios(sugMap);
+      const lojasArr = Array.isArray(lojasRes.data) ? lojasRes.data : (lojasRes.data?.empresas || []);
+      setLojas(lojasArr.slice().sort((a, b) => (a.codLoja ?? 999999) - (b.codLoja ?? 999999)));
     } catch (err) {
       toast.error('Erro ao carregar vagas');
       console.error(err);
@@ -139,6 +146,9 @@ export default function RhVagas() {
         requisitos: vaga.requisitos || '',
         beneficios: vaga.beneficios || '',
         selecionados: Array.isArray(vaga.selecionados) ? vaga.selecionados : [],
+        cod_loja: vaga.cod_loja != null ? String(vaga.cod_loja) : '',
+        experiencia_obrigatoria: !!vaga.experiencia_obrigatoria,
+        experiencia_meses_minimo: vaga.experiencia_meses_minimo != null ? String(vaga.experiencia_meses_minimo) : '',
       });
     } else {
       setEditando(null);
@@ -255,6 +265,10 @@ export default function RhVagas() {
       const payload = {
         ...formData,
         titulo: (formData.titulo && formData.titulo.trim()) || cargoSelecionado?.nome || 'Vaga',
+        cod_loja: formData.cod_loja !== '' && formData.cod_loja != null ? Number(formData.cod_loja) : null,
+        experiencia_obrigatoria: !!formData.experiencia_obrigatoria,
+        experiencia_meses_minimo: formData.experiencia_obrigatoria && formData.experiencia_meses_minimo !== ''
+          ? Number(formData.experiencia_meses_minimo) : null,
       };
       if (editando) {
         await api.put(`/rh/vagas/${editando.id}`, payload);
@@ -584,7 +598,24 @@ export default function RhVagas() {
                     />
                     <span className="text-[11px] text-gray-500 italic">Preenchido automaticamente pelo cargo (editavel)</span>
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Loja</label>
+                    <select
+                      name="cod_loja"
+                      value={formData.cod_loja}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Todas as lojas</option>
+                      {lojas.map((l) => (
+                        <option key={l.id ?? l.codLoja} value={l.codLoja ?? ''}>
+                          {l.codLoja != null ? `Loja ${l.codLoja} - ` : ''}{l.apelido || l.nomeFantasia || `Loja ${l.id}`}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[11px] text-gray-500 italic">Vaga aparece pra candidatos desta loja no formulário público</span>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select
                       name="status"
@@ -596,6 +627,43 @@ export default function RhVagas() {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                  </div>
+                  <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Precisa experiência?</label>
+                    <div className="flex items-center gap-4 mb-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="experiencia_obrigatoria"
+                          checked={formData.experiencia_obrigatoria === true}
+                          onChange={() => setFormData(prev => ({ ...prev, experiencia_obrigatoria: true }))}
+                        />
+                        <span className="text-sm">Sim</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="experiencia_obrigatoria"
+                          checked={formData.experiencia_obrigatoria === false}
+                          onChange={() => setFormData(prev => ({ ...prev, experiencia_obrigatoria: false, experiencia_meses_minimo: '' }))}
+                        />
+                        <span className="text-sm">Não</span>
+                      </label>
+                    </div>
+                    {formData.experiencia_obrigatoria && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Tempo mínimo de experiência (meses)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          name="experiencia_meses_minimo"
+                          value={formData.experiencia_meses_minimo}
+                          onChange={handleChange}
+                          placeholder="Ex: 6 = 6 meses, 24 = 2 anos"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>

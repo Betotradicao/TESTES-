@@ -1271,8 +1271,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             return false;
           }
           // Configuracoes so aparece se algum modulo de Gestao/Marketing/Vision/Garimpador estiver ativo
-          // (cliente que so usa RH nao precisa dessa tela)
-          if (item.id === 'configuracoes') {
+          // (cliente que so usa RH nao precisa dessa tela). Master sempre ve.
+          if (item.id === 'configuracoes' && !user?.isMaster) {
             const algumModuloAlvoAtivo = CONFIGURACOES_REQUIRED_MODULES.some(id => isModuleActive(id));
             if (!algumModuloAlvoAtivo) return false;
           }

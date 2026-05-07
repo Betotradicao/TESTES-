@@ -931,11 +931,11 @@ export class RhController {
 
   static async criarVaga(req: AuthRequest, res: Response) {
     try {
-      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados } = req.body;
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo } = req.body;
       const result = await AppDataSource.query(
-        `INSERT INTO rh_vagas (cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb) RETURNING *`,
-        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas || 1, salario_min, salario_max, data_abertura, data_fechamento, status || 'Aberta', motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || [])]
+        `INSERT INTO rh_vagas (cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17) RETURNING *`,
+        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas || 1, salario_min, salario_max, data_abertura, data_fechamento, status || 'Aberta', motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (experiencia_meses_minimo ?? null) : null]
       );
       res.status(201).json(result[0]);
     } catch (error) {
@@ -947,11 +947,11 @@ export class RhController {
   static async atualizarVaga(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados } = req.body;
+      const { cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, selecionados, cod_loja, experiencia_obrigatoria, experiencia_meses_minimo } = req.body;
       const result = await AppDataSource.query(
-        `UPDATE rh_vagas SET cargo_id=$1, departamento_id=$2, titulo=$3, descricao=$4, quantidade_vagas=$5, salario_min=$6, salario_max=$7, data_abertura=$8, data_fechamento=$9, status=$10, motivo_fechamento=$11, requisitos=$12, beneficios=$13, selecionados=$14::jsonb
-         WHERE id=$15 RETURNING *`,
-        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), id]
+        `UPDATE rh_vagas SET cargo_id=$1, departamento_id=$2, titulo=$3, descricao=$4, quantidade_vagas=$5, salario_min=$6, salario_max=$7, data_abertura=$8, data_fechamento=$9, status=$10, motivo_fechamento=$11, requisitos=$12, beneficios=$13, selecionados=$14::jsonb, cod_loja=$15, experiencia_obrigatoria=$16, experiencia_meses_minimo=$17
+         WHERE id=$18 RETURNING *`,
+        [cargo_id, departamento_id, titulo, descricao, quantidade_vagas, salario_min, salario_max, data_abertura, data_fechamento, status, motivo_fechamento, requisitos, beneficios, JSON.stringify(selecionados || []), cod_loja ?? null, !!experiencia_obrigatoria, experiencia_obrigatoria ? (experiencia_meses_minimo ?? null) : null, id]
       );
       if (result.length === 0) return res.status(404).json({ error: 'Vaga nao encontrada' });
       res.json(result[0]);
