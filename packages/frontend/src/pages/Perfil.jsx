@@ -4,6 +4,8 @@ import Barcode from 'react-barcode';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import { fetchProfile, updateProfile, uploadProfileAvatar, changePassword } from '../services/profile.service';
+import PasswordRequirements from '../components/PasswordRequirements';
+import { passwordValidationError } from '../utils/passwordPolicy';
 
 export default function Perfil() {
   const { user, logout, updateUser } = useAuth();
@@ -90,8 +92,9 @@ export default function Perfil() {
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres');
+    const pwdErr = passwordValidationError(passwordData.newPassword);
+    if (pwdErr) {
+      toast.error(pwdErr);
       return;
     }
 
@@ -306,10 +309,10 @@ export default function Perfil() {
                     value={passwordData.newPassword}
                     onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                     required
-                    minLength={6}
+                    minLength={8}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Mínimo de 6 caracteres</p>
+                  <PasswordRequirements password={passwordData.newPassword} />
                 </div>
 
                 <div>
@@ -321,9 +324,12 @@ export default function Perfil() {
                     value={passwordData.confirmPassword}
                     onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                     required
-                    minLength={6}
+                    minLength={8}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
+                  {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-600">As senhas não coincidem</p>
+                  )}
                 </div>
 
                 <div className="flex gap-2">

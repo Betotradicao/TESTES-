@@ -5,6 +5,7 @@ import { AppDataSource } from '../config/database';
 import { User, UserRole } from '../entities/User';
 import { Employee } from '../entities/Employee';
 import { EmployeePermissionsService } from '../services/employee-permissions.service';
+import { isPasswordStrong, PASSWORD_POLICY_ERROR } from '../utils/password-policy';
 
 export class AuthController {
   static async me(req: Request, res: Response) {
@@ -94,6 +95,10 @@ export class AuthController {
         const isValidPassword = await user.validatePassword(currentPassword);
         if (!isValidPassword) {
           return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        if (!isPasswordStrong(newPassword)) {
+          return res.status(400).json({ error: PASSWORD_POLICY_ERROR });
         }
 
         user.password = await bcrypt.hash(newPassword, 10);

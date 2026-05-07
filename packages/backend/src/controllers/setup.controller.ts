@@ -4,6 +4,7 @@ import { User, UserRole } from '../entities/User';
 import { Company } from '../entities/Company';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isPasswordStrong, PASSWORD_POLICY_ERROR } from '../utils/password-policy';
 
 export class SetupController {
   // Verifica se o sistema precisa de setup inicial
@@ -90,6 +91,10 @@ export class SetupController {
       // Validações
       if (!adminUsername || !adminName || !adminEmail || !adminPassword) {
         return res.status(400).json({ error: 'Dados do administrador são obrigatórios' });
+      }
+
+      if (!isPasswordStrong(adminPassword)) {
+        return res.status(400).json({ error: PASSWORD_POLICY_ERROR });
       }
 
       // Apenas nomeFantasia e obrigatorio. Resto e opcional - cliente

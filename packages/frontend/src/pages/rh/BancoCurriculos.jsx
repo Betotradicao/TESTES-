@@ -58,6 +58,7 @@ export default function BancoCurriculos() {
   const [cargos, setCargos] = useState([]);
   const [habilidades, setHabilidades] = useState([]);
   const [tiposVaga, setTiposVaga] = useState([]);
+  const [lojas, setLojas] = useState([]);
   // Mapa { slug -> nome } para exibicao das pills (resolve "HORISTA" no lugar de "Aprendiz")
   const tipoVagaNome = (slug) => {
     if (!slug) return '';
@@ -67,7 +68,7 @@ export default function BancoCurriculos() {
   const [emProcesso, setEmProcesso] = useState({}); // { curriculo_id: { vaga_titulo, etapa } }
 
   const [filtros, setFiltros] = useState({
-    cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '',
+    cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '', loja: '',
   });
 
   const [selecionado, setSelecionado] = useState(null);
@@ -76,8 +77,12 @@ export default function BancoCurriculos() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      Object.entries(filtros).forEach(([k, v]) => { if (v) params.set(k, v); });
-      if (lojaSelecionada != null) params.set('cod_loja', String(lojaSelecionada));
+      // Filtro de loja vem do select local; cod_loja vai separado pro backend
+      Object.entries(filtros).forEach(([k, v]) => {
+        if (!v) return;
+        if (k === 'loja') params.set('cod_loja', String(v));
+        else params.set(k, v);
+      });
       const r = await api.get(`/curriculos?${params.toString()}`);
       setCurriculos(r.data?.curriculos || []);
       setResumo(r.data?.resumo || {});
@@ -97,14 +102,19 @@ export default function BancoCurriculos() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, h, t] = await Promise.all([
+        const [c, h, t, e] = await Promise.all([
           api.get('/curriculos/cargos'),
           api.get('/curriculos/habilidades'),
           api.get('/curriculos/tipos-vaga').catch(() => ({ data: { tipos: [] } })),
+          // Lojas vem do cadastro de Configuracoes RH > Empresas (rh_empresas)
+          api.get('/rh/empresas').catch(() => ({ data: [] })),
         ]);
         setCargos((c.data?.cargos || []).filter(x => x.ativo));
         setHabilidades((h.data?.habilidades || []).filter(x => x.ativo));
         setTiposVaga((t.data?.tipos || []).filter(x => x.ativo));
+        const lojasArr = Array.isArray(e.data) ? e.data : (e.data?.empresas || []);
+        // Ordena por codLoja ASC (matriz com codLoja null vai por ultimo)
+        setLojas(lojasArr.slice().sort((a, b) => (a.codLoja ?? 999999) - (b.codLoja ?? 999999)));
       } catch {}
       // Mapeia candidatos em processo (vagas com selecionados)
       try {
@@ -197,8 +207,16 @@ export default function BancoCurriculos() {
 
           {/* Filtros */}
           <div className="bg-white border border-gray-200 rounded-lg p-2 shadow-sm mb-3">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              <FiltroInput label="Buscar" value={filtros.q} placeholder="nome, whatsapp, email…" onChange={v => setFiltros({ ...filtros, q: v })} />
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+              <FiltroInput label="Buscar" value={filtros.q} placeholder="nome, whatsapp…" onChange={v => setFiltros({ ...filtros, q: v })} />
+              <FiltroSelect label="Loja" value={filtros.loja} onChange={v => setFiltros({ ...filtros, loja: v })}>
+                <option value="">Todas</option>
+                {lojas.map(l => (
+                  <option key={l.id ?? l.codLoja ?? l.cod_loja} value={l.codLoja ?? l.cod_loja ?? ''}>
+                    {(l.codLoja ?? l.cod_loja) != null ? `Loja ${l.codLoja ?? l.cod_loja} - ` : ''}{l.apelido || l.nomeFantasia || l.nome_fantasia || `Loja ${l.id}`}
+                  </option>
+                ))}
+              </FiltroSelect>
               <FiltroSelect label="Cidade" value={filtros.cidade} onChange={v => setFiltros({ ...filtros, cidade: v })}>
                 <option value="">Todas</option>
                 {Array.from(new Set((curriculos || []).map(c => (c.cidade || '').trim()).filter(Boolean)))
@@ -237,7 +255,7 @@ export default function BancoCurriculos() {
               <FiltroInput label="Até" type="date" value={filtros.dataAte} onChange={v => setFiltros({ ...filtros, dataAte: v })} />
               <div className="flex items-end">
                 <button
-                  onClick={() => setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '' })}
+                  onClick={() => setFiltros({ cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '', loja: '' })}
                   className="w-full text-sm px-3 py-1.5 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition">
                   🧹 Limpar filtros
                 </button>

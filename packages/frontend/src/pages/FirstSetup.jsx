@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import api from '../services/api';
+import PasswordRequirements from '../components/PasswordRequirements';
+import { isPasswordStrong, passwordValidationError } from '../utils/passwordPolicy';
 
 export default function FirstSetup() {
   const navigate = useNavigate();
@@ -169,9 +171,10 @@ export default function FirstSetup() {
       return false;
     }
 
-    // Validar senha
-    if (formData.adminPassword.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres');
+    // Validar senha (politica forte)
+    const pwdErr = passwordValidationError(formData.adminPassword);
+    if (pwdErr) {
+      setError(pwdErr);
       return false;
     }
 
@@ -605,7 +608,7 @@ export default function FirstSetup() {
                       value={formData.adminPassword}
                       onChange={handleChange}
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Senha forte"
                     />
                     <button
                       type="button"
@@ -624,6 +627,7 @@ export default function FirstSetup() {
                       )}
                     </button>
                   </div>
+                  <PasswordRequirements password={formData.adminPassword} />
                 </div>
 
                 <div>
@@ -638,6 +642,9 @@ export default function FirstSetup() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
                     placeholder="Digite a senha novamente"
                   />
+                  {formData.confirmPassword && formData.adminPassword !== formData.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-600">As senhas não coincidem</p>
+                  )}
                 </div>
               </div>
             </div>

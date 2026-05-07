@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import PasswordRequirements from '../PasswordRequirements';
+import { passwordValidationError } from '../../utils/passwordPolicy';
 
 export default function UserSecuritySettings() {
   const { user } = useAuth();
@@ -99,8 +101,9 @@ export default function UserSecuritySettings() {
     setError('');
     setSuccess('');
 
-    if (passwordForm.newPassword.length < 6) {
-      setError('A nova senha deve ter no mínimo 6 caracteres');
+    const pwdErr = passwordValidationError(passwordForm.newPassword);
+    if (pwdErr) {
+      setError(pwdErr);
       return;
     }
 
@@ -299,9 +302,10 @@ export default function UserSecuritySettings() {
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Senha forte"
                 required
               />
+              <PasswordRequirements password={passwordForm.newPassword} />
             </div>
 
             <div>
@@ -316,6 +320,9 @@ export default function UserSecuritySettings() {
                 placeholder="Digite novamente"
                 required
               />
+              {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
+                <p className="mt-1 text-xs text-red-600">As senhas não coincidem</p>
+              )}
             </div>
 
             <div className="flex items-center">
