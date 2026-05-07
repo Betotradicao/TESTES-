@@ -112,6 +112,7 @@ const SECTIONS = [
     color: 'green',
     modules: [
       { id: 'disparo-whatsapp', name: 'Disparo em Massa', icon: '📱' },
+      { id: 'marketing-chatbot', name: 'Chatbot WhatsApp', icon: '💬' },
     ]
   },
   // CONSULTOR 360 - desativado
