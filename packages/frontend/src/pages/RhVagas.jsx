@@ -714,20 +714,20 @@ export default function RhVagas() {
                       const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
                       const interessados = Array.isArray(v.interessados) ? v.interessados : [];
                       const isExpanded = expandedVagaId === v.id;
-                      const podeExpandir = sels.length > 0 || interessados.length > 0;
+                      // Sempre permite expandir — mesmo sem candidatos, o usuario pode
+                      // querer adicionar um manualmente do banco
+                      const podeExpandir = true;
                       const rows = [];
                       rows.push(
                         <tr key={v.id} className="hover:bg-gray-50">
                           <td className="px-2 py-3 text-center">
-                            {podeExpandir && (
-                              <button
-                                onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
-                                title={isExpanded ? 'Recolher' : 'Expandir candidatos'}
-                                className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold text-base"
-                              >
-                                {isExpanded ? '−' : '+'}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                              title={isExpanded ? 'Recolher' : 'Expandir — ver candidatos / adicionar do banco'}
+                              className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold text-base"
+                            >
+                              {isExpanded ? '−' : '+'}
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {(() => {
