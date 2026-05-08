@@ -1568,7 +1568,11 @@ function CargosTab() {
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-sm font-semibold text-gray-800">{c.nome}</td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-800">
-                      {sug ? `R$ ${sug.salario_medio.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                      {(() => {
+                        const cadastrado = c.salario_base != null && c.salario_base !== '' ? Number(c.salario_base) : null;
+                        if (cadastrado && !isNaN(cadastrado)) return `R$ ${cadastrado.toFixed(2)}`;
+                        return <span className="text-gray-300">—</span>;
+                      })()}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-700">
                       {ids.length > 0 ? (
