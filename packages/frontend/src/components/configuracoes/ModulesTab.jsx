@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { loadModulesConfig, saveModulesConfig, readCachedModulesConfig } from '../../utils/modulesConfig';
 
 const AVAILABLE_MODULES = [
   // Gestão no Radar
@@ -107,15 +108,14 @@ export default function ModulesTab() {
     loadModules();
   }, []);
 
-  const loadModules = () => {
-    const savedModules = localStorage.getItem('modules_config');
-    if (savedModules) {
-      try {
-        setModules(JSON.parse(savedModules));
-      } catch (err) {
-        console.error('Erro ao carregar módulos:', err);
-        initializeModules();
-      }
+  const loadModules = async () => {
+    // Render rapido com cache
+    const cached = readCachedModulesConfig();
+    if (cached.config?.length) setModules(cached.config);
+    // Le do backend
+    const { config } = await loadModulesConfig({ force: true });
+    if (Array.isArray(config) && config.length > 0) {
+      setModules(config);
     } else {
       initializeModules();
     }
@@ -128,7 +128,7 @@ export default function ModulesTab() {
       active: true
     }));
     setModules(defaultModules);
-    localStorage.setItem('modules_config', JSON.stringify(defaultModules));
+    saveModulesConfig(defaultModules, 'disabled');
   };
 
   const toggleModule = (moduleId) => {
@@ -140,10 +140,7 @@ export default function ModulesTab() {
     });
 
     setModules(updatedModules);
-    localStorage.setItem('modules_config', JSON.stringify(updatedModules));
-
-    // Disparar evento para sidebar atualizar
-    window.dispatchEvent(new Event('storage'));
+    saveModulesConfig(updatedModules, readCachedModulesConfig().mode);
   };
 
   const getModuleStatus = (moduleId) => {

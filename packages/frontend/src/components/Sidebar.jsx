@@ -4,6 +4,7 @@ import Logo from './Logo';
 import { MENU_SUBMENUS } from '../constants/menuConstants';
 import { useLoja } from '../contexts/LojaContext';
 import { api } from '../utils/api';
+import { loadModulesConfig, readCachedModulesConfig } from '../utils/modulesConfig';
 
 // Modulos que dao "direito" ao menu CONFIGURACOES aparecer.
 // Se nenhum deles estiver ativo (ex: cliente so usa RH), o menu some.
@@ -90,32 +91,30 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   // Modo de visibilidade dos modulos: 'disabled' (mostra desabilitado) | 'hidden' (esconde)
   const [visibilityMode, setVisibilityMode] = useState('disabled');
 
-  // Carregar configuração de módulos do localStorage
+  // Carregar configuracao de modulos do BACKEND (com cache em localStorage pra render imediato).
+  // Antes era so localStorage por dispositivo - bug: celular mostrava menus que desktop nao mostrava.
   useEffect(() => {
-    const loadModulesConfig = () => {
-      const savedModules = localStorage.getItem('modules_config');
-      if (savedModules) {
-        try {
-          setModulesConfig(JSON.parse(savedModules));
-        } catch (err) {
-          console.error('Erro ao carregar módulos:', err);
-        }
-      }
-      const savedMode = localStorage.getItem('modules_visibility_mode');
-      if (savedMode === 'disabled' || savedMode === 'hidden') {
-        setVisibilityMode(savedMode);
-      }
+    // 1. Le cache do localStorage sincronamente pra primeiro render rapido
+    const cached = readCachedModulesConfig();
+    if (cached.config?.length) setModulesConfig(cached.config);
+    if (cached.mode) setVisibilityMode(cached.mode);
+
+    // 2. Busca a versao oficial do backend e atualiza
+    const refresh = () => {
+      loadModulesConfig({ force: true }).then(({ config, mode }) => {
+        setModulesConfig(Array.isArray(config) ? config : []);
+        setVisibilityMode(mode || 'disabled');
+      }).catch(() => {});
     };
+    refresh();
 
-    loadModulesConfig();
-
-    // Listener para atualizar quando módulos mudarem
-    const handleStorageChange = () => {
-      loadModulesConfig();
+    // 3. Listeners: storage (outras abas) + custom event (mesma aba)
+    window.addEventListener('storage', refresh);
+    window.addEventListener('modulesConfigChanged', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('modulesConfigChanged', refresh);
     };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Função para verificar se um módulo está ativo

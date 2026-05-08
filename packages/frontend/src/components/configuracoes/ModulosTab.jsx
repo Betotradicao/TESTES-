@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { loadModulesConfig, saveModulesConfig } from '../../utils/modulesConfig';
 
 const SECTIONS = [
   // METAS NO RADAR - desativado
@@ -245,39 +246,27 @@ export default function ModulosTab() {
   const [visibilityMode, setVisibilityMode] = useState('disabled'); // 'disabled' | 'hidden'
   const [success, setSuccess] = useState(null);
 
-  // Carregar configuração salva do localStorage e migrar dados antigos
+  // Carregar config do BACKEND (com fallback/migracao do localStorage antigo)
   useEffect(() => {
-    const savedModules = localStorage.getItem('modules_config');
-    if (savedModules) {
-      try {
-        const parsed = JSON.parse(savedModules);
-        // Migrar: garantir que todos os módulos existam, preservar active state
-        const migrated = ALL_MODULES.map(defaultMod => {
-          const saved = parsed.find(m => m.id === defaultMod.id);
-          return { ...defaultMod, active: saved ? saved.active : true };
-        });
-        setModules(migrated);
-        localStorage.setItem('modules_config', JSON.stringify(migrated));
-      } catch (err) {
-        console.error('Erro ao carregar módulos:', err);
-        const defaults = ALL_MODULES.map(m => ({ ...m, active: true }));
-        setModules(defaults);
-        localStorage.setItem('modules_config', JSON.stringify(defaults));
+    (async () => {
+      const { config, mode } = await loadModulesConfig({ force: true });
+      // Garante que TODOS os modulos existam (preserva active state dos salvos)
+      const migrated = ALL_MODULES.map(defaultMod => {
+        const saved = (config || []).find(m => m.id === defaultMod.id);
+        return { ...defaultMod, active: saved ? saved.active : true };
+      });
+      setModules(migrated);
+      if (mode === 'disabled' || mode === 'hidden') setVisibilityMode(mode);
+      // Persiste estrutura completa (caso modulos novos tenham sido adicionados)
+      if (!config || config.length !== migrated.length) {
+        saveModulesConfig(migrated, mode || 'disabled');
       }
-    } else {
-      const defaults = ALL_MODULES.map(m => ({ ...m, active: true }));
-      localStorage.setItem('modules_config', JSON.stringify(defaults));
-    }
-    const savedMode = localStorage.getItem('modules_visibility_mode');
-    if (savedMode === 'disabled' || savedMode === 'hidden') {
-      setVisibilityMode(savedMode);
-    }
+    })();
   }, []);
 
   const handleVisibilityModeChange = (mode) => {
     setVisibilityMode(mode);
-    localStorage.setItem('modules_visibility_mode', mode);
-    window.dispatchEvent(new Event('storage'));
+    saveModulesConfig(modules, mode);
     setSuccess(mode === 'hidden'
       ? 'Modo TOTALMENTE INVISIVEL ativado - modulos inativos serao removidos do menu'
       : 'Modo INVISIVEL (visualizacao desabilitada) ativado - modulos inativos aparecem mas nao sao clicaveis');
@@ -286,8 +275,7 @@ export default function ModulosTab() {
 
   const saveAndNotify = (updated) => {
     setModules(updated);
-    localStorage.setItem('modules_config', JSON.stringify(updated));
-    window.dispatchEvent(new Event('storage'));
+    saveModulesConfig(updated, visibilityMode);
   };
 
   const handleToggleModule = (moduleId) => {

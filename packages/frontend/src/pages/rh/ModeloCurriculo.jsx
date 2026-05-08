@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLoja } from '../../contexts/LojaContext';
 import Sidebar from '../../components/Sidebar';
 import api from '../../utils/api';
+import { loadModulesConfig, readCachedModulesConfig } from '../../utils/modulesConfig';
 
 export default function ModeloCurriculo() {
   const { user, logout } = useAuth();
@@ -17,17 +18,22 @@ export default function ModeloCurriculo() {
   const [sucesso, setSucesso] = useState('');
   const flash = (t) => { setSucesso(t); setTimeout(() => setSucesso(''), 2000); };
 
-  // Le estado dos modulos do localStorage (Configuracoes -> Modulos)
+  // Modulos habilitados vem do BACKEND (sincronizado entre dispositivos)
+  const [modulesConfigState, setModulesConfigState] = useState(() => readCachedModulesConfig().config);
+  useEffect(() => {
+    loadModulesConfig({ force: true }).then(({ config }) => setModulesConfigState(config || []));
+    const refresh = () => setModulesConfigState(readCachedModulesConfig().config);
+    window.addEventListener('storage', refresh);
+    window.addEventListener('modulesConfigChanged', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('modulesConfigChanged', refresh);
+    };
+  }, []);
   const isModuleActive = (moduleId) => {
-    try {
-      const saved = localStorage.getItem('modules_config');
-      if (!saved) return true; // sem config = todos ativos por padrao
-      const parsed = JSON.parse(saved);
-      const mod = parsed.find(m => m.id === moduleId);
-      return mod ? mod.active !== false : true;
-    } catch {
-      return true;
-    }
+    if (!Array.isArray(modulesConfigState) || modulesConfigState.length === 0) return true;
+    const mod = modulesConfigState.find(m => m.id === moduleId);
+    return mod ? mod.active !== false : true;
   };
 
   const discModuloAtivo = isModuleActive('rh-metodo-disc');
