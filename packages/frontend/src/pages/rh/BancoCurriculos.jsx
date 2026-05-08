@@ -90,6 +90,7 @@ export default function BancoCurriculos() {
   const [msgWhatsApp, setMsgWhatsApp] = useState('');
   const [recrutadoraNome, setRecrutadoraNome] = useState('');
   const [supermercadoNome, setSupermercadoNome] = useState('');
+  const [msgWhatsAppAtivo, setMsgWhatsAppAtivo] = useState(true);
 
   const [filtros, setFiltros] = useState({
     cidade: '', bairro: '', cargo: '', habilidade: '', status: '', dataDe: '', dataAte: '', q: '', interesse_vaga: '', loja: '',
@@ -142,14 +143,16 @@ export default function BancoCurriculos() {
       } catch {}
       // Carrega configs de mensagem (Configuracoes RH > Mensagens)
       try {
-        const [r1, r2, r3] = await Promise.all([
+        const [r1, r2, r3, r4] = await Promise.all([
           api.get('/configurations/rh_msg_whatsapp_entrevista').catch(() => null),
           api.get('/configurations/rh_recrutadora_nome').catch(() => null),
           api.get('/configurations/client_brand_name').catch(() => null),
+          api.get('/configurations/rh_msg_whatsapp_ativo').catch(() => null),
         ]);
         if (r1?.data?.value) setMsgWhatsApp(r1.data.value);
         if (r2?.data?.value) setRecrutadoraNome(r2.data.value);
         if (r3?.data?.value) setSupermercadoNome(r3.data.value);
+        if (r4?.data?.value === 'false') setMsgWhatsAppAtivo(false);
       } catch {}
       // Mapeia candidatos em processo (vagas com selecionados)
       try {
@@ -401,7 +404,7 @@ export default function BancoCurriculos() {
                           {/* WhatsApp */}
                           <td className="px-2 py-1.5 text-gray-700 whitespace-nowrap">
                             {cv.whatsapp ? (
-                              <a href={waLink(cv.whatsapp, msgWhatsApp, { nome: cv.nome, supermercado: supermercadoNome, recrutadora: recrutadoraNome })} target="_blank" rel="noopener noreferrer"
+                              <a href={waLink(cv.whatsapp, msgWhatsAppAtivo ? msgWhatsApp : '', { nome: cv.nome, supermercado: supermercadoNome, recrutadora: recrutadoraNome })} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
                                 className="inline-flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
                                 title="Abrir conversa no WhatsApp">
@@ -673,7 +676,7 @@ export function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onA
                 <h4 className="text-sm font-bold uppercase tracking-wider border-b border-white/20 pb-2 mb-3">📞 Contato</h4>
                 <div className="text-base space-y-2">
                   {cv.whatsapp && (
-                    <a href={waLink(cv.whatsapp, msgWhatsApp, { nome: cv.nome, supermercado: supermercadoNome, recrutadora: recrutadoraNome })} target="_blank" rel="noopener noreferrer"
+                    <a href={waLink(cv.whatsapp, msgWhatsAppAtivo ? msgWhatsApp : '', { nome: cv.nome, supermercado: supermercadoNome, recrutadora: recrutadoraNome })} target="_blank" rel="noopener noreferrer"
                       className="flex gap-2 items-center text-emerald-600 hover:text-emerald-700 hover:underline">
                       <span>📱</span><span className="font-medium">{cv.whatsapp}</span>
                       <svg className="w-3 h-3 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">

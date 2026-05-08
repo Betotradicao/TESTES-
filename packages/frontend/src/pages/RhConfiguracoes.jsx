@@ -410,23 +410,33 @@ function MensagensTab() {
   const [msgEntrevista, setMsgEntrevista] = useState(MSG_ENTREVISTA_PADRAO);
   const [recrutadora, setRecrutadora] = useState('');
   const [supermercado, setSupermercado] = useState('');
+  const [ativo, setAtivo] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const [r1, r2, r3] = await Promise.all([
+        const [r1, r2, r3, r4, r5] = await Promise.all([
           api.get('/configurations/rh_msg_whatsapp_entrevista').catch(() => null),
           api.get('/configurations/rh_recrutadora_nome').catch(() => null),
           api.get('/configurations/client_brand_name').catch(() => null),
+          api.get('/configurations/rh_msg_whatsapp_ativo').catch(() => null),
+          // Fallback pro nome do supermercado: se client_brand_name vazio, pega da 1a empresa cadastrada
+          api.get('/rh/empresas').catch(() => ({ data: [] })),
         ]);
-        // Se ja tem mensagem salva, usa ela. Senao, mantem o template padrao.
         if (r1?.data?.value && r1.data.value.trim() && r1.data.value.trim() !== '') {
           setMsgEntrevista(r1.data.value);
         }
         if (r2?.data?.value) setRecrutadora(r2.data.value);
-        if (r3?.data?.value) setSupermercado(r3.data.value);
+        if (r3?.data?.value && r3.data.value.trim()) {
+          setSupermercado(r3.data.value);
+        } else {
+          // Fallback: nome da primeira empresa cadastrada
+          const lojas = Array.isArray(r5?.data) ? r5.data : (r5?.data?.empresas || []);
+          if (lojas.length > 0) setSupermercado(lojas[0].nomeFantasia || lojas[0].apelido || '');
+        }
+        if (r4?.data?.value === 'false') setAtivo(false);
       } catch {}
     })();
   }, []);
@@ -438,8 +448,11 @@ function MensagensTab() {
       await Promise.all([
         api.put('/configurations/rh_msg_whatsapp_entrevista', { value: msgEntrevista || ' ' }),
         api.put('/configurations/rh_recrutadora_nome', { value: recrutadora || ' ' }),
+        api.put('/configurations/rh_msg_whatsapp_ativo', { value: ativo ? 'true' : 'false' }),
       ]);
-      setSucesso('✅ Mensagem salva! Agora ao clicar no WhatsApp do candidato ela vai pré-preenchida.');
+      setSucesso(ativo
+        ? '✅ Mensagem salva e ATIVADA! Agora ao clicar no WhatsApp do candidato ela vai pré-preenchida.'
+        : '✅ Mensagem salva mas DESATIVADA — ao clicar no WhatsApp vai abrir sem texto.');
       setTimeout(() => setSucesso(''), 4000);
     } catch (e) {
       setSucesso('❌ Erro ao salvar: ' + (e?.response?.data?.error || e.message));
@@ -456,12 +469,30 @@ function MensagensTab() {
 
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-gray-800 mb-1">💬 Mensagens automáticas</h2>
-        <p className="text-sm text-gray-600">
-          Quando você clica no WhatsApp do candidato no <strong>Banco de Currículos</strong>, abre o WhatsApp Web/App com essa mensagem já pré-preenchida.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 mb-1">💬 Mensagens automáticas</h2>
+          <p className="text-sm text-gray-600">
+            Quando você clica no WhatsApp do candidato no <strong>Banco de Currículos</strong>, abre o WhatsApp Web/App com essa mensagem já pré-preenchida.
+          </p>
+        </div>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-gray-300">
+          <input
+            type="checkbox"
+            checked={ativo}
+            onChange={e => setAtivo(e.target.checked)}
+            className="w-5 h-5 accent-emerald-500"
+          />
+          <span className={`text-sm font-bold ${ativo ? 'text-emerald-700' : 'text-gray-400'}`}>
+            {ativo ? '✓ Ativada' : '✗ Desativada'}
+          </span>
+        </label>
       </div>
+      {!ativo && (
+        <div className="bg-amber-50 border border-amber-300 rounded p-3 text-sm text-amber-900">
+          ⚠️ Mensagem desativada. Ao clicar no WhatsApp do candidato, vai abrir sem texto pré-preenchido.
+        </div>
+      )}
 
       <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-900">
         <strong>📌 Placeholders disponíveis</strong> (use no texto que serão substituídos automaticamente):
