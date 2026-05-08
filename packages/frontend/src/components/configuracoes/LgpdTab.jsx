@@ -2,33 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../utils/api';
 import toast from 'react-hot-toast';
-
-const TERMOS = [
-  {
-    id: 'termos_uso',
-    versao: 'v1.0',
-    titulo: 'Termos de Uso',
-    descricao: 'Regras de uso da plataforma Radar 360.',
-    arquivo: '/docs/legal/01-TERMOS-DE-USO.md',
-    obrigatorio: true,
-  },
-  {
-    id: 'politica_privacidade',
-    versao: 'v1.0',
-    titulo: 'Política de Privacidade',
-    descricao: 'Como coletamos, usamos e protegemos dados pessoais.',
-    arquivo: '/docs/legal/02-POLITICA-DE-PRIVACIDADE.md',
-    obrigatorio: true,
-  },
-  {
-    id: 'dpa',
-    versao: 'v1.0',
-    titulo: 'DPA — Contrato de Operador',
-    descricao: 'Contrato que define quem é Controlador (você) e Operador (Radar 360) dos dados.',
-    arquivo: '/docs/legal/03-DPA-CONTRATO-OPERADOR.md',
-    obrigatorio: true,
-  },
-];
+import { TERMOS_LGPD as TERMOS } from '../../constants/lgpdTermos';
 
 const DOWNLOADS = [
   { titulo: 'Consentimento de Currículo (modelo)', arquivo: '/docs/legal/04-CONSENTIMENTO-CURRICULO.md' },

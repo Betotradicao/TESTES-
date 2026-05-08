@@ -31,8 +31,8 @@ const igHandle = (handle) => {
 
 const STATUS_LABEL = {
   novo: { label: 'Novo', emoji: '🆕', bg: 'bg-sky-100 text-sky-800 border-sky-200' },
-  em_analise: { label: 'Em análise', emoji: '🔎', bg: 'bg-amber-100 text-amber-800 border-amber-200' },
-  aprovado: { label: 'Aprovado', emoji: '✅', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  em_analise: { label: 'Vagas Futuras', emoji: '🔎', bg: 'bg-amber-100 text-amber-800 border-amber-200' },
+  aprovado: { label: 'Selecionado', emoji: '✓', bg: 'bg-blue-100 text-blue-800 border-blue-200' },
   recusado: { label: 'Recusado', emoji: '🚫', bg: 'bg-rose-100 text-rose-800 border-rose-200' },
   contratado: { label: 'Contratado', emoji: '🎉', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
 };
@@ -202,8 +202,8 @@ export default function BancoCurriculos() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
             <Tile emoji="📇" titulo="Total" valor={resumo.total} grad="from-slate-500 to-gray-600" />
             <Tile emoji="🆕" titulo="Novo" valor={resumo.novo} grad="from-sky-500 to-blue-600" />
-            <Tile emoji="🔎" titulo="Em análise" valor={resumo.em_analise} grad="from-amber-500 to-orange-600" />
-            <Tile emoji="✅" titulo="Aprovado" valor={resumo.aprovado} grad="from-emerald-500 to-green-600" />
+            <Tile emoji="🔎" titulo="Vagas Futuras" valor={resumo.em_analise} grad="from-amber-500 to-orange-600" />
+            <Tile emoji="✓" titulo="Selecionado" valor={resumo.aprovado} grad="from-blue-500 to-blue-700" />
             <Tile emoji="🎉" titulo="Contratado" valor={resumo.contratado} grad="from-indigo-500 to-purple-600" />
           </div>
 
@@ -570,7 +570,7 @@ function FiltroSelect({ label, value, onChange, children }) {
   );
 }
 
-function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir }) {
+export function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir }) {
   const tipoVagaNome = (slug) => {
     if (!slug) return '';
     const t = tiposVaga.find(x => x.slug === slug);

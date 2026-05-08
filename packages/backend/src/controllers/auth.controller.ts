@@ -349,7 +349,7 @@ export class AuthController {
   static async consumirTokenSetupAdmin(req: Request, res: Response) {
     try {
       const { token } = req.params;
-      const { email, username, password, name } = req.body;
+      const { email, username, password, name, aceites, dpo } = req.body;
 
       if (!email || !username || !password) {
         return res.status(400).json({ error: 'Email, usuario e senha sao obrigatorios' });
@@ -362,6 +362,20 @@ export class AuthController {
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ error: 'Email invalido' });
+      }
+
+      // LGPD: 3 aceites obrigatorios (termos_uso, politica_privacidade, dpa)
+      const TIPOS_OBRIGATORIOS = ['termos_uso', 'politica_privacidade', 'dpa'];
+      if (!Array.isArray(aceites) || !TIPOS_OBRIGATORIOS.every(t => aceites.find((a: any) => a?.tipo === t))) {
+        return res.status(400).json({ error: 'É obrigatorio aceitar os 3 termos LGPD (Termos de Uso, Política de Privacidade e DPA)' });
+      }
+
+      // DPO obrigatorio (Encarregado de Dados da empresa cliente)
+      if (!dpo || !dpo.nome?.trim() || !dpo.email?.trim() || !dpo.telefone?.trim()) {
+        return res.status(400).json({ error: 'Informe nome, email e telefone do DPO (Encarregado de Dados) da empresa' });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dpo.email)) {
+        return res.status(400).json({ error: 'Email do DPO invalido' });
       }
 
       const rows = await AppDataSource.query(
@@ -388,6 +402,44 @@ export class AuthController {
       user.password = await bcrypt.hash(password, 10);
       if (name && name.trim()) user.name = name.trim();
       await userRepo.save(user);
+
+      // Registra os 3 aceites LGPD vinculados a este admin (audit trail)
+      const ipHeader = req.headers['x-forwarded-for'];
+      const ip = (Array.isArray(ipHeader) ? ipHeader[0] : (typeof ipHeader === 'string' ? ipHeader.split(',')[0].trim() : null))
+        || req.ip || req.socket?.remoteAddress || '';
+      const ua = (req.headers['user-agent'] as string) || '';
+      const crypto = require('crypto');
+      for (const aceite of aceites) {
+        if (!aceite?.tipo || !aceite?.versao) continue;
+        // Revoga aceite anterior do mesmo tipo+titular (so o ultimo vale como ativo)
+        await AppDataSource.query(
+          `UPDATE lgpd_consentimentos
+             SET revogado_em = NOW(), motivo_revogacao = 'Substituido por novo aceite'
+           WHERE tipo = $1 AND titular_tipo = 'usuario' AND titular_id = $2 AND revogado_em IS NULL`,
+          [aceite.tipo, String(user.id)]
+        );
+        const hash = crypto.createHash('sha256')
+          .update(`${aceite.tipo}|${aceite.versao}|usuario|${user.id}|${ip}|${Date.now()}`, 'utf8')
+          .digest('hex');
+        await AppDataSource.query(
+          `INSERT INTO lgpd_consentimentos
+             (tipo, versao, hash_conteudo, titular_tipo, titular_id, titular_nome, titular_email, ip, user_agent, observacoes)
+           VALUES ($1, $2, $3, 'usuario', $4, $5, $6, $7, $8, 'Aceito durante setup de primeiro acesso (admin)')`,
+          [aceite.tipo, aceite.versao, hash, String(user.id), user.name, user.email, ip, ua]
+        );
+      }
+
+      // Salva DPO em lgpd_configuracoes (1 registro global por tenant)
+      await AppDataSource.query(
+        `INSERT INTO lgpd_configuracoes (id, dpo_nome, dpo_email, dpo_telefone, retencao_curriculos_meses, retencao_logs_meses, retencao_gravacoes_dias, atualizado_em)
+         VALUES (1, $1, $2, $3, 12, 12, 30, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           dpo_nome = EXCLUDED.dpo_nome,
+           dpo_email = EXCLUDED.dpo_email,
+           dpo_telefone = EXCLUDED.dpo_telefone,
+           atualizado_em = NOW()`,
+        [dpo.nome.trim(), dpo.email.trim(), dpo.telefone.trim()]
+      );
 
       // Marca token como usado (desativa o link)
       await AppDataSource.query(

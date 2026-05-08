@@ -5,6 +5,8 @@ import Sidebar from '../components/Sidebar';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
+import { celebrarContratacao } from '../utils/contratacaoCelebration';
+import { DetalheCV } from './rh/BancoCurriculos';
 
 const STATUS_COLORS = {
   'Aberta': 'bg-green-100 text-green-800',
@@ -14,7 +16,8 @@ const STATUS_COLORS = {
   'Cancelada': 'bg-red-100 text-red-800',
 };
 
-const STATUS_OPTIONS = ['Aberta', 'Em Selecao', 'Contratado(a)', 'Cancelada'];
+// "Cancelada" removida — pra cancelar uma vaga, o cliente pode excluir direto
+const STATUS_OPTIONS = ['Aberta', 'Em Selecao', 'Contratado(a)'];
 // Vagas antigas usavam "Fechada" — tratamos como sinonimo de "Contratado(a)" pra nao perder historico
 const STATUS_FINALIZADO_VALUES = ['Contratado(a)', 'Fechada'];
 
@@ -47,6 +50,12 @@ const initialForm = {
 const novoSelecionado = (curriculo) => ({
   curriculo_id: curriculo.id,
   nome: curriculo.nome,
+  // Snapshot dos dados do curriculo no momento da selecao — pra mostrar na tabela
+  // sem precisar fazer JOIN com curriculos depois
+  whatsapp: curriculo.whatsapp || null,
+  email: curriculo.email || null,
+  cidade: curriculo.cidade || null,
+  created_at: curriculo.created_at || curriculo.createdAt || null,
   adicionado_em: new Date().toISOString(),
   entrevista: null,
   data_entrevista: null,
@@ -74,6 +83,7 @@ export default function RhVagas() {
   const [lojas, setLojas] = useState([]);
   const [filtroLoja, setFiltroLoja] = useState(''); // '' = Todas
   const [filtroStatus, setFiltroStatus] = useState(''); // '' = Todos
+  const [filtroCardCandidato, setFiltroCardCandidato] = useState(''); // '' | 'em_aberto' | 'novo' | 'recusado' | 'em_analise' | 'selecionado' | 'contratado'
 
   // Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -221,24 +231,153 @@ export default function RhVagas() {
     setFormData(prev => ({ ...prev, selecionados: prev.selecionados.filter((_, i) => i !== idx) }));
   };
 
-  const visualizarCurriculo = (curriculoId) => {
-    // Abre o curriculo completo (mesmo modal do Banco de Curriculos) em nova aba
-    window.open(`/rh/curriculos/banco?id=${curriculoId}`, '_blank', 'noopener');
+  const visualizarCurriculo = async (curriculoId) => {
+    // Abre o curriculo direto em modal aqui mesmo (em vez de mandar pra tela do Banco)
+    try {
+      const r = await api.get(`/curriculos/${curriculoId}`);
+      const cv = r?.data?.curriculo || r?.data;
+      if (!cv || !cv.id) { toast.error('Currículo não encontrado'); return; }
+      setCurriculoVisualizar(cv);
+    } catch (err) {
+      toast.error('Erro ao buscar currículo');
+    }
+  };
+
+  // === Selecionados handlers DIRETO NA VAGA (sem precisar abrir modal) ===
+  // Usados na linha expandida pra agendar entrevista, exames, etc inline
+  const [buscaCurriculoIdLinha, setBuscaCurriculoIdLinha] = useState({}); // { vagaId: '25' }
+  const [adicionandoLinha, setAdicionandoLinha] = useState(false);
+  // Controla qual candidato esta com o painel de Entrevista/Resultado/Pos-Entrevista aberto
+  const [candidatoExpandido, setCandidatoExpandido] = useState(null); // 'vagaId-curriculoId'
+  // Modal de festa ao contratar — { nome, vaga_titulo }
+  const [festa, setFesta] = useState(null);
+  // Modal Calendario de Entrevistas
+  const [mostrarCalendario, setMostrarCalendario] = useState(false);
+
+  const persistirSelecionadosVaga = async (vaga, novosSels) => {
+    // Sincroniza status da vaga: vaga so fica "Contratado(a)" se tiver pelo menos
+    // 1 candidato com sel.contratado === true. Caso contrario, se vaga estava
+    // "Contratado(a)" e ninguem mais esta marcado, volta pra "Em Selecao".
+    const algumContratado = novosSels.some(s => !!s.contratado);
+    let novoStatusVaga = vaga.status;
+    if (algumContratado && vaga.status !== 'Contratado(a)' && vaga.status !== 'Fechada') {
+      novoStatusVaga = 'Contratado(a)';
+    } else if (!algumContratado && (vaga.status === 'Contratado(a)' || vaga.status === 'Fechada')) {
+      novoStatusVaga = 'Em Selecao';
+    }
+    // Atualiza local IMEDIATAMENTE — sem isso, o re-render pelo fetchAll()
+    // faz o input perder foco a cada letra digitada
+    setVagas(prev => prev.map(x => x.id === vaga.id ? { ...x, selecionados: novosSels, status: novoStatusVaga } : x));
+    try {
+      await api.put(`/rh/vagas/${vaga.id}`, { ...vaga, status: novoStatusVaga, selecionados: novosSels });
+    } catch (err) {
+      toast.error('Erro ao salvar alteração no candidato');
+    }
+  };
+
+  const adicionarSelecionadoNaLinha = async (vaga) => {
+    const buscaId = buscaCurriculoIdLinha[vaga.id] || '';
+    const idNum = parseInt(String(buscaId).replace(/\D/g, ''), 10);
+    if (!idNum) { toast.error('Informe o numero do curriculo'); return; }
+    const sels = Array.isArray(vaga.selecionados) ? vaga.selecionados : [];
+    if (sels.some(s => Number(s.curriculo_id) === idNum)) {
+      toast.error('Esse candidato ja esta na lista'); return;
+    }
+    try {
+      setAdicionandoLinha(true);
+      const resp = await api.get(`/curriculos/${idNum}`);
+      const data = resp?.data?.curriculo || resp?.data;
+      if (!data || !data.id) { toast.error('Curriculo nao encontrado'); return; }
+      await persistirSelecionadosVaga(vaga, [...sels, novoSelecionado(data)]);
+      setBuscaCurriculoIdLinha(prev => ({ ...prev, [vaga.id]: '' }));
+      toast.success(`${data.nome} adicionado`);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 404) toast.error('Curriculo nao encontrado');
+      else toast.error('Erro ao buscar curriculo');
+    } finally {
+      setAdicionandoLinha(false);
+    }
+  };
+
+  const atualizarSelecionadoNaLinha = async (vaga, idx, patch) => {
+    const sels = Array.isArray(vaga.selecionados) ? vaga.selecionados : [];
+    const novos = sels.map((s, i) => i === idx ? { ...s, ...patch } : s);
+    await persistirSelecionadosVaga(vaga, novos);
+  };
+
+  const removerSelecionadoNaLinha = async (vaga, idx) => {
+    if (!window.confirm('Remover este candidato da selecao?')) return;
+    const sels = Array.isArray(vaga.selecionados) ? vaga.selecionados : [];
+    await persistirSelecionadosVaga(vaga, sels.filter((_, i) => i !== idx));
+  };
+
+  const irParaContratacaoLinha = (vaga, sel) => {
+    // Encerra o processo aqui mesmo (sem navegar pra cadastro,
+    // que pode nao existir em todos os clientes). Marca como contratado,
+    // mostra festa e atualiza status da vaga.
+    atualizarStatusInteressado(sel.curriculo_id, 'contratado', vaga.id);
+    celebrarContratacao();
+    setFesta({ nome: sel.nome, vaga_titulo: vaga.titulo || '' });
   };
 
   const atualizarStatusInteressado = async (curriculoId, novoStatus, vagaId = null) => {
     try {
       await api.put(`/curriculos/${curriculoId}`, { status: novoStatus });
-      // Quando candidato vira "selecionado", a vaga muda de "Aberta" pra "Em Selecao" (se ainda estiver aberta)
-      if (novoStatus === 'selecionado' && vagaId) {
+      // Sincroniza status da vaga + array de selecionados conforme acao no candidato
+      if (vagaId) {
         const vaga = vagas.find(v => v.id === vagaId);
-        if (vaga && vaga.status === 'Aberta') {
-          try {
-            await api.put(`/rh/vagas/${vagaId}`, { ...vaga, status: 'Em Selecao' });
-          } catch { /* nao bloqueia */ }
+        if (vaga) {
+          const selsAtual = Array.isArray(vaga.selecionados) ? vaga.selecionados : [];
+          let novoStatusVaga = vaga.status;
+          let novosSels = selsAtual;
+
+          // 'selecionado' -> vaga vira 'Em Selecao' (se ainda estiver Aberta) +
+          //                  adiciona o candidato no array de selecionados da vaga
+          //                  (se ainda nao estiver) pra agendar entrevistas etc
+          if (novoStatus === 'selecionado') {
+            if (vaga.status === 'Aberta') novoStatusVaga = 'Em Selecao';
+            const jaTem = selsAtual.some(s => Number(s.curriculo_id) === Number(curriculoId));
+            if (!jaTem) {
+              const interessado = (vaga.interessados || []).find(c => Number(c.curriculo_id) === Number(curriculoId));
+              if (interessado) {
+                novosSels = [...selsAtual, novoSelecionado({ id: curriculoId, nome: interessado.nome })];
+              }
+            }
+          }
+
+          // 'contratado' -> vaga vira 'Contratado(a)' (encerra o processo) +
+          //                 marca o candidato como contratado no array de selecionados (se existir)
+          if (novoStatus === 'contratado') {
+            if (vaga.status !== 'Contratado(a)' && vaga.status !== 'Fechada') {
+              novoStatusVaga = 'Contratado(a)';
+            }
+            // Garante que tem o candidato no array (caso tenha vindo direto sem passar por "Selecionar")
+            const idx = selsAtual.findIndex(s => Number(s.curriculo_id) === Number(curriculoId));
+            if (idx === -1) {
+              const interessado = (vaga.interessados || []).find(c => Number(c.curriculo_id) === Number(curriculoId));
+              if (interessado) {
+                novosSels = [...selsAtual, { ...novoSelecionado({ id: curriculoId, nome: interessado.nome }), contratado: true }];
+              }
+            } else {
+              novosSels = selsAtual.map((s, i) => i === idx ? { ...s, contratado: true } : s);
+            }
+          }
+
+          // Persiste mudancas na vaga (status + selecionados) numa tacada so
+          if (novoStatusVaga !== vaga.status || novosSels !== selsAtual) {
+            try {
+              await api.put(`/rh/vagas/${vagaId}`, { ...vaga, status: novoStatusVaga, selecionados: novosSels });
+            } catch {}
+          }
         }
       }
-      toast.success(novoStatus === 'selecionado' ? '✓ Candidato selecionado' : novoStatus === 'recusado' ? '🚫 Candidato recusado' : novoStatus === 'em_analise' ? '🔎 Em análise' : 'Status atualizado');
+      const msg = novoStatus === 'selecionado' ? '✓ Candidato selecionado — adicione entrevista no modal de edição da vaga'
+        : novoStatus === 'recusado' ? '🚫 Candidato recusado'
+        : novoStatus === 'em_analise' ? '🔎 Marcado como Vagas Futuras'
+        : novoStatus === 'contratado' ? '🎉 Candidato contratado! Vaga encerrada'
+        : 'Status atualizado';
+      toast.success(msg);
       await fetchAll();
     } catch (err) {
       toast.error('Erro ao atualizar status do candidato');
@@ -350,7 +489,36 @@ export default function RhVagas() {
     if (filtro === 'Contratado(a)') return STATUS_FINALIZADO_VALUES.includes(statusVaga);
     return statusVaga === filtro;
   };
-  const vagasFiltradas = vagasFiltradasPorLoja.filter(v => matchStatus(v.status, filtroStatus));
+  // Filtro de card de candidato (clique nos 6 cards do topo)
+  const vagaTemCandidatoStatus = (v, statusBuscado) => {
+    const ints = Array.isArray(v.interessados) ? v.interessados : [];
+    const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
+    if (statusBuscado === 'novo') {
+      return ints.some(c => !c.status || c.status === 'novo');
+    }
+    if (statusBuscado === 'em_analise') {
+      return ints.some(c => c.status === 'em_analise');
+    }
+    if (statusBuscado === 'selecionado') {
+      return ints.some(c => c.status === 'selecionado' || c.status === 'aprovado')
+        || sels.some(s => !s.contratado && !ints.some(i => Number(i.curriculo_id) === Number(s.curriculo_id)));
+    }
+    if (statusBuscado === 'recusado') {
+      return ints.some(c => c.status === 'recusado' || c.status === 'reprovado');
+    }
+    if (statusBuscado === 'contratado') {
+      return ints.some(c => c.status === 'contratado')
+        || sels.some(s => s.contratado);
+    }
+    return false;
+  };
+  const vagasFiltradas = vagasFiltradasPorLoja
+    .filter(v => matchStatus(v.status, filtroStatus))
+    .filter(v => {
+      if (!filtroCardCandidato) return true;
+      if (filtroCardCandidato === 'em_aberto') return v.status === 'Aberta' || v.status === 'Em Selecao';
+      return vagaTemCandidatoStatus(v, filtroCardCandidato);
+    });
 
   if (loading) {
     return (
@@ -417,38 +585,82 @@ export default function RhVagas() {
                 })()}</strong>
               </span>
             )}
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setMostrarCalendario(true)}
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold whitespace-nowrap"
+              title="Ver todas as entrevistas agendadas"
+            >📅 Calendário de Entrevistas</button>
           </div>
 
           {/* Stats clicaveis — funcionam como filtro de status. Cards refletem filtro de loja. */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[
-              { key: 'Aberta', label: 'Abertas', cor: 'green' },
-              { key: 'Em Selecao', label: 'Em Seleção', cor: 'blue' },
-              { key: 'Contratado(a)', label: 'Contratado(a)', cor: 'purple' },
-              { key: 'Cancelada', label: 'Canceladas', cor: 'red' },
-            ].map(card => {
-              const ativo = filtroStatus === card.key;
-              const count = vagasFiltradasPorLoja.filter(v => matchStatus(v.status, card.key)).length;
-              const corText = { green: 'text-green-600', blue: 'text-blue-600', purple: 'text-purple-600', red: 'text-red-600' }[card.cor];
-              const corBorder = { green: 'border-green-400', blue: 'border-blue-400', purple: 'border-purple-400', red: 'border-red-400' }[card.cor];
-              const corBorderLeve = { green: 'border-green-200', blue: 'border-blue-200', purple: 'border-purple-200', red: 'border-red-200' }[card.cor];
-              return (
-                <button
-                  key={card.key}
-                  type="button"
-                  onClick={() => setFiltroStatus(ativo ? '' : card.key)}
-                  className={`text-left bg-white rounded-lg shadow-sm p-4 border-2 transition-all hover:shadow-md ${ativo ? `${corBorder} ring-2 ring-offset-1 ring-orange-400` : corBorderLeve}`}
-                  title={ativo ? 'Clique pra remover o filtro' : `Filtrar por ${card.label}`}
-                >
-                  <p className="text-sm text-gray-600 flex items-center justify-between">
-                    {card.label}
-                    {ativo && <span className="text-[10px] uppercase font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">filtrando</span>}
-                  </p>
-                  <p className={`text-2xl font-bold ${corText}`}>{count}</p>
-                </button>
-              );
-            })}
-          </div>
+          {/* Cards de status de vaga removidos — info ja esta na coluna Status da tabela.
+              Mantido apenas o filtro de Loja em cima. */}
+
+          {/* Cards de candidatos (agregados de TODAS as vagas filtradas por loja) — clicaveis pra filtrar */}
+          {(() => {
+            let nInteressados = 0, nRecusados = 0, nVagasFuturas = 0, nSelecionados = 0, nContratados = 0;
+            vagasFiltradasPorLoja.forEach(v => {
+              const ints = Array.isArray(v.interessados) ? v.interessados : [];
+              ints.forEach(c => {
+                const st = c.status || 'novo';
+                if (st === 'contratado') nContratados++;
+                else if (st === 'selecionado' || st === 'aprovado') nSelecionados++;
+                else if (st === 'recusado' || st === 'reprovado') nRecusados++;
+                else if (st === 'em_analise') nVagasFuturas++;
+                else nInteressados++;
+              });
+              const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
+              sels.forEach(s => {
+                const jaContado = ints.some(i => Number(i.curriculo_id) === Number(s.curriculo_id));
+                if (jaContado) return;
+                if (s.contratado) nContratados++;
+                else nSelecionados++;
+              });
+            });
+            // Vagas em aberto = status Aberta ou Em Selecao (ainda nao foram contratadas/canceladas)
+            const nAbertas = vagasFiltradasPorLoja.filter(v => v.status === 'Aberta' || v.status === 'Em Selecao').length;
+            const cards = [
+              { key: 'em_aberto', label: 'Vagas em Aberto', count: nAbertas, emoji: '🔓', cor: 'green' },
+              { key: 'novo', label: 'Interessados', count: nInteressados, emoji: '❤️', cor: 'rose' },
+              { key: 'recusado', label: 'Recusados', count: nRecusados, emoji: '🚫', cor: 'gray' },
+              { key: 'em_analise', label: 'Vagas Futuras', count: nVagasFuturas, emoji: '🔎', cor: 'amber' },
+              { key: 'selecionado', label: 'Selecionados', count: nSelecionados, emoji: '✓', cor: 'blue' },
+              { key: 'contratado', label: 'Contratados', count: nContratados, emoji: '🎉', cor: 'purple' },
+            ];
+            const corMap = {
+              green: { text: 'text-green-600', border: 'border-green-200', bg: 'bg-green-50', borderActive: 'border-green-500' },
+              rose: { text: 'text-rose-600', border: 'border-rose-200', bg: 'bg-rose-50', borderActive: 'border-rose-500' },
+              gray: { text: 'text-gray-600', border: 'border-gray-200', bg: 'bg-gray-50', borderActive: 'border-gray-500' },
+              amber: { text: 'text-amber-600', border: 'border-amber-200', bg: 'bg-amber-50', borderActive: 'border-amber-500' },
+              blue: { text: 'text-blue-600', border: 'border-blue-200', bg: 'bg-blue-50', borderActive: 'border-blue-500' },
+              purple: { text: 'text-purple-600', border: 'border-purple-200', bg: 'bg-purple-50', borderActive: 'border-purple-500' },
+            };
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
+                {cards.map(card => {
+                  const c = corMap[card.cor];
+                  const ativo = filtroCardCandidato === card.key;
+                  return (
+                    <button
+                      key={card.key}
+                      type="button"
+                      onClick={() => setFiltroCardCandidato(ativo ? '' : card.key)}
+                      className={`text-left rounded-lg p-2 border-2 transition-all hover:shadow ${ativo ? `${c.borderActive} ring-2 ring-offset-1 ring-orange-400` : c.border} ${c.bg}`}
+                      title={ativo ? 'Clique pra remover o filtro' : `Filtrar por ${card.label}`}
+                    >
+                      <p className="text-[11px] text-gray-700 font-semibold flex items-center gap-1">
+                        <span>{card.emoji}</span>
+                        <span className="uppercase">{card.label}</span>
+                      </p>
+                      <p className={`text-xl font-bold ${c.text} mt-0.5`}>{card.count}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Titulo contextual da loja */}
           {(() => {
@@ -476,9 +688,10 @@ export default function RhVagas() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loja</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-rose-600 uppercase">❤️ Interessados</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-amber-600 uppercase">🔎 Em Análise</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-blue-600 uppercase">🎯 Selecionados</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">🚫 Recusados</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-amber-600 uppercase">🔎 Vagas Futuras</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-blue-600 uppercase">🎯 Selecionados</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-purple-600 uppercase">🎉 Contratados</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Titulo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salario</th>
@@ -537,8 +750,13 @@ export default function RhVagas() {
                             //   'recusado' / 'reprovado' (alias antigo) = RECUSADOS
                             const intPendentes = interessados.filter(c => !c.status || c.status === 'novo');
                             const intEmAnalise = interessados.filter(c => c.status === 'em_analise');
-                            const intSelecionados = interessados.filter(c => c.status === 'selecionado' || c.status === 'aprovado' || c.status === 'contratado');
+                            const intSelecionados = interessados.filter(c => c.status === 'selecionado' || c.status === 'aprovado');
                             const intRecusados = interessados.filter(c => c.status === 'recusado' || c.status === 'reprovado');
+                            const intContratados = interessados.filter(c => c.status === 'contratado');
+                            // Evita duplicar quando candidato esta em interessados E em sels
+                            const selsExtras = sels.filter(s => !interessados.some(i => Number(i.curriculo_id) === Number(s.curriculo_id)));
+                            const totalSelecionados = intSelecionados.length + selsExtras.filter(s => !s.contratado).length;
+                            const totalContratados = intContratados.length + selsExtras.filter(s => s.contratado).length;
                             return (
                               <>
                                 <td className="px-4 py-3 text-center">
@@ -551,30 +769,39 @@ export default function RhVagas() {
                                   ) : <span className="text-gray-300 text-xs">—</span>}
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  {intEmAnalise.length > 0 ? (
-                                    <button
-                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
-                                      className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-full text-sm font-bold transition"
-                                      title="Clique pra ver os em análise"
-                                    >🔎 {intEmAnalise.length}</button>
-                                  ) : <span className="text-gray-300 text-xs">—</span>}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  {(sels.length + intSelecionados.length) > 0 ? (
-                                    <button
-                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
-                                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full text-sm font-bold transition"
-                                      title="Clique pra ver os selecionados"
-                                    >🎯 {sels.length + intSelecionados.length}</button>
-                                  ) : <span className="text-gray-300 text-xs">—</span>}
-                                </td>
-                                <td className="px-4 py-3 text-center">
                                   {intRecusados.length > 0 ? (
                                     <button
                                       onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
                                       className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-bold transition"
                                       title="Clique pra ver os recusados"
                                     >🚫 {intRecusados.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {intEmAnalise.length > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os marcados como Vagas Futuras"
+                                    >🔎 {intEmAnalise.length}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {totalSelecionados > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os selecionados"
+                                    >🎯 {totalSelecionados}</button>
+                                  ) : <span className="text-gray-300 text-xs">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {totalContratados > 0 ? (
+                                    <button
+                                      onClick={() => setExpandedVagaId(isExpanded ? null : v.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-full text-sm font-bold transition"
+                                      title="Clique pra ver os contratados"
+                                    >🎉 {totalContratados}</button>
                                   ) : <span className="text-gray-300 text-xs">—</span>}
                                 </td>
                               </>
@@ -651,161 +878,385 @@ export default function RhVagas() {
                         rows.push(
                           <tr key={`${v.id}-expand`} className="bg-blue-50">
                             <td colSpan={15} className="px-4 py-3 space-y-4">
-                              {sels.length > 0 && (
-                              <div>
-                              <div className="text-xs font-bold text-blue-900 mb-2">🎯 Candidatos selecionados ({sels.length})</div>
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full text-xs">
-                                  <thead>
-                                    <tr className="bg-blue-100 text-blue-900">
-                                      <th className="px-2 py-1.5 text-left">Nº</th>
-                                      <th className="px-2 py-1.5 text-left">Nome</th>
-                                      <th className="px-2 py-1.5 text-left">Adicionado</th>
-                                      <th className="px-2 py-1.5 text-left">Entrevista</th>
-                                      <th className="px-2 py-1.5 text-left">Data Entrevista</th>
-                                      <th className="px-2 py-1.5 text-left">Entrevistador</th>
-                                      <th className="px-2 py-1.5 text-left">Resultado</th>
-                                      <th className="px-2 py-1.5 text-left">Pós-Entrevista</th>
-                                      <th className="px-2 py-1.5 text-left">Datas Exames</th>
-                                      <th className="px-2 py-1.5 text-left">Status</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {sels.map((s, i) => (
-                                      <tr key={`${s.curriculo_id}-${i}`} className="border-t border-blue-200 bg-white">
-                                        <td className="px-2 py-1.5 font-mono font-bold">{s.curriculo_id}</td>
-                                        <td className="px-2 py-1.5">
-                                          <button
-                                            onClick={() => visualizarCurriculo(s.curriculo_id)}
-                                            className="text-blue-700 hover:underline font-semibold"
-                                          >
-                                            {s.nome}
-                                          </button>
-                                        </td>
-                                        <td className="px-2 py-1.5 text-gray-600">
-                                          {s.adicionado_em ? new Date(s.adicionado_em).toLocaleDateString('pt-BR') : '-'}
-                                        </td>
-                                        <td className="px-2 py-1.5 capitalize">{s.entrevista || '-'}</td>
-                                        <td className="px-2 py-1.5 text-gray-600">
-                                          {s.data_entrevista ? new Date(s.data_entrevista).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
-                                        </td>
-                                        <td className="px-2 py-1.5 text-gray-600">{s.entrevistador || '-'}</td>
-                                        <td className="px-2 py-1.5">
-                                          {s.resultado_entrevista ? (
-                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                              s.resultado_entrevista === 'passou' ? 'bg-green-100 text-green-800' :
-                                              s.resultado_entrevista === 'reprovado' || s.resultado_entrevista === 'desistiu' || s.resultado_entrevista === 'nao_compareceu' ? 'bg-red-100 text-red-800' :
-                                              'bg-amber-100 text-amber-800'
-                                            }`}>
-                                              {({passou:'Passou', aguarda_decisao:'Aguarda decisão', nao_compareceu:'Não compareceu', reprovado:'Reprovado', desistiu:'Desistiu'})[s.resultado_entrevista] || s.resultado_entrevista}
-                                            </span>
-                                          ) : '-'}
-                                          {s.motivo_reprovacao && <div className="text-[10px] italic text-gray-500 mt-0.5">"{s.motivo_reprovacao}"</div>}
-                                        </td>
-                                        <td className="px-2 py-1.5">
-                                          {s.pos_entrevista ? ({
-                                            aguarda_agendar_exames: '⏳ Agendar exames',
-                                            aguarda_resultado_exames: '⏳ Aguarda resultado',
-                                            aprovado_exames: '✅ Aprovado',
-                                            reprovado_exames: '❌ Reprovado',
-                                          })[s.pos_entrevista] || s.pos_entrevista : '-'}
-                                          {s.motivo_reprovacao_exames && <div className="text-[10px] italic text-gray-500 mt-0.5">"{s.motivo_reprovacao_exames}"</div>}
-                                        </td>
-                                        <td className="px-2 py-1.5 text-gray-600">
-                                          {s.data_agendar_exames && <div>Agendar: {new Date(s.data_agendar_exames).toLocaleDateString('pt-BR')}</div>}
-                                          {s.data_resultado_exames && <div>Resultado: {new Date(s.data_resultado_exames).toLocaleDateString('pt-BR')}</div>}
-                                          {!s.data_agendar_exames && !s.data_resultado_exames && '-'}
-                                        </td>
-                                        <td className="px-2 py-1.5">
-                                          {s.contratado ? (
-                                            <span className="px-2 py-0.5 rounded-full bg-green-600 text-white text-[11px] font-bold">✓ Contratado</span>
-                                          ) : (
-                                            <span className="text-gray-400 italic">Em processo</span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                              {/* Adicionar candidato manualmente pelo numero (linha compacta) */}
+                              <div className="border border-blue-300 bg-blue-50 rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-blue-900 whitespace-nowrap">🎯 Adicionar do Banco:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="Nº do currículo (ex: 25)"
+                                  value={buscaCurriculoIdLinha[v.id] || ''}
+                                  onChange={(e) => setBuscaCurriculoIdLinha(prev => ({ ...prev, [v.id]: e.target.value }))}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarSelecionadoNaLinha(v); } }}
+                                  className="flex-1 min-w-[140px] px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => adicionarSelecionadoNaLinha(v)}
+                                  disabled={adicionandoLinha}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-50 whitespace-nowrap"
+                                >
+                                  {adicionandoLinha ? 'Buscando...' : '+ Adicionar'}
+                                </button>
                               </div>
-                              </div>
-                              )}
 
-                              {/* Candidatos INTERESSADOS (vieram do formulario publico) */}
-                              {interessados.length > 0 && (
-                                <div className={sels.length > 0 ? 'pt-4 mt-4 border-t border-blue-200' : ''}>
-                                  <div className="text-xs font-bold text-rose-900 mb-2">❤️ Candidatos interessados ({interessados.length}) — vieram do formulário público</div>
-                                  <div className="overflow-x-auto">
-                                    <table className="min-w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-rose-100 text-rose-900">
-                                          <th className="px-2 py-1.5 text-left">Nº</th>
-                                          <th className="px-2 py-1.5 text-left">Nome</th>
-                                          <th className="px-2 py-1.5 text-left">WhatsApp</th>
-                                          <th className="px-2 py-1.5 text-left">Email</th>
-                                          <th className="px-2 py-1.5 text-left">Cidade</th>
-                                          <th className="px-2 py-1.5 text-left">Recebido em</th>
-                                          <th className="px-2 py-1.5 text-left">Status</th>
-                                          <th className="px-2 py-1.5 text-center">Ações</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {interessados.map((c, i) => {
-                                          const st = c.status || 'novo';
-                                          const isSel = st === 'selecionado' || st === 'aprovado' || st === 'contratado';
-                                          const isRec = st === 'recusado' || st === 'reprovado';
-                                          const stLabel = isSel ? '✓ Selecionado' : isRec ? '🚫 Recusado' : st === 'em_analise' ? '🔎 Em análise' : '🆕 Novo';
-                                          const stCls = isSel ? 'bg-blue-100 text-blue-800' : isRec ? 'bg-gray-200 text-gray-700' : 'bg-rose-100 text-rose-800';
-                                          return (
-                                            <tr key={`int-${c.curriculo_id}-${i}`} className="border-t border-rose-200 bg-white">
-                                              <td className="px-2 py-1.5 font-mono font-bold">{c.curriculo_id}</td>
-                                              <td className="px-2 py-1.5">
-                                                <button
-                                                  onClick={() => visualizarCurriculo(c.curriculo_id)}
-                                                  className="text-rose-700 hover:underline font-semibold"
-                                                >
-                                                  {c.nome}
-                                                </button>
-                                              </td>
-                                              <td className="px-2 py-1.5 text-gray-700">{c.whatsapp || '-'}</td>
-                                              <td className="px-2 py-1.5 text-gray-700">{c.email || '-'}</td>
-                                              <td className="px-2 py-1.5 text-gray-700">{c.cidade || '-'}</td>
-                                              <td className="px-2 py-1.5 text-gray-600">
-                                                {c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
-                                              </td>
-                                              <td className="px-2 py-1.5">
-                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${stCls}`}>{stLabel}</span>
-                                              </td>
-                                              <td className="px-2 py-1.5">
-                                                <div className="flex gap-1 justify-center flex-wrap">
-                                                  <button
-                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'em_analise', v.id)}
-                                                    disabled={st === 'em_analise'}
-                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${st === 'em_analise' ? 'bg-amber-200 text-amber-700 cursor-default' : 'bg-amber-500 hover:bg-amber-600 text-white'}`}
-                                                    title="Marcar como em análise"
-                                                  >🔎 Em Análise</button>
-                                                  <button
-                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'selecionado', v.id)}
-                                                    disabled={isSel}
-                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${isSel ? 'bg-blue-200 text-blue-700 cursor-default' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
-                                                    title="Marcar como selecionado (a vaga vira 'Em Seleção')"
-                                                  >✓ Selecionar</button>
-                                                  <button
-                                                    onClick={() => atualizarStatusInteressado(c.curriculo_id, 'recusado', v.id)}
-                                                    disabled={isRec}
-                                                    className={`px-2 py-1 text-[11px] font-bold rounded transition ${isRec ? 'bg-gray-300 text-gray-600 cursor-default' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
-                                                    title="Marcar como recusado"
-                                                  >🚫 Recusar</button>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
+                              {/* TABELA UNIFICADA: interessados + selecionados manuais (sem duplicar) */}
+                              {(() => {
+                                // Combina interessados (do form publico) + selecionados manuais
+                                // Pra cada selecionado, se ja existe em interessados, NAO duplica.
+                                // Ele ganha o "sel" anexado pra mostrar etapas de processo.
+                                const todos = [];
+                                interessados.forEach(c => {
+                                  const sel = sels.find(s => Number(s.curriculo_id) === Number(c.curriculo_id));
+                                  todos.push({ ...c, _sel: sel || null, _origem: 'interessado' });
+                                });
+                                sels.forEach(s => {
+                                  const ja = interessados.some(i => Number(i.curriculo_id) === Number(s.curriculo_id));
+                                  if (ja) return;
+                                  todos.push({
+                                    curriculo_id: s.curriculo_id,
+                                    nome: s.nome,
+                                    whatsapp: s.whatsapp || null,
+                                    email: s.email || null,
+                                    cidade: s.cidade || null,
+                                    created_at: s.created_at || s.adicionado_em || null,
+                                    status: s.contratado ? 'contratado' : 'selecionado',
+                                    _sel: s,
+                                    _origem: 'manual',
+                                  });
+                                });
+                                if (todos.length === 0) return null;
+                                return (
+                                  <div>
+                                    <div className="text-xs font-bold text-rose-900 mb-2">
+                                      ❤️ Candidatos desta vaga ({todos.length})
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full text-xs">
+                                        <thead>
+                                          <tr className="bg-rose-100 text-rose-900">
+                                            <th className="px-2 py-1.5 text-left">Nº</th>
+                                            <th className="px-2 py-1.5 text-left">Nome</th>
+                                            <th className="px-2 py-1.5 text-left">WhatsApp</th>
+                                            <th className="px-2 py-1.5 text-left">Cidade</th>
+                                            <th className="px-2 py-1.5 text-left">Recebido em</th>
+                                            <th className="px-2 py-1.5 text-center">Ações</th>
+                                            <th className="px-2 py-1.5 text-center">Processo</th>
+                                            <th className="px-2 py-1.5 text-left">Status</th>
+                                            <th className="px-2 py-1.5 text-center">Entrevista</th>
+                                            <th className="px-2 py-1.5 text-center">Data</th>
+                                            <th className="px-2 py-1.5 text-center">Hora</th>
+                                            <th className="px-2 py-1.5 text-left">Entrevistador</th>
+                                            <th className="px-2 py-1.5 text-center">Resultado da Entrevista</th>
+                                            <th className="px-2 py-1.5 text-center">Pós-Entrevista</th>
+                                            <th className="px-2 py-1.5 text-center">Data Agendar Exames</th>
+                                            <th className="px-2 py-1.5 text-center">Data Resultado Exames</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {todos.map((c, i) => {
+                                            const st = c.status || 'novo';
+                                            const isCont = st === 'contratado';
+                                            const isSel = st === 'selecionado' || st === 'aprovado';
+                                            const isRec = st === 'recusado' || st === 'reprovado';
+                                            const stLabel = isCont ? '🎉 Contratado' : isSel ? '✓ Selecionado' : isRec ? '🚫 Recusado' : st === 'em_analise' ? '🔎 Vagas Futuras' : '🆕 Novo';
+                                            const stCls = isCont ? 'bg-purple-100 text-purple-800' : isSel ? 'bg-blue-100 text-blue-800' : isRec ? 'bg-gray-200 text-gray-700' : st === 'em_analise' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800';
+                                            const sel = c._sel;
+                                            const candKey = `${v.id}-${c.curriculo_id}`;
+                                            const isCandExpanded = candidatoExpandido === candKey;
+                                            const selIdx = sel ? sels.findIndex(s => Number(s.curriculo_id) === Number(c.curriculo_id)) : -1;
+                                            return (
+                                              <>
+                                                <tr key={`row-${c.curriculo_id}-${i}`} className="border-t border-rose-200 bg-white">
+                                                  <td className="px-2 py-1.5 font-mono font-bold">{c.curriculo_id}</td>
+                                                  <td className="px-2 py-1.5">
+                                                    <button onClick={() => visualizarCurriculo(c.curriculo_id)} className="text-rose-700 hover:underline font-semibold">
+                                                      {c.nome}
+                                                    </button>
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-gray-700">{c.whatsapp || '-'}</td>
+                                                  <td className="px-2 py-1.5 text-gray-700">{c.cidade || '-'}</td>
+                                                  <td className="px-2 py-1.5 text-gray-600">
+                                                    {c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                                                  </td>
+                                                  <td className="px-2 py-1.5">
+                                                    <div className="flex gap-0.5 justify-center whitespace-nowrap">
+                                                      {/* Ordem = cards de cima: Interessados | Recusados | Vagas Futuras | Selecionar | Contratar */}
+                                                      <button
+                                                        onClick={() => atualizarStatusInteressado(c.curriculo_id, 'novo', v.id)}
+                                                        disabled={st === 'novo'}
+                                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${st === 'novo' ? 'bg-rose-200 text-rose-700 cursor-default' : 'bg-rose-500 hover:bg-rose-600 text-white'}`}
+                                                        title="Marcar como Interessado"
+                                                      >❤️ Interessado</button>
+                                                      <button
+                                                        onClick={() => atualizarStatusInteressado(c.curriculo_id, 'recusado', v.id)}
+                                                        disabled={isRec}
+                                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${isRec ? 'bg-gray-300 text-gray-600 cursor-default' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+                                                        title="Recusar"
+                                                      >🚫 Recusar</button>
+                                                      <button
+                                                        onClick={() => atualizarStatusInteressado(c.curriculo_id, 'em_analise', v.id)}
+                                                        disabled={st === 'em_analise'}
+                                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${st === 'em_analise' ? 'bg-amber-200 text-amber-700 cursor-default' : 'bg-amber-500 hover:bg-amber-600 text-white'}`}
+                                                        title="Vagas Futuras"
+                                                      >🔎 Vagas Futuras</button>
+                                                      <button
+                                                        onClick={() => atualizarStatusInteressado(c.curriculo_id, 'selecionado', v.id)}
+                                                        disabled={isSel}
+                                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${isSel ? 'bg-blue-200 text-blue-700 cursor-default' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+                                                        title="Selecionar (vaga vira 'Em Seleção')"
+                                                      >✓ Selecionar</button>
+                                                      <button
+                                                        onClick={() => {
+                                                          if (window.confirm(`Confirmar contratação de ${c.nome}? Isso encerra a vaga (status vira "Contratado(a)").`)) {
+                                                            atualizarStatusInteressado(c.curriculo_id, 'contratado', v.id);
+                                                            celebrarContratacao();
+                                                            setFesta({ nome: c.nome, vaga_titulo: v.titulo || '' });
+                                                          }
+                                                        }}
+                                                        disabled={isCont}
+                                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition ${isCont ? 'bg-purple-200 text-purple-700 cursor-default' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
+                                                        title="Contratar (encerra a vaga)"
+                                                      >🎉 Contratar</button>
+                                                    </div>
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-center">
+                                                    {sel && isSel ? (
+                                                      <button
+                                                        onClick={() => setCandidatoExpandido(isCandExpanded ? null : candKey)}
+                                                        className="px-2 py-1 text-[11px] font-bold rounded transition bg-blue-100 hover:bg-blue-200 text-blue-700 whitespace-nowrap"
+                                                        title="Agendar entrevista, exames, etc"
+                                                      >{isCandExpanded ? '▲ Recolher' : '▼ Gerenciar processo'}</button>
+                                                    ) : <span className="text-gray-300 text-xs">—</span>}
+                                                  </td>
+                                                  <td className="px-2 py-1.5">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${stCls}`}>{stLabel}</span>
+                                                  </td>
+                                                  {/* Colunas de info da Entrevista (read-only — edita no Gerenciar processo) */}
+                                                  <td className="px-2 py-1.5 text-center text-gray-700">
+                                                    {sel ? (
+                                                      sel.entrevista === 'agendada' ? <span className="text-blue-700 font-medium">📅 Agendada</span>
+                                                      : sel.entrevista === 'realizada' ? <span className="text-green-700 font-medium">✓ Realizada</span>
+                                                      : <span className="text-gray-400">Sem agend.</span>
+                                                    ) : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-center text-gray-700">
+                                                    {sel?.data_entrevista ? (() => {
+                                                      const d = sel.data_entrevista.split('T')[0]; // YYYY-MM-DD
+                                                      const [y, m, dia] = d.split('-');
+                                                      return y && m && dia ? `${dia}/${m}/${y}` : '—';
+                                                    })() : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-center text-gray-700">
+                                                    {sel?.data_entrevista ? (sel.data_entrevista.split('T')[1] || '').slice(0, 5) || <span className="text-gray-300">—</span> : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-gray-700">
+                                                    {sel?.entrevistador || <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  <td className="px-2 py-1.5 text-center">
+                                                    {sel?.contratado ? (
+                                                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">
+                                                        🎉 Contratado
+                                                      </span>
+                                                    ) : sel?.resultado_entrevista ? (
+                                                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                                        sel.resultado_entrevista === 'passou' ? 'bg-green-100 text-green-800'
+                                                        : sel.resultado_entrevista === 'aguarda_decisao' ? 'bg-amber-100 text-amber-800'
+                                                        : 'bg-red-100 text-red-800'
+                                                      }`}>
+                                                        {({passou:'Passou', aguarda_decisao:'Aguarda decisão', nao_compareceu:'Não compareceu', reprovado:'Reprovado', desistiu:'Desistiu'})[sel.resultado_entrevista] || sel.resultado_entrevista}
+                                                      </span>
+                                                    ) : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  {/* Pos-Entrevista */}
+                                                  <td className="px-2 py-1.5 text-center">
+                                                    {sel?.pos_entrevista ? (
+                                                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                                        sel.pos_entrevista === 'aprovado_exames' ? 'bg-green-100 text-green-800'
+                                                        : sel.pos_entrevista === 'reprovado_exames' ? 'bg-red-100 text-red-800'
+                                                        : 'bg-amber-100 text-amber-800'
+                                                      }`}>
+                                                        {({
+                                                          aguarda_agendar_exames: '⏳ Agendar exames',
+                                                          aguarda_resultado_exames: '⏳ Aguarda resultado',
+                                                          aprovado_exames: '✅ Aprovado nos exames',
+                                                          reprovado_exames: '❌ Reprovado nos exames',
+                                                        })[sel.pos_entrevista] || sel.pos_entrevista}
+                                                      </span>
+                                                    ) : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  {/* Data Agendar Exames — parse manual pra evitar bug de fuso */}
+                                                  <td className="px-2 py-1.5 text-center text-gray-700">
+                                                    {sel?.data_agendar_exames ? (() => {
+                                                      const d = sel.data_agendar_exames.split('T')[0];
+                                                      const [y, m, dia] = d.split('-');
+                                                      return y && m && dia ? `${dia}/${m}/${y}` : '—';
+                                                    })() : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                  {/* Data Resultado Exames — parse manual pra evitar bug de fuso */}
+                                                  <td className="px-2 py-1.5 text-center text-gray-700">
+                                                    {sel?.data_resultado_exames ? (() => {
+                                                      const d = sel.data_resultado_exames.split('T')[0];
+                                                      const [y, m, dia] = d.split('-');
+                                                      return y && m && dia ? `${dia}/${m}/${y}` : '—';
+                                                    })() : <span className="text-gray-300">—</span>}
+                                                  </td>
+                                                </tr>
+                                                {isCandExpanded && sel && selIdx >= 0 && (
+                                                  <tr key={`row-${c.curriculo_id}-${i}-expand`} className="bg-blue-50 border-t border-blue-200">
+                                                    <td colSpan={16} className="px-3 py-3">
+                                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                                                        {/* ENTREVISTA */}
+                                                        <div className="border border-gray-200 rounded p-2 bg-white">
+                                                          <div className="font-bold text-gray-700 mb-1">Entrevista</div>
+                                                          {[
+                                                            { v: '', l: 'Sem Agendamento' },
+                                                            { v: 'agendada', l: 'Agendada' },
+                                                            { v: 'realizada', l: 'Realizada' },
+                                                          ].map(o => (
+                                                            <label key={o.v} className="flex items-center gap-1.5 cursor-pointer">
+                                                              <input
+                                                                type="radio"
+                                                                name={`entrevista-${v.id}-${selIdx}`}
+                                                                checked={(sel.entrevista || '') === o.v}
+                                                                onChange={() => atualizarSelecionadoNaLinha(v, selIdx, { entrevista: o.v || null })}
+                                                              />
+                                                              <span>{o.l}</span>
+                                                            </label>
+                                                          ))}
+                                                          {sel.entrevista === 'agendada' && (() => {
+                                                            const dt = sel.data_entrevista || '';
+                                                            const dataPart = dt.split('T')[0] || '';
+                                                            const horaPart = (dt.split('T')[1] || '').slice(0, 5);
+                                                            return (
+                                                              <div className="mt-1.5 space-y-1">
+                                                                <div className="grid grid-cols-2 gap-1">
+                                                                  <input
+                                                                    type="date"
+                                                                    value={dataPart}
+                                                                    onChange={(e) => atualizarSelecionadoNaLinha(v, selIdx, { data_entrevista: e.target.value ? `${e.target.value}T${horaPart || '09:00'}` : '' })}
+                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                                  />
+                                                                  <input
+                                                                    type="time"
+                                                                    value={horaPart}
+                                                                    onChange={(e) => atualizarSelecionadoNaLinha(v, selIdx, { data_entrevista: e.target.value ? `${dataPart || new Date().toISOString().substring(0,10)}T${e.target.value}` : '' })}
+                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                                  />
+                                                                </div>
+                                                                <input
+                                                                  type="text"
+                                                                  placeholder="Entrevistador"
+                                                                  defaultValue={sel.entrevistador || ''}
+                                                                  onBlur={(e) => {
+                                                                    if (e.target.value !== (sel.entrevistador || '')) {
+                                                                      atualizarSelecionadoNaLinha(v, selIdx, { entrevistador: e.target.value });
+                                                                    }
+                                                                  }}
+                                                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                                />
+                                                              </div>
+                                                            );
+                                                          })()}
+                                                        </div>
+                                                        {/* RESULTADO */}
+                                                        <div className="border border-gray-200 rounded p-2 bg-white">
+                                                          <div className="font-bold text-gray-700 mb-1">Resultado da Entrevista</div>
+                                                          {[
+                                                            { v: 'passou', l: 'Passou' },
+                                                            { v: 'aguarda_decisao', l: 'Aguarda decisao' },
+                                                            { v: 'nao_compareceu', l: 'Nao compareceu' },
+                                                            { v: 'reprovado', l: 'Reprovado' },
+                                                            { v: 'desistiu', l: 'Desistiu' },
+                                                          ].map(o => (
+                                                            <label key={o.v} className="flex items-center gap-1.5 cursor-pointer">
+                                                              <input
+                                                                type="radio"
+                                                                name={`resultado-${v.id}-${selIdx}`}
+                                                                checked={sel.resultado_entrevista === o.v}
+                                                                onChange={() => atualizarSelecionadoNaLinha(v, selIdx, {
+                                                                  resultado_entrevista: o.v,
+                                                                  // Se nao passou na entrevista, zera tudo de pos-entrevista
+                                                                  // INCLUINDO o flag contratado (pra coluna refletir mudanca)
+                                                                  ...(o.v !== 'passou' ? { pos_entrevista: null, data_agendar_exames: null, data_resultado_exames: null, contratado: false } : {})
+                                                                })}
+                                                              />
+                                                              <span>{o.l}</span>
+                                                            </label>
+                                                          ))}
+                                                          {(sel.resultado_entrevista === 'reprovado' || sel.resultado_entrevista === 'desistiu') && (
+                                                            <input
+                                                              type="text"
+                                                              placeholder="Motivo"
+                                                              defaultValue={sel.motivo_reprovacao || ''}
+                                                              onBlur={(e) => {
+                                                                if (e.target.value !== (sel.motivo_reprovacao || '')) {
+                                                                  atualizarSelecionadoNaLinha(v, selIdx, { motivo_reprovacao: e.target.value });
+                                                                }
+                                                              }}
+                                                              className="mt-1.5 w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                            />
+                                                          )}
+                                                        </div>
+                                                        {/* POS-ENTREVISTA */}
+                                                        {sel.resultado_entrevista === 'passou' && (
+                                                          <div className="border border-green-300 rounded p-2 bg-green-50">
+                                                            <div className="font-bold text-green-800 mb-1">Pos-Entrevista</div>
+                                                            {[
+                                                              { v: 'aguarda_agendar_exames', l: 'Aguardando Agendar Exames' },
+                                                              { v: 'aguarda_resultado_exames', l: 'Aguardando Resultado Exames' },
+                                                              { v: 'aprovado_exames', l: 'Aprovado nos Exames' },
+                                                              { v: 'reprovado_exames', l: 'Reprovado nos Exames' },
+                                                            ].map(o => (
+                                                              <label key={o.v} className="flex items-center gap-1.5 cursor-pointer">
+                                                                <input
+                                                                  type="radio"
+                                                                  name={`pos-${v.id}-${selIdx}`}
+                                                                  checked={sel.pos_entrevista === o.v}
+                                                                  onChange={() => {
+                                                                    const patch = { pos_entrevista: o.v };
+                                                                    if (o.v === 'aguarda_agendar_exames' && !sel.data_agendar_exames) {
+                                                                      patch.data_agendar_exames = new Date().toISOString().substring(0, 10);
+                                                                    }
+                                                                    if (o.v === 'aguarda_resultado_exames' && !sel.data_resultado_exames) {
+                                                                      patch.data_resultado_exames = new Date().toISOString().substring(0, 10);
+                                                                    }
+                                                                    atualizarSelecionadoNaLinha(v, selIdx, patch);
+                                                                  }}
+                                                                />
+                                                                <span>{o.l}</span>
+                                                              </label>
+                                                            ))}
+                                                            {sel.pos_entrevista === 'aguarda_agendar_exames' && (
+                                                              <input type="date" value={sel.data_agendar_exames || ''} onChange={(e) => atualizarSelecionadoNaLinha(v, selIdx, { data_agendar_exames: e.target.value })} className="mt-1.5 w-full px-2 py-1 border border-gray-300 rounded text-xs" />
+                                                            )}
+                                                            {sel.pos_entrevista === 'aguarda_resultado_exames' && (
+                                                              <input type="date" value={sel.data_resultado_exames || ''} onChange={(e) => atualizarSelecionadoNaLinha(v, selIdx, { data_resultado_exames: e.target.value })} className="mt-1.5 w-full px-2 py-1 border border-gray-300 rounded text-xs" />
+                                                            )}
+                                                            {sel.pos_entrevista === 'reprovado_exames' && (
+                                                              <input type="text" placeholder="Motivo" value={sel.motivo_reprovacao_exames || ''} onChange={(e) => atualizarSelecionadoNaLinha(v, selIdx, { motivo_reprovacao_exames: e.target.value })} className="mt-1.5 w-full px-2 py-1 border border-gray-300 rounded text-xs" />
+                                                            )}
+                                                            {sel.pos_entrevista === 'aprovado_exames' && !sel.contratado && (
+                                                              <button type="button" onClick={() => irParaContratacaoLinha(v, sel)} className="mt-2 w-full px-2 py-1.5 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700">
+                                                                ✓ CONTRATAR
+                                                              </button>
+                                                            )}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    </td>
+                                                  </tr>
+                                                )}
+                                              </>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
+
                             </td>
                           </tr>
                         );
@@ -1073,47 +1524,13 @@ export default function RhVagas() {
                   </div>
                 </div>
 
-                {/* SELECIONADOS - aparece quando status = Em Selecao */}
-                {formData.status === 'Em Selecao' && (
+                {/* SELECIONADOS movido pra linha expandida da tabela.
+                    Bloco abaixo desativado (false &&) e mantido pra cleanup futuro. */}
+                {formData.status === 'Em Selecao' && false && (
                   <div className="border-2 border-blue-300 bg-blue-50 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-blue-900">
-                        🎯 Candidatos Selecionados ({formData.selecionados.length})
-                      </h3>
-                    </div>
-
-                    {/* Adicionar novo */}
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Numero do Curriculo (Banco de Curriculos)
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Ex: 25"
-                          value={buscaCurriculoId}
-                          onChange={(e) => setBuscaCurriculoId(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') { e.preventDefault(); adicionarCandidato(); }
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={adicionarCandidato}
-                        disabled={buscandoCurriculo}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-                      >
-                        {buscandoCurriculo ? 'Buscando...' : '+ Selecionar'}
-                      </button>
-                    </div>
-
-                    {/* Lista de selecionados */}
                     {formData.selecionados.length === 0 ? (
                       <p className="text-xs text-gray-600 italic text-center py-4">
-                        Nenhum candidato selecionado ainda. Adicione pelo numero do curriculo.
+                        Movido pra linha expandida da tabela.
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -1307,6 +1724,154 @@ export default function RhVagas() {
                   {salvando ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Calendario de Entrevistas */}
+        {mostrarCalendario && (() => {
+          // Coleta todas as entrevistas agendadas (das vagas filtradas por loja)
+          const entrevistas = [];
+          vagasFiltradasPorLoja.forEach(v => {
+            const sels = Array.isArray(v.selecionados) ? v.selecionados : [];
+            sels.forEach(s => {
+              if (s.entrevista === 'agendada' && s.data_entrevista) {
+                entrevistas.push({
+                  curriculo_id: s.curriculo_id,
+                  candidato: s.nome,
+                  vaga_id: v.id,
+                  vaga_titulo: v.titulo || v.cargo_nome || '—',
+                  cod_loja: v.cod_loja,
+                  data: s.data_entrevista, // ISO YYYY-MM-DDTHH:MM
+                  entrevistador: s.entrevistador,
+                  resultado: s.resultado_entrevista,
+                  contratado: !!s.contratado,
+                });
+              }
+            });
+          });
+          // Ordena por data crescente
+          entrevistas.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+          // Agrupa por dia
+          const grupos = {};
+          entrevistas.forEach(e => {
+            const dia = (e.data || '').split('T')[0]; // YYYY-MM-DD
+            if (!grupos[dia]) grupos[dia] = [];
+            grupos[dia].push(e);
+          });
+          const dias = Object.keys(grupos).sort();
+          const fmtDia = (d) => {
+            const [y, m, dd] = d.split('-');
+            const dt = new Date(Number(y), Number(m) - 1, Number(dd));
+            const semanas = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+            return `${semanas[dt.getDay()]}, ${dd}/${m}/${y}`;
+          };
+          const lojaSel = filtroLoja !== '' ? lojas.find(x => String(x.codLoja) === String(filtroLoja)) : null;
+          const nomeLoja = lojaSel ? (lojaSel.apelido || lojaSel.nomeFantasia || `Loja ${lojaSel.codLoja}`) : 'Todas as lojas';
+          const lojaPorCod = (cod) => {
+            if (cod == null) return '—';
+            const l = lojas.find(x => Number(x.codLoja) === Number(cod));
+            return l ? (l.apelido || l.nomeFantasia || `Loja ${cod}`) : `Loja ${cod}`;
+          };
+
+          return (
+            <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4" onClick={() => setMostrarCalendario(false)}>
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2">📅 Calendário de Entrevistas</h2>
+                    <p className="text-xs text-white/80 mt-0.5">{nomeLoja} · {entrevistas.length} entrevista{entrevistas.length === 1 ? '' : 's'} agendada{entrevistas.length === 1 ? '' : 's'}</p>
+                  </div>
+                  <button onClick={() => setMostrarCalendario(false)} className="text-white/80 hover:text-white text-3xl leading-none">×</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                  {entrevistas.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-5xl mb-3">📭</div>
+                      <p className="font-semibold">Nenhuma entrevista agendada</p>
+                      <p className="text-sm mt-1">Agende entrevistas pelos candidatos selecionados nas vagas.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {dias.map(dia => (
+                        <div key={dia}>
+                          <h3 className="text-sm font-bold text-purple-700 bg-purple-50 px-3 py-2 rounded-t-lg border border-purple-200 border-b-0">
+                            {fmtDia(dia)} <span className="text-gray-500 font-normal">— {grupos[dia].length} entrevista{grupos[dia].length === 1 ? '' : 's'}</span>
+                          </h3>
+                          <table className="w-full text-sm border border-purple-200 rounded-b-lg overflow-hidden">
+                            <thead>
+                              <tr className="bg-purple-100 text-purple-900 text-xs uppercase">
+                                <th className="px-3 py-2 text-left">Hora</th>
+                                <th className="px-3 py-2 text-left">Candidato</th>
+                                <th className="px-3 py-2 text-left">Vaga</th>
+                                <th className="px-3 py-2 text-left">Loja</th>
+                                <th className="px-3 py-2 text-left">Entrevistador</th>
+                                <th className="px-3 py-2 text-left">Resultado</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {grupos[dia].map((e, i) => {
+                                const hora = (e.data.split('T')[1] || '').slice(0, 5) || '—';
+                                const resLabel = e.contratado ? '🎉 Contratado'
+                                  : e.resultado === 'passou' ? '✓ Passou'
+                                  : e.resultado === 'aguarda_decisao' ? '⏳ Aguarda decisão'
+                                  : e.resultado === 'reprovado' ? '❌ Reprovado'
+                                  : e.resultado === 'desistiu' ? '❌ Desistiu'
+                                  : e.resultado === 'nao_compareceu' ? '❌ Não compareceu'
+                                  : '—';
+                                return (
+                                  <tr key={`${e.vaga_id}-${e.curriculo_id}-${i}`} className="border-t border-purple-100 hover:bg-purple-50">
+                                    <td className="px-3 py-2 font-mono font-bold">{hora}</td>
+                                    <td className="px-3 py-2">
+                                      <button
+                                        onClick={() => { visualizarCurriculo(e.curriculo_id); setMostrarCalendario(false); }}
+                                        className="text-purple-700 hover:underline font-semibold"
+                                      >{e.candidato}</button>
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-700">{e.vaga_titulo}</td>
+                                    <td className="px-3 py-2 text-gray-700">{lojaPorCod(e.cod_loja)}</td>
+                                    <td className="px-3 py-2 text-gray-700">{e.entrevistador || '—'}</td>
+                                    <td className="px-3 py-2 text-gray-700">{resLabel}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal de FESTA ao contratar 🎉 */}
+        {festa && (
+          <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setFesta(null)}>
+            <div
+              className="relative bg-gradient-to-br from-purple-600 via-pink-500 to-orange-500 rounded-3xl shadow-2xl p-8 max-w-lg w-full text-center text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-7xl mb-3 animate-bounce">🎊🎉🎊</div>
+              <h2 className="text-4xl font-extrabold mb-2 drop-shadow-lg">PARABÉNS!</h2>
+              <p className="text-2xl font-bold mb-1">🎈 {festa.nome} 🎈</p>
+              <p className="text-base mb-3 opacity-95">passou em todo o processo seletivo!</p>
+              {festa.vaga_titulo && (
+                <p className="text-sm mb-4 bg-white/20 rounded-full px-4 py-1 inline-block">
+                  Vaga: <strong>{festa.vaga_titulo}</strong>
+                </p>
+              )}
+              <p className="text-lg font-bold mt-2">🥳 Bem-vindo(a) à equipe! 🎁</p>
+              <div className="text-5xl mt-4">🎂🎈🎁🎊</div>
+              <button
+                onClick={() => setFesta(null)}
+                className="mt-6 px-8 py-3 bg-white text-purple-700 font-bold rounded-full text-lg shadow-lg hover:bg-yellow-100 hover:scale-105 transition"
+              >
+                ✓ Fechar
+              </button>
             </div>
           </div>
         )}

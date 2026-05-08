@@ -16,6 +16,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[arquitetura/oracle-intersolid|Oracle Intersolid]]
 - [[arquitetura/mapeamento-tabelas|Mapeamento de Tabelas (v1/v2)]]
 - [[arquitetura/estrutura-vps|Estrutura da VPS 46]]
+- [[arquitetura/whitelabel|Whitelabel — Estado Atual + Plano de Mudança]] ← antes de mexer, ler
 
 ## ⚙️ Módulos do Sistema
 
