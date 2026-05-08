@@ -564,6 +564,10 @@ export default function BancoCurriculos() {
         <DetalheCV
           cv={selecionado}
           tiposVaga={tiposVaga}
+          msgWhatsApp={msgWhatsApp}
+          msgWhatsAppAtivo={msgWhatsAppAtivo}
+          supermercadoNome={supermercadoNome}
+          recrutadoraNome={recrutadoraNome}
           onFechar={() => setSelecionado(null)}
           onAtualizarStatus={(status) => salvarStatus(selecionado.id, 'status', status)}
           onAtualizarObs={(obs) => salvarStatus(selecionado.id, 'observacao_rh', obs)}
@@ -606,7 +610,14 @@ function FiltroSelect({ label, value, onChange, children }) {
   );
 }
 
-export function DetalheCV({ cv, tiposVaga = [], onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir }) {
+export function DetalheCV({
+  cv, tiposVaga = [],
+  // Props pra montar link do WhatsApp com mensagem pre-preenchida.
+  // Quando o componente e usado fora do BancoCurriculos (ex: RhVagas), essas
+  // props podem nao vir — defaults garantem que o link funciona sem texto.
+  msgWhatsApp = '', msgWhatsAppAtivo = false, supermercadoNome = '', recrutadoraNome = '',
+  onFechar, onAtualizarStatus, onAtualizarObs, onAtualizarAvaliacao, onExcluir,
+}) {
   const tipoVagaNome = (slug) => {
     if (!slug) return '';
     const t = tiposVaga.find(x => x.slug === slug);
