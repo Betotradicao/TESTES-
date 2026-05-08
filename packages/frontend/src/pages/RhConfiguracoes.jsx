@@ -9,6 +9,7 @@ import LgpdTab from '../components/configuracoes/LgpdTab';
 
 const TABS = [
   { key: 'lgpd', label: '🛡️ Privacidade e LGPD', custom: true },
+  { key: 'mensagens', label: '💬 Mensagens', custom: true },
   { key: 'empresas', label: 'Empresas', custom: true },
   { key: 'turnos', label: 'Turnos', custom: true },
   { key: 'cargos', label: 'Cargos', custom: true },
@@ -210,6 +211,8 @@ export default function RhConfiguracoes() {
         <div className="p-6">
           {currentTab?.custom && activeTab === 'lgpd' ? (
             <LgpdTab />
+          ) : currentTab?.custom && activeTab === 'mensagens' ? (
+            <MensagensTab />
           ) : currentTab?.custom && activeTab === 'feriados' ? (
             <FeriadosTab />
           ) : currentTab?.custom && activeTab === 'empresas' ? (
@@ -391,6 +394,131 @@ export default function RhConfiguracoes() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============ Tab customizado: Mensagens (templates de WhatsApp etc) ============
+// Mensagem padrao que vem ja preenchida quando ainda nao tem nada salvo
+const MSG_ENTREVISTA_PADRAO = `Olá {nome}! Tudo bem?
+
+Sou a {recrutadora} do {supermercado}. Vimos seu currículo e gostaríamos de te chamar pra uma entrevista.
+
+Você tem disponibilidade?`;
+
+function MensagensTab() {
+  const [msgEntrevista, setMsgEntrevista] = useState(MSG_ENTREVISTA_PADRAO);
+  const [recrutadora, setRecrutadora] = useState('');
+  const [supermercado, setSupermercado] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [sucesso, setSucesso] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [r1, r2, r3] = await Promise.all([
+          api.get('/configurations/rh_msg_whatsapp_entrevista').catch(() => null),
+          api.get('/configurations/rh_recrutadora_nome').catch(() => null),
+          api.get('/configurations/client_brand_name').catch(() => null),
+        ]);
+        // Se ja tem mensagem salva, usa ela. Senao, mantem o template padrao.
+        if (r1?.data?.value && r1.data.value.trim() && r1.data.value.trim() !== '') {
+          setMsgEntrevista(r1.data.value);
+        }
+        if (r2?.data?.value) setRecrutadora(r2.data.value);
+        if (r3?.data?.value) setSupermercado(r3.data.value);
+      } catch {}
+    })();
+  }, []);
+
+  const salvar = async () => {
+    setSalvando(true);
+    setSucesso('');
+    try {
+      await Promise.all([
+        api.put('/configurations/rh_msg_whatsapp_entrevista', { value: msgEntrevista || ' ' }),
+        api.put('/configurations/rh_recrutadora_nome', { value: recrutadora || ' ' }),
+      ]);
+      setSucesso('✅ Mensagem salva! Agora ao clicar no WhatsApp do candidato ela vai pré-preenchida.');
+      setTimeout(() => setSucesso(''), 4000);
+    } catch (e) {
+      setSucesso('❌ Erro ao salvar: ' + (e?.response?.data?.error || e.message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  // Preview do que sera enviado
+  const previewMsg = (msgEntrevista || '')
+    .replace(/\{nome\}/gi, 'João Silva')
+    .replace(/\{supermercado\}/gi, supermercado || 'Sua Empresa')
+    .replace(/\{recrutadora\}/gi, recrutadora || 'Maria');
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 space-y-5">
+      <div>
+        <h2 className="text-lg font-bold text-gray-800 mb-1">💬 Mensagens automáticas</h2>
+        <p className="text-sm text-gray-600">
+          Quando você clica no WhatsApp do candidato no <strong>Banco de Currículos</strong>, abre o WhatsApp Web/App com essa mensagem já pré-preenchida.
+        </p>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-900">
+        <strong>📌 Placeholders disponíveis</strong> (use no texto que serão substituídos automaticamente):
+        <div className="mt-1 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+          <div><code className="bg-white px-1.5 py-0.5 rounded border">{'{nome}'}</code> → nome do candidato</div>
+          <div><code className="bg-white px-1.5 py-0.5 rounded border">{'{supermercado}'}</code> → nome do seu supermercado</div>
+          <div><code className="bg-white px-1.5 py-0.5 rounded border">{'{recrutadora}'}</code> → nome da recrutadora (campo abaixo)</div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Recrutadora *</label>
+        <input
+          type="text"
+          value={recrutadora}
+          onChange={e => setRecrutadora(e.target.value)}
+          placeholder="Ex: Maria Silva"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">Esse nome substitui {'{recrutadora}'} na mensagem.</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem para entrevista (WhatsApp) *</label>
+        <textarea
+          value={msgEntrevista}
+          onChange={e => setMsgEntrevista(e.target.value)}
+          rows={6}
+          placeholder={`Olá {nome}! Tudo bem?\n\nSou a {recrutadora} do {supermercado}. Vimos seu currículo e gostaríamos de te chamar pra uma entrevista.\n\nVocê tem disponibilidade?`}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 font-mono text-sm"
+        />
+      </div>
+
+      {previewMsg && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">👁️ Pré-visualização (com nome de exemplo)</label>
+          <div className="bg-green-50 border border-green-300 rounded p-3 text-sm text-gray-800 whitespace-pre-wrap">
+            {previewMsg}
+          </div>
+        </div>
+      )}
+
+      {sucesso && (
+        <div className={`p-3 rounded text-sm ${sucesso.startsWith('❌') ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
+          {sucesso}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 font-semibold"
+        >
+          {salvando ? 'Salvando…' : 'Salvar mensagem'}
+        </button>
+      </div>
     </div>
   );
 }

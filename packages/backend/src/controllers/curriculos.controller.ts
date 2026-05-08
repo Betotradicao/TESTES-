@@ -383,8 +383,19 @@ export class CurriculosController {
         const clNum = parseInt(cod_loja as string);
         if (!isNaN(clNum)) qb.andWhere('c.cod_loja = :codLoja', { codLoja: clNum });
       }
-      if (cidade) qb.andWhere('c.cidade ILIKE :cidade', { cidade: `%${cidade}%` });
-      if (bairro) qb.andWhere('c.bairro ILIKE :bairro', { bairro: `%${bairro}%` });
+      // Comparacao tolerante a acentos: o frontend manda o valor normalizado
+      // (UPPER + sem acento), o banco pode ter dados com acento. TRANSLATE
+      // remove acentos da coluna ANTES de comparar.
+      const ACENTOS = 'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ';
+      const SEM_ACENTOS = 'AAAAAEEEEIIIIOOOOOUUUUC';
+      if (cidade) qb.andWhere(
+        `TRANSLATE(UPPER(TRIM(COALESCE(c.cidade, ''))), :acentos, :sem) = UPPER(TRIM(:cidade))`,
+        { cidade, acentos: ACENTOS, sem: SEM_ACENTOS }
+      );
+      if (bairro) qb.andWhere(
+        `TRANSLATE(UPPER(TRIM(COALESCE(c.bairro, ''))), :acentos, :sem) = UPPER(TRIM(:bairro))`,
+        { bairro, acentos: ACENTOS, sem: SEM_ACENTOS }
+      );
       if (cargo) qb.andWhere(`c.cargos @> :cargo::jsonb`, { cargo: JSON.stringify([cargo]) });
       if (habilidade) qb.andWhere(`c.habilidades @> :habilidade::jsonb`, { habilidade: JSON.stringify([habilidade]) });
       if (status) qb.andWhere('c.status = :status', { status });
