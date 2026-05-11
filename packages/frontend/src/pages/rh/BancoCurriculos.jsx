@@ -7,7 +7,7 @@ import api from '../../utils/api';
 // Formata link pra abrir direto a conversa no WhatsApp.
 // Mobile: api.whatsapp.com/send (abre o app diretamente)
 // Desktop: web.whatsapp.com/send (abre WhatsApp Web na conversa, sem tela intermediaria)
-const waLink = (numero, msg = '', placeholders = {}) => {
+export const waLink = (numero, msg = '', placeholders = {}) => {
   if (!numero) return null;
   const digits = String(numero).replace(/\D/g, '');
   if (!digits) return null;
@@ -708,9 +708,31 @@ export function DetalheCV({
                   {(cv.cidade || cv.bairro) && (
                     <div className="flex gap-2"><span>📍</span><span>{[cv.bairro, cv.cidade, cv.estado].filter(Boolean).join(', ')}</span></div>
                   )}
-                  {cv.data_nascimento && (
-                    <div className="flex gap-2"><span>🎂</span><span>{new Date(cv.data_nascimento).toLocaleDateString('pt-BR')}</span></div>
-                  )}
+                  {cv.data_nascimento && (() => {
+                    // Calcula idade respeitando mes/dia
+                    const nasc = new Date(cv.data_nascimento);
+                    let idade = null;
+                    if (!isNaN(nasc.getTime())) {
+                      const hoje = new Date();
+                      idade = hoje.getFullYear() - nasc.getFullYear();
+                      const m = hoje.getMonth() - nasc.getMonth();
+                      if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+                      if (idade < 0 || idade > 120) idade = null;
+                    }
+                    return (
+                      <div className="flex gap-2">
+                        <span>🎂</span>
+                        <span>
+                          {nasc.toLocaleDateString('pt-BR')}
+                          {idade != null && (
+                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-white/10 text-white/90 font-semibold">
+                              {idade} anos
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </section>
 

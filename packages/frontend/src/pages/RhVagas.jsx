@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 import toast from 'react-hot-toast';
 import RadarLoading from '../components/RadarLoading';
 import { celebrarContratacao } from '../utils/contratacaoCelebration';
-import { DetalheCV } from './rh/BancoCurriculos';
+import { DetalheCV, waLink } from './rh/BancoCurriculos';
 
 const STATUS_COLORS = {
   'Aberta': 'bg-green-100 text-green-800',
@@ -45,6 +45,7 @@ const initialForm = {
   experiencia_obrigatoria: false,
   experiencia_meses_minimo: '',
   turnos: [],
+  jornada_id: '',
 };
 
 const novoSelecionado = (curriculo) => ({
@@ -81,6 +82,12 @@ export default function RhVagas() {
   const [departamentos, setDepartamentos] = useState([]);
   const [beneficiosCatalogo, setBeneficiosCatalogo] = useState([]);
   const [lojas, setLojas] = useState([]);
+  const [jornadas, setJornadas] = useState([]);
+  // Configs de mensagem WhatsApp (compartilhadas com Banco de Curriculos)
+  const [msgWhatsApp, setMsgWhatsApp] = useState('');
+  const [msgWhatsAppAtivo, setMsgWhatsAppAtivo] = useState(true);
+  const [recrutadoraNome, setRecrutadoraNome] = useState('');
+  const [supermercadoNome, setSupermercadoNome] = useState('');
   const [filtroLoja, setFiltroLoja] = useState(''); // '' = Todas
   const [filtroStatus, setFiltroStatus] = useState(''); // '' = Todos
   const [filtroCardCandidato, setFiltroCardCandidato] = useState(''); // '' | 'em_aberto' | 'novo' | 'recusado' | 'em_analise' | 'selecionado' | 'contratado'
@@ -105,13 +112,14 @@ export default function RhVagas() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [vagasRes, cargosRes, deptRes, benRes, sugRes, lojasRes] = await Promise.all([
+      const [vagasRes, cargosRes, deptRes, benRes, sugRes, lojasRes, jornadasRes] = await Promise.all([
         api.get('/rh/vagas'),
         api.get('/rh/configuracoes/cargos'),
         api.get('/rh/configuracoes/departamentos'),
         api.get('/rh/configuracoes/beneficios'),
         api.get('/rh/configuracoes/cargos/sugestao-salarios').catch(() => ({ data: [] })),
         api.get('/rh/empresas').catch(() => ({ data: [] })),
+        api.get('/rh/configuracoes/jornadas').catch(() => ({ data: [] })),
       ]);
       setVagas(vagasRes.data || []);
       setCargos(cargosRes.data || []);
@@ -123,6 +131,21 @@ export default function RhVagas() {
       setSugestoesSalarios(sugMap);
       const lojasArr = Array.isArray(lojasRes.data) ? lojasRes.data : (lojasRes.data?.empresas || []);
       setLojas(lojasArr.slice().sort((a, b) => (a.codLoja ?? 999999) - (b.codLoja ?? 999999)));
+      const jornadasArr = Array.isArray(jornadasRes.data) ? jornadasRes.data : (jornadasRes.data?.jornadas || []);
+      setJornadas(jornadasArr);
+      // Carrega configs de mensagem WhatsApp (em paralelo, sem bloquear)
+      Promise.all([
+        api.get('/configurations/rh_msg_whatsapp_entrevista').catch(() => null),
+        api.get('/configurations/rh_recrutadora_nome').catch(() => null),
+        api.get('/configurations/client_brand_name').catch(() => null),
+        api.get('/configurations/rh_msg_whatsapp_ativo').catch(() => null),
+      ]).then(([r1, r2, r3, r4]) => {
+        if (r1?.data?.value) setMsgWhatsApp(r1.data.value);
+        if (r2?.data?.value) setRecrutadoraNome(r2.data.value);
+        if (r3?.data?.value) setSupermercadoNome(r3.data.value);
+        else if (lojasArr.length > 0) setSupermercadoNome(lojasArr[0].nomeFantasia || lojasArr[0].apelido || '');
+        if (r4?.data?.value === 'false') setMsgWhatsAppAtivo(false);
+      });
     } catch (err) {
       toast.error('Erro ao carregar vagas');
       console.error(err);
@@ -173,6 +196,7 @@ export default function RhVagas() {
         experiencia_obrigatoria: !!vaga.experiencia_obrigatoria,
         experiencia_meses_minimo: vaga.experiencia_meses_minimo != null ? String(vaga.experiencia_meses_minimo) : '',
         turnos: Array.isArray(vaga.turnos) ? vaga.turnos : [],
+        jornada_id: vaga.jornada_id || '',
       });
     } else {
       setEditando(null);
@@ -695,6 +719,7 @@ export default function RhVagas() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Titulo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salario</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jornada</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Benefícios</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Experiência</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Abertura</th>
@@ -813,6 +838,18 @@ export default function RhVagas() {
                           <td className="px-4 py-3 text-sm text-gray-600">{v.cargo_nome || '-'}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {v.salario_min ? formatCurrency(v.salario_min) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                            {v.jornada_nome ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium">{v.jornada_nome}</span>
+                                {v.jornada_carga_horaria && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                                    {v.jornada_carga_horaria}
+                                  </span>
+                                )}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {(() => {
@@ -974,7 +1011,19 @@ export default function RhVagas() {
                                                       {c.nome}
                                                     </button>
                                                   </td>
-                                                  <td className="px-2 py-1.5 text-gray-700">{c.whatsapp || '-'}</td>
+                                                  <td className="px-2 py-1.5 text-gray-700">
+                                                    {c.whatsapp ? (
+                                                      <a
+                                                        href={waLink(c.whatsapp, msgWhatsAppAtivo ? msgWhatsApp : '', { nome: c.nome, supermercado: supermercadoNome, recrutadora: recrutadoraNome })}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
+                                                        title="Abrir conversa no WhatsApp"
+                                                      >
+                                                        📱 {c.whatsapp}
+                                                      </a>
+                                                    ) : '-'}
+                                                  </td>
                                                   <td className="px-2 py-1.5 text-gray-700">{c.cidade || '-'}</td>
                                                   <td className="px-2 py-1.5 text-gray-600">
                                                     {c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
@@ -1321,6 +1370,25 @@ export default function RhVagas() {
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">⏰ Jornada</label>
+                    <select
+                      name="jornada_id"
+                      value={formData.jornada_id}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Sem jornada definida</option>
+                      {jornadas.map((j) => (
+                        <option key={j.id} value={j.id}>
+                          {j.nome}{j.carga_horaria ? ` — ${j.carga_horaria}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[11px] text-gray-500 italic">
+                      Cadastre jornadas em Configurações RH → Jornadas
+                    </span>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">📅 Data Abertura</label>
@@ -1876,60 +1944,39 @@ export default function RhVagas() {
           </div>
         )}
 
-        {/* Modal de visualizacao do curriculo */}
+        {/* Modal RICO de visualizacao do curriculo — mesmo do Banco de Curriculos */}
         {curriculoVisualizar && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4" onClick={() => setCurriculoVisualizar(null)}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                <h2 className="text-lg font-bold">
-                  Curriculo N{curriculoVisualizar.id} - {curriculoVisualizar.nome}
-                </h2>
-                <button onClick={() => setCurriculoVisualizar(null)} className="text-white hover:text-gray-200">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  {curriculoVisualizar.foto_url && (
-                    <div className="col-span-2 flex justify-center">
-                      <img src={curriculoVisualizar.foto_url} alt="" className="w-32 h-32 rounded-full object-cover border-2 border-gray-200" />
-                    </div>
-                  )}
-                  <div><b>WhatsApp:</b> {curriculoVisualizar.whatsapp || '-'}</div>
-                  <div><b>Email:</b> {curriculoVisualizar.email || '-'}</div>
-                  <div><b>Idade:</b> {curriculoVisualizar.idade || '-'}</div>
-                  <div><b>Cidade:</b> {[curriculoVisualizar.cidade, curriculoVisualizar.bairro].filter(Boolean).join(' / ') || '-'}</div>
-                  <div className="col-span-2"><b>Cargos de interesse:</b> {Array.isArray(curriculoVisualizar.cargos_interesse) ? curriculoVisualizar.cargos_interesse.join(', ') : (curriculoVisualizar.cargos_interesse || '-')}</div>
-                </div>
-                {curriculoVisualizar.experiencias && (
-                  <div>
-                    <b>Experiencias:</b>
-                    <pre className="mt-1 whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded p-2 text-xs">
-                      {typeof curriculoVisualizar.experiencias === 'string'
-                        ? curriculoVisualizar.experiencias
-                        : JSON.stringify(curriculoVisualizar.experiencias, null, 2)}
-                    </pre>
-                  </div>
-                )}
-                {curriculoVisualizar.observacoes && (
-                  <div>
-                    <b>Observacoes:</b>
-                    <p className="mt-1 bg-gray-50 border border-gray-200 rounded p-2 text-xs whitespace-pre-wrap">{curriculoVisualizar.observacoes}</p>
-                  </div>
-                )}
-                <a
-                  href={`/rh/curriculos/banco?id=${curriculoVisualizar.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block mt-2 text-blue-700 hover:underline text-xs"
-                >
-                  Ver no Banco de Curriculos →
-                </a>
-              </div>
-            </div>
-          </div>
+          <DetalheCV
+            cv={curriculoVisualizar}
+            onFechar={() => setCurriculoVisualizar(null)}
+            onAtualizarStatus={async (status) => {
+              try {
+                await api.put(`/curriculos/${curriculoVisualizar.id}`, { status });
+                setCurriculoVisualizar(prev => prev ? { ...prev, status } : prev);
+                fetchAll();
+              } catch { toast.error('Erro ao atualizar status'); }
+            }}
+            onAtualizarObs={async (observacao_rh) => {
+              try {
+                await api.put(`/curriculos/${curriculoVisualizar.id}`, { observacao_rh });
+                setCurriculoVisualizar(prev => prev ? { ...prev, observacao_rh } : prev);
+              } catch { toast.error('Erro ao salvar observação'); }
+            }}
+            onAtualizarAvaliacao={async (avaliacao_rh) => {
+              try {
+                await api.put(`/curriculos/${curriculoVisualizar.id}`, { avaliacao_rh });
+                setCurriculoVisualizar(prev => prev ? { ...prev, avaliacao_rh } : prev);
+              } catch { toast.error('Erro ao salvar avaliação'); }
+            }}
+            onExcluir={async () => {
+              if (!window.confirm(`Excluir o currículo de "${curriculoVisualizar.nome}"?`)) return;
+              try {
+                await api.delete(`/curriculos/${curriculoVisualizar.id}`);
+                setCurriculoVisualizar(null);
+                fetchAll();
+              } catch { toast.error('Erro ao excluir'); }
+            }}
+          />
         )}
       </div>
     </div>

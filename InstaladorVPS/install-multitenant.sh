@@ -8,9 +8,17 @@ main() {
 # ============================================
 # INSTALADOR MULTI-TENANT - VPS LINUX
 # Sistema: Prevenção no Radar
-# Suporte a múltiplos clientes com subdomínios
-# VERSÃO 5.4: Atualizado Mai/2026
-#   NOVO (v5.4):
+# Suporte a múltiplos clientes com subdomínios OU dominio personalizado (whitelabel)
+# VERSÃO 5.5: Atualizado Mai/2026
+#   NOVO (v5.5):
+#   - Suporte a WHITELABEL: cliente pode usar dominio proprio
+#     (ex: app.mameva.com.br) em vez de <cliente>.prevencaonoradar.com.br
+#   - Como usar:
+#     bash install.sh <cliente> [dominio]
+#     # ou: CUSTOM_DOMAIN=app.mameva.com.br bash install.sh mameva
+#     # ou: interativo (pergunta)
+#   - DNS do dominio precisa apontar pra esta VPS ANTES de rodar.
+#   v5.4:
 #   - Marketing > Chatbot WhatsApp (construtor visual estilo n8n)
 #     Editor drag-and-drop com React Flow, blocos: Mensagem, Pergunta,
 #     IA (OpenAI), Atendente, Encerrar. Engine grafo (conexoes com
@@ -188,8 +196,59 @@ fi
 echo ""
 echo "✅ Nome do cliente: $CLIENT_NAME"
 
-# Gerar nomes baseados no cliente
-CLIENT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
+# ============================================
+# CONFIGURAÇÃO DO DOMÍNIO (PADRÃO ou PERSONALIZADO/WHITELABEL)
+# ============================================
+#
+# Por padrão: <cliente>.prevencaonoradar.com.br
+# Whitelabel: dominio personalizado (ex: app.mameva.com.br)
+#
+# Pode ser passado via:
+#   - 2o argumento CLI: bash install.sh <cliente> <dominio>
+#   - Variavel de ambiente: CUSTOM_DOMAIN=app.mameva.com.br bash install.sh ...
+#   - Modo interativo: pergunta se quer dominio personalizado
+#
+# DNS desse dominio precisa apontar pra esta VPS ($HOST_IP) ANTES de rodar,
+# senao Certbot falha na hora de gerar o SSL.
+
+CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-$2}"
+DEFAULT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
+
+if [ -z "$CUSTOM_DOMAIN" ]; then
+    if [ -z "$1" ]; then
+        # Modo interativo
+        echo ""
+        echo "🌐 Configuração do Domínio"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "Padrão: $DEFAULT_SUBDOMAIN"
+        echo "Whitelabel: usar dominio proprio (ex: app.mameva.com.br)"
+        echo ""
+        read -p "Usar dominio personalizado (whitelabel)? (s/n) [n]: " USA_CUSTOM </dev/tty
+        if [[ "$USA_CUSTOM" == "s" || "$USA_CUSTOM" == "S" ]]; then
+            while true; do
+                read -p "Digite o dominio completo (ex: app.mameva.com.br): " CUSTOM_DOMAIN </dev/tty
+                # Validacao basica: precisa ter ao menos um ponto e so caracteres validos
+                if [[ "$CUSTOM_DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+                    break
+                else
+                    echo "❌ Dominio invalido. Use letras minusculas, numeros, hifens e pontos."
+                fi
+            done
+        fi
+    fi
+fi
+
+if [ -n "$CUSTOM_DOMAIN" ]; then
+    CLIENT_SUBDOMAIN="$CUSTOM_DOMAIN"
+    echo "🌐 Dominio personalizado (whitelabel): $CLIENT_SUBDOMAIN"
+    echo "⚠️  O DNS deste dominio deve apontar pra esta VPS ($HOST_IP) antes de rodar o instalador."
+else
+    CLIENT_SUBDOMAIN="$DEFAULT_SUBDOMAIN"
+    echo "🌐 Subdominio padrao: $CLIENT_SUBDOMAIN"
+fi
+
+# Gerar demais nomes baseados no cliente (NAO usa o dominio — sempre pelo nome curto)
 POSTGRES_DB_NAME="postgres_${CLIENT_NAME}"
 MINIO_BUCKET_NAME="minio-${CLIENT_NAME}"
 CONTAINER_PREFIX="prevencao-${CLIENT_NAME}"
@@ -1053,6 +1112,7 @@ data["vps"][vps_key]["clientes"]["$CLIENT_NAME"] = {
     "nome": "$CLIENT_NAME",
     "path": "$CLIENT_DIR",
     "subdomain": "$CLIENT_SUBDOMAIN",
+    "whitelabel": $([ -n "$CUSTOM_DOMAIN" ] && echo "true" || echo "false"),
     "containers": {
         "frontend": "${CONTAINER_PREFIX}-frontend",
         "backend": "${CONTAINER_PREFIX}-backend",
