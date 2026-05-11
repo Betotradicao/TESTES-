@@ -1190,7 +1190,7 @@ data["vps"][vps_key]["clientes"]["$INSTANCE_ID"] = {
     "nome": "$CLIENT_NAME",
     "path": "$CLIENT_DIR",
     "subdomain": "$CLIENT_SUBDOMAIN",
-    "whitelabel": $([ -n "$CUSTOM_DOMAIN" ] && echo "true" || echo "false"),
+    "whitelabel": $([ -n "$CUSTOM_DOMAIN" ] && echo "True" || echo "False"),
     "containers": {
         "frontend": "${CONTAINER_PREFIX}-frontend",
         "backend": "${CONTAINER_PREFIX}-backend",
