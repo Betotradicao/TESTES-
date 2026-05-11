@@ -165,9 +165,12 @@ export class DVRCFTVService {
     const httpPort = !isDocker && rawHttpPort > 10000 ? 80 : rawHttpPort;
     const rtspPort = !isDocker && parseInt(rawRtspPort) > 10000 ? '554' : rawRtspPort;
 
-    // No Docker, o DVR é acessível via gateway Docker (172.20.0.1) pois o túnel SSH
-    // escuta no host. O IP configurado (ex: 10.6.1.123) não é acessível do container.
-    const dvrIp = isDocker && rawHttpPort > 10000 ? '172.20.0.1' : (map.dvr_ip || '');
+    // Decidir o IP a usar:
+    // - Se IP configurado é privado (10.x, 192.168.x, 172.16-31.x) → assume modo túnel SSH e usa 172.20.0.1
+    // - Se IP configurado é público (IP fixo ou DDNS) → usa direto, sem passar pelo túnel
+    const configuredIp = (map.dvr_ip || '').trim();
+    const isPrivateIp = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|localhost$)/.test(configuredIp);
+    const dvrIp = isDocker && isPrivateIp && rawHttpPort > 10000 ? '172.20.0.1' : configuredIp;
 
     return {
       ip: dvrIp,
