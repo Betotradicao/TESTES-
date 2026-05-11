@@ -159,126 +159,187 @@ echo "✅ IP detectado: $HOST_IP"
 echo ""
 
 # ============================================
-# CONFIGURAÇÃO DO CLIENTE
+# CONFIGURAÇÃO DO DOMÍNIO (PADRÃO ou WHITELABEL)
+# ============================================
+#
+# Ordem: dominio PRIMEIRO, nome do cliente depois.
+# Motivo: revendedores podem ter clientes com mesmo nome em dominios
+# diferentes (ex: "central" no prevencaonoradar.com.br E "central" no
+# garimpafacil.com.br). Perguntando dominio antes, conseguimos validar
+# conflito de path/banco/container ja sabendo o contexto correto.
+#
+# Pode ser passado via:
+#   - 2o argumento CLI: bash install.sh <cliente> <dominio_completo>
+#   - Variavel de ambiente: CUSTOM_DOMAIN=app.mameva.com.br bash install.sh ...
+#   - Modo interativo: menu de 3 opcoes
+#
+# DNS desse dominio precisa apontar pra esta VPS ($HOST_IP) ANTES de rodar,
+# senao Certbot falha na hora de gerar o SSL.
+
+CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-$2}"
+OPCAO_DOMINIO=""
+DOMINIO_BASE=""
+
+if [ -z "$CUSTOM_DOMAIN" ] && [ -z "$1" ]; then
+    # Modo interativo — 3 opcoes de dominio (perguntadas ANTES do nome)
+    echo ""
+    echo "🌐 Configuração do Domínio"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Como vai ser a URL desse cliente?"
+    echo "  1) Padrão Prevenção no Radar  →  <cliente>.prevencaonoradar.com.br"
+    echo "  2) Subdomínio do meu domínio  →  <cliente>.<seu_dominio> (revendedor/whitelabel)"
+    echo "  3) Domínio único personalizado →  <dominio_completo>"
+    echo ""
+    read -p "Escolha [1]: " OPCAO_DOMINIO </dev/tty
+    OPCAO_DOMINIO="${OPCAO_DOMINIO:-1}"
+    case "$OPCAO_DOMINIO" in
+        2)
+            while true; do
+                read -p "Digite seu domínio base (ex: garimpafacil.com.br): " DOMINIO_BASE </dev/tty
+                if [[ "$DOMINIO_BASE" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+                    break
+                else
+                    echo "❌ Domínio inválido. Use letras minúsculas, números, hífens e pontos. Ex: garimpafacil.com.br"
+                fi
+            done
+            ;;
+        3)
+            while true; do
+                read -p "Digite o domínio completo (ex: app.mameva.com.br): " CUSTOM_DOMAIN </dev/tty
+                if [[ "$CUSTOM_DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+                    break
+                else
+                    echo "❌ Domínio inválido."
+                fi
+            done
+            ;;
+        *) OPCAO_DOMINIO=1 ;;  # padrao
+    esac
+fi
+
+# ============================================
+# CONFIGURAÇÃO DO CLIENTE (nome — apos saber o dominio)
 # ============================================
 
 if [ -n "$1" ]; then
     CLIENT_NAME="$1"
     echo "🏪 Nome do cliente recebido: $CLIENT_NAME"
 else
+    echo ""
     echo "🏪 Configuração do Novo Cliente"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "O nome do cliente será usado para:"
-    echo "  - Subdomínio: [nome].$DOMAIN_BASE"
+    # Mostra o preview de URL conforme a opcao escolhida
+    case "$OPCAO_DOMINIO" in
+        2) echo "URL final: <nome>.${DOMINIO_BASE}" ;;
+        3) echo "URL final: ${CUSTOM_DOMAIN}" ;;
+        *) echo "URL final: <nome>.${DOMAIN_BASE}" ;;
+    esac
+    echo ""
+    echo "O nome do cliente será usado pra:"
     echo "  - Banco de dados: postgres_[nome]"
     echo "  - Bucket MinIO: minio-[nome]"
     echo "  - Containers Docker: prevencao-[nome]-*"
+    echo "  - Pasta na VPS: /root/clientes/[nome]"
     echo ""
 
     while true; do
-        read -p "📝 Nome do cliente (apenas letras minúsculas, sem espaços): " CLIENT_NAME </dev/tty
-        if [[ "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
-            break
-        else
+        read -p "📝 Nome do cliente (apenas letras minúsculas e números): " CLIENT_NAME </dev/tty
+        # Valida formato
+        if [[ ! "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
             echo "❌ Nome inválido! Use apenas letras minúsculas e números."
-            echo "   Exemplos: nunes, mercado01, loja123"
+            echo "   Exemplos: central, nunes, mercado01, centralgf"
+            continue
         fi
+        break
     done
 fi
 
-# Validar nome
+# Validar nome (caso veio via CLI)
 if [[ ! "$CLIENT_NAME" =~ ^[a-z0-9]+$ ]]; then
     echo "❌ Nome inválido! Use apenas letras minúsculas e números."
     exit 1
 fi
 
-echo ""
-echo "✅ Nome do cliente: $CLIENT_NAME"
-
-# ============================================
-# CONFIGURAÇÃO DO DOMÍNIO (PADRÃO ou PERSONALIZADO/WHITELABEL)
-# ============================================
-#
-# Por padrão: <cliente>.prevencaonoradar.com.br
-# Whitelabel: dominio personalizado (ex: app.mameva.com.br)
-#
-# Pode ser passado via:
-#   - 2o argumento CLI: bash install.sh <cliente> <dominio>
-#   - Variavel de ambiente: CUSTOM_DOMAIN=app.mameva.com.br bash install.sh ...
-#   - Modo interativo: pergunta se quer dominio personalizado
-#
-# DNS desse dominio precisa apontar pra esta VPS ($HOST_IP) ANTES de rodar,
-# senao Certbot falha na hora de gerar o SSL.
-
-CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-$2}"
-DEFAULT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
-
-if [ -z "$CUSTOM_DOMAIN" ]; then
-    if [ -z "$1" ]; then
-        # Modo interativo — 3 opcoes de dominio
-        echo ""
-        echo "🌐 Configuração do Domínio"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "Como vai ser a URL desse cliente?"
-        echo "  1) Padrão Prevenção no Radar  →  ${CLIENT_NAME}.prevencaonoradar.com.br"
-        echo "  2) Subdomínio do meu domínio  →  ${CLIENT_NAME}.<seu_dominio> (revendedor/whitelabel)"
-        echo "  3) Domínio único personalizado →  <dominio_completo>"
-        echo ""
-        read -p "Escolha [1]: " OPCAO_DOMINIO </dev/tty
-        OPCAO_DOMINIO="${OPCAO_DOMINIO:-1}"
-        case "$OPCAO_DOMINIO" in
-            2)
-                # Pergunta o dominio BASE — sistema concatena com o nome do cliente
-                while true; do
-                    read -p "Digite seu domínio base (ex: capiteirh.com.br): " DOMINIO_BASE </dev/tty
-                    if [[ "$DOMINIO_BASE" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
-                        CUSTOM_DOMAIN="${CLIENT_NAME}.${DOMINIO_BASE}"
-                        break
-                    else
-                        echo "❌ Domínio inválido. Use letras minúsculas, números, hífens e pontos. Ex: capiteirh.com.br"
-                    fi
-                done
-                ;;
-            3)
-                # Dominio completo — sistema usa exatamente como digitado
-                while true; do
-                    read -p "Digite o domínio completo (ex: app.mameva.com.br): " CUSTOM_DOMAIN </dev/tty
-                    if [[ "$CUSTOM_DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
-                        break
-                    else
-                        echo "❌ Domínio inválido. Use letras minúsculas, números, hífens e pontos."
-                    fi
-                done
-                ;;
-            *)
-                # Opcao 1 (padrao) — nao define CUSTOM_DOMAIN, vai usar DEFAULT_SUBDOMAIN
-                ;;
-        esac
-    fi
+# Monta CUSTOM_DOMAIN final agora que ja tem nome E dominio_base/opcao
+if [ -z "$CUSTOM_DOMAIN" ] && [ "$OPCAO_DOMINIO" = "2" ] && [ -n "$DOMINIO_BASE" ]; then
+    CUSTOM_DOMAIN="${CLIENT_NAME}.${DOMINIO_BASE}"
 fi
+
+DEFAULT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
 
 if [ -n "$CUSTOM_DOMAIN" ]; then
     CLIENT_SUBDOMAIN="$CUSTOM_DOMAIN"
-    echo "🌐 Dominio personalizado (whitelabel): $CLIENT_SUBDOMAIN"
-    echo "⚠️  O DNS deste dominio deve apontar pra esta VPS ($HOST_IP) antes de rodar o instalador."
 else
     CLIENT_SUBDOMAIN="$DEFAULT_SUBDOMAIN"
+fi
+
+# ============================================
+# INSTANCE_ID — identificador unico por DOMINIO, nao por nome
+# ============================================
+# Mesmo nome de cliente ("central") pode coexistir em dominios diferentes
+# (central.prevencaonoradar.com.br + central.garimpafacil.com.br).
+# O INSTANCE_ID e derivado do dominio inteiro, garantindo unicidade.
+#
+# - Opcao 1 (padrao prevencaonoradar): INSTANCE_ID = CLIENT_NAME (compatibilidade
+#   com clientes ja existentes — nao quebra Tradicao, Novacentral, etc)
+# - Opcao 2/3 (whitelabel): INSTANCE_ID inclui slug do dominio
+#   Ex: central.garimpafacil.com.br -> central-garimpafacil
+# Postgres nao aceita hifen em nome de banco, entao usa _ underscore.
+
+if [ -n "$CUSTOM_DOMAIN" ]; then
+    # Pega so o dominio base (sem o subdominio que e o CLIENT_NAME)
+    # Ex: central.garimpafacil.com.br -> garimpafacil.com.br -> garimpafacil
+    if [ -n "$DOMINIO_BASE" ]; then
+        DOMINIO_SLUG=$(echo "$DOMINIO_BASE" | cut -d'.' -f1)
+    else
+        # Opcao 3: pega a parte mais distintiva do dominio completo
+        DOMINIO_SLUG=$(echo "$CUSTOM_DOMAIN" | rev | cut -d'.' -f3 | rev)
+    fi
+    DOMINIO_SLUG=$(echo "$DOMINIO_SLUG" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+    INSTANCE_ID="${CLIENT_NAME}-${DOMINIO_SLUG}"
+    INSTANCE_ID_DB="${CLIENT_NAME}_${DOMINIO_SLUG}"
+else
+    # Modo padrao: mantem compatibilidade com clientes existentes
+    INSTANCE_ID="$CLIENT_NAME"
+    INSTANCE_ID_DB="$CLIENT_NAME"
+fi
+
+# Valida conflito de INSTANCE_ID (path existente)
+if [ -d "/root/clientes/$INSTANCE_ID" ] && [ -z "$1" ]; then
+    echo ""
+    echo "⚠️  Ja existe uma instalacao em /root/clientes/$INSTANCE_ID"
+    read -p "Deseja REINSTALAR? Isso apagara todos os dados desse cliente! (s/n) [n]: " REINSTALL </dev/tty
+    if [[ "$REINSTALL" != "s" && "$REINSTALL" != "S" ]]; then
+        echo "❌ Instalação cancelada"
+        exit 1
+    fi
+fi
+
+echo ""
+echo "✅ Nome do cliente: $CLIENT_NAME"
+if [ -n "$CUSTOM_DOMAIN" ]; then
+    echo "🌐 Dominio personalizado (whitelabel): $CLIENT_SUBDOMAIN"
+    echo "🔧 Identificador interno: $INSTANCE_ID"
+    echo "⚠️  O DNS deste dominio deve apontar pra esta VPS ($HOST_IP) antes de rodar."
+else
     echo "🌐 Subdominio padrao: $CLIENT_SUBDOMAIN"
 fi
 
-# Gerar demais nomes baseados no cliente (NAO usa o dominio — sempre pelo nome curto)
-POSTGRES_DB_NAME="postgres_${CLIENT_NAME}"
-MINIO_BUCKET_NAME="minio-${CLIENT_NAME}"
-CONTAINER_PREFIX="prevencao-${CLIENT_NAME}"
+# Gerar demais nomes baseados no INSTANCE_ID (unico por dominio)
+POSTGRES_DB_NAME="postgres_${INSTANCE_ID_DB}"
+MINIO_BUCKET_NAME="minio-${INSTANCE_ID}"
+CONTAINER_PREFIX="prevencao-${INSTANCE_ID}"
 
 echo ""
 echo "📋 Configuração gerada:"
-echo "   Subdomínio: $CLIENT_SUBDOMAIN"
+echo "   URL: https://$CLIENT_SUBDOMAIN"
+echo "   Identificador: $INSTANCE_ID"
 echo "   Banco PostgreSQL: $POSTGRES_DB_NAME"
 echo "   Bucket MinIO: $MINIO_BUCKET_NAME"
 echo "   Prefixo containers: $CONTAINER_PREFIX"
+echo "   Diretorio: /root/clientes/$INSTANCE_ID"
 echo ""
 
 if [ -z "$1" ]; then
@@ -297,20 +358,16 @@ echo ""
 # VERIFICAR SE CLIENTE JÁ EXISTE
 # ============================================
 
-CLIENT_DIR="/root/clientes/$CLIENT_NAME"
+CLIENT_DIR="/root/clientes/$INSTANCE_ID"
 
 if [ -d "$CLIENT_DIR" ]; then
-    echo "⚠️  Cliente '$CLIENT_NAME' já existe!"
-    if [ -z "$1" ]; then
-        read -p "Deseja REINSTALAR? Isso apagará todos os dados! (s/n): " REINSTALL </dev/tty
-        if [[ "$REINSTALL" != "s" && "$REINSTALL" != "S" ]]; then
-            echo "❌ Instalação cancelada"
-            exit 1
-        fi
+    # Modo CLI: reinstala automaticamente (perigo, mas era o comportamento antigo)
+    # Modo interativo: ja foi perguntado e confirmado antes (na validacao de nome)
+    if [ -n "$1" ]; then
+        echo "⚠️  Cliente '$INSTANCE_ID' ja existe — reinstalando automaticamente..."
     else
-        echo "🔄 Reinstalando automaticamente..."
+        echo "🧹 Removendo instalacao anterior de '$INSTANCE_ID'..."
     fi
-    echo "🧹 Removendo instalação anterior..."
     cd "$CLIENT_DIR" 2>/dev/null || true
     docker compose -f docker-compose.yml down -v 2>/dev/null || true
     rm -rf "$CLIENT_DIR"
@@ -362,7 +419,7 @@ find_available_port() {
     echo $PORT
 }
 
-CLIENT_HASH=$(echo -n "$CLIENT_NAME" | md5sum | cut -c1-4)
+CLIENT_HASH=$(echo -n "$INSTANCE_ID" | md5sum | cut -c1-4)
 CLIENT_NUM=$((16#$CLIENT_HASH % 900 + 100))
 
 FRONTEND_PORT=$((3000 + CLIENT_NUM))
@@ -522,7 +579,7 @@ services:
     ports:
       - "\${POSTGRES_PORT}:5432"
     networks:
-      - ${CLIENT_NAME}_network
+      - ${INSTANCE_ID}_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
       interval: 10s
@@ -547,7 +604,7 @@ services:
       - "\${MINIO_API_PORT}:9000"
       - "\${MINIO_CONSOLE_PORT}:9001"
     networks:
-      - ${CLIENT_NAME}_network
+      - ${INSTANCE_ID}_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -608,7 +665,7 @@ services:
       minio:
         condition: service_healthy
     networks:
-      - ${CLIENT_NAME}_network
+      - ${INSTANCE_ID}_network
 
   # ============================================
   # FRONTEND - React/Vite
@@ -628,7 +685,7 @@ services:
     depends_on:
       - backend
     networks:
-      - ${CLIENT_NAME}_network
+      - ${INSTANCE_ID}_network
 
   # ============================================
   # CRON - Tarefas Agendadas (DVR, Verificações)
@@ -669,11 +726,11 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - ${CLIENT_NAME}_network
+      - ${INSTANCE_ID}_network
 
 networks:
-  ${CLIENT_NAME}_network:
-    name: ${CLIENT_NAME}_network
+  ${INSTANCE_ID}_network:
+    name: ${INSTANCE_ID}_network
     driver: bridge
 
 volumes:
@@ -694,8 +751,8 @@ echo ""
 
 echo "🌐 Configurando Nginx para $CLIENT_SUBDOMAIN..."
 
-cat > /etc/nginx/sites-available/$CLIENT_NAME << EOF
-# Configuração para: $CLIENT_NAME
+cat > /etc/nginx/sites-available/$INSTANCE_ID << EOF
+# Configuração para: $INSTANCE_ID (nome curto: $CLIENT_NAME)
 # Subdomínio: $CLIENT_SUBDOMAIN
 # Versão: 3.0 - Instalador v5.0
 
@@ -780,7 +837,7 @@ server {
 }
 EOF
 
-ln -sf /etc/nginx/sites-available/$CLIENT_NAME /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/$INSTANCE_ID /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
 
@@ -1128,7 +1185,8 @@ if vps_key not in data.get("vps", {}):
         "clientes": {}
     }
 
-data["vps"][vps_key]["clientes"]["$CLIENT_NAME"] = {
+data["vps"][vps_key]["clientes"]["$INSTANCE_ID"] = {
+    "instance_id": "$INSTANCE_ID",
     "nome": "$CLIENT_NAME",
     "path": "$CLIENT_DIR",
     "subdomain": "$CLIENT_SUBDOMAIN",
