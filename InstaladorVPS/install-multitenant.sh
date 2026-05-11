@@ -216,26 +216,46 @@ DEFAULT_SUBDOMAIN="${CLIENT_NAME}.$DOMAIN_BASE"
 
 if [ -z "$CUSTOM_DOMAIN" ]; then
     if [ -z "$1" ]; then
-        # Modo interativo
+        # Modo interativo — 3 opcoes de dominio
         echo ""
         echo "🌐 Configuração do Domínio"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        echo "Padrão: $DEFAULT_SUBDOMAIN"
-        echo "Whitelabel: usar dominio proprio (ex: app.mameva.com.br)"
+        echo "Como vai ser a URL desse cliente?"
+        echo "  1) Padrão Prevenção no Radar  →  ${CLIENT_NAME}.prevencaonoradar.com.br"
+        echo "  2) Subdomínio do meu domínio  →  ${CLIENT_NAME}.<seu_dominio> (revendedor/whitelabel)"
+        echo "  3) Domínio único personalizado →  <dominio_completo>"
         echo ""
-        read -p "Usar dominio personalizado (whitelabel)? (s/n) [n]: " USA_CUSTOM </dev/tty
-        if [[ "$USA_CUSTOM" == "s" || "$USA_CUSTOM" == "S" ]]; then
-            while true; do
-                read -p "Digite o dominio completo (ex: app.mameva.com.br): " CUSTOM_DOMAIN </dev/tty
-                # Validacao basica: precisa ter ao menos um ponto e so caracteres validos
-                if [[ "$CUSTOM_DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
-                    break
-                else
-                    echo "❌ Dominio invalido. Use letras minusculas, numeros, hifens e pontos."
-                fi
-            done
-        fi
+        read -p "Escolha [1]: " OPCAO_DOMINIO </dev/tty
+        OPCAO_DOMINIO="${OPCAO_DOMINIO:-1}"
+        case "$OPCAO_DOMINIO" in
+            2)
+                # Pergunta o dominio BASE — sistema concatena com o nome do cliente
+                while true; do
+                    read -p "Digite seu domínio base (ex: capiteirh.com.br): " DOMINIO_BASE </dev/tty
+                    if [[ "$DOMINIO_BASE" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+                        CUSTOM_DOMAIN="${CLIENT_NAME}.${DOMINIO_BASE}"
+                        break
+                    else
+                        echo "❌ Domínio inválido. Use letras minúsculas, números, hífens e pontos. Ex: capiteirh.com.br"
+                    fi
+                done
+                ;;
+            3)
+                # Dominio completo — sistema usa exatamente como digitado
+                while true; do
+                    read -p "Digite o domínio completo (ex: app.mameva.com.br): " CUSTOM_DOMAIN </dev/tty
+                    if [[ "$CUSTOM_DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+                        break
+                    else
+                        echo "❌ Domínio inválido. Use letras minúsculas, números, hífens e pontos."
+                    fi
+                done
+                ;;
+            *)
+                # Opcao 1 (padrao) — nao define CUSTOM_DOMAIN, vai usar DEFAULT_SUBDOMAIN
+                ;;
+        esac
     fi
 fi
 
