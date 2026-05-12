@@ -21,7 +21,7 @@ const initialForm = {
 };
 
 export default function RhTreinamentos() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [treinamentos, setTreinamentos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +154,7 @@ export default function RhTreinamentos() {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-100">
-        <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+        <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
         <div className="flex-1 flex items-center justify-center">
           <RadarLoading />
         </div>
@@ -164,7 +164,7 @@ export default function RhTreinamentos() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">

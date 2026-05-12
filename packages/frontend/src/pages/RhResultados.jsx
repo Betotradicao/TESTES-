@@ -6,7 +6,7 @@ import RadarLoading from '../components/RadarLoading';
 import toast from 'react-hot-toast';
 
 export default function RhResultados() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('admissoes');
   const [colaboradores, setColaboradores] = useState([]);
@@ -82,7 +82,7 @@ export default function RhResultados() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">

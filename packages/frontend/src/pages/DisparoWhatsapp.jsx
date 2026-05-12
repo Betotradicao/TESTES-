@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 const API = import.meta.env.VITE_API_URL || '';
 
 function DisparoWhatsapp() {
-  const { token } = useAuth();
+  const { token, user, logout } = useAuth();
   const [tab, setTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -295,7 +295,7 @@ function DisparoWhatsapp() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={sidebarOpen} setIsMobileMenuOpen={setSidebarOpen} />
       <div className="flex-1 overflow-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6">

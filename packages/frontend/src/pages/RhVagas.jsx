@@ -72,7 +72,7 @@ const novoSelecionado = (curriculo) => ({
 });
 
 export default function RhVagas() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [vagas, setVagas] = useState([]);
@@ -388,6 +388,24 @@ export default function RhVagas() {
             }
           }
 
+          // Voltou pra estado anterior (Interessado / Recusado / Vagas Futuras) ->
+          // remove o candidato do array de selecionados pra ZERAR todo o processo
+          // (entrevista, resultado, pos-entrevista, datas, contratado). Se quiser
+          // re-selecionar depois, comeca do zero.
+          if (novoStatus === 'novo' || novoStatus === 'recusado' || novoStatus === 'em_analise') {
+            const tinha = selsAtual.some(s => Number(s.curriculo_id) === Number(curriculoId));
+            if (tinha) {
+              novosSels = selsAtual.filter(s => Number(s.curriculo_id) !== Number(curriculoId));
+              // Se nao sobrou ninguem contratado, vaga volta pra "Em Selecao"
+              // (a logica de sincronizacao do status da vaga ja esta em
+              // persistirSelecionadosVaga, mas aqui chamamos PUT direto)
+              const algumContratadoRestante = novosSels.some(s => !!s.contratado);
+              if (!algumContratadoRestante && (vaga.status === 'Contratado(a)' || vaga.status === 'Fechada')) {
+                novoStatusVaga = 'Em Selecao';
+              }
+            }
+          }
+
           // Persiste mudancas na vaga (status + selecionados) numa tacada so
           if (novoStatusVaga !== vaga.status || novosSels !== selsAtual) {
             try {
@@ -547,7 +565,7 @@ export default function RhVagas() {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-100">
-        <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+        <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
         <div className="flex-1 flex items-center justify-center">
           <RadarLoading />
         </div>
@@ -557,7 +575,7 @@ export default function RhVagas() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      <Sidebar user={user} onLogout={logout} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-4">
