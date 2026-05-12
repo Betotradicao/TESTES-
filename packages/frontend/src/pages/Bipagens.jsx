@@ -920,7 +920,7 @@ export default function Bipagens() {
             {/* Scanners dentro do card laranja */}
             {equipments.length > 0 && (
               <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10">
-                {equipments.filter(eq => eq.active && (!filters.sector_id || eq.sector?.id === parseInt(filters.sector_id))).map((equipment) => {
+                {equipments.filter(eq => eq.active && (!filters.sector_id || eq.sector?.id === parseInt(filters.sector_id)) && (lojaSelecionada === null || eq.cod_loja === lojaSelecionada)).map((equipment) => {
                   const loggedEmployee = activeSessions.find(s => s.equipment.id === equipment.id)?.employee;
 
                   return (

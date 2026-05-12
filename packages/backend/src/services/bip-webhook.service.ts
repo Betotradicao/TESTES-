@@ -2,9 +2,22 @@ import { AppDataSource } from '../config/database';
 import { Bip, BipStatus } from '../entities/Bip';
 import { EanFormatResult, ErpProduct, BipWebhookData } from '../types/webhook.types';
 import { OracleService } from './oracle.service';
+import { PostgresErpService } from './postgres-erp.service';
 import { MappingService } from './mapping.service';
+import { DatabaseConnection, DatabaseType, ConnectionStatus } from '../entities/DatabaseConnection';
 
 export class BipWebhookService {
+  /**
+   * Detecta tipo do ERP ativo (oracle ou postgresql).
+   */
+  private static async getActiveErpType(): Promise<'oracle' | 'postgresql'> {
+    const repo = AppDataSource.getRepository(DatabaseConnection);
+    let conn = await repo.findOne({ where: { is_default: true, status: ConnectionStatus.ACTIVE } });
+    if (!conn) conn = await repo.findOne({ where: { status: ConnectionStatus.ACTIVE } });
+    if (!conn) conn = await repo.findOne({ where: {}, order: { id: 'ASC' } });
+    return conn?.type === DatabaseType.POSTGRESQL ? 'postgresql' : 'oracle';
+  }
+
   /**
    * Busca produto no ERP usando PLU
    * Reutiliza lógica similar ao ProductsController
@@ -18,7 +31,7 @@ export class BipWebhookService {
       const erpProduct = await this.fetchProductFromERP(plu, loja);
 
       if (!erpProduct) {
-        console.log(`⚠️ Produto PLU ${plu} não encontrado no Oracle - bipagem será ignorada`);
+        console.log(`⚠️ Produto PLU ${plu} não encontrado no ERP - bipagem será ignorada`);
         return null;
       }
 
@@ -35,21 +48,23 @@ export class BipWebhookService {
   }
 
   static async fetchProductFromERP(plu: string, codLoja: number = 1): Promise<ErpProduct | null> {
-    // MIGRADO: Busca diretamente do Oracle ao invés da API Intersolid
+    const erpType = await this.getActiveErpType();
+    return erpType === 'postgresql'
+      ? this.fetchProductFromPostgres(plu, codLoja)
+      : this.fetchProductFromOracle(plu, codLoja);
+  }
+
+  private static async fetchProductFromOracle(plu: string, codLoja: number): Promise<ErpProduct | null> {
     console.log(`🔍 [ORACLE] Buscando produto PLU ${plu} diretamente do Oracle (Loja ${codLoja})...`);
 
     try {
-      // Converter PLU para número (remove zeros à esquerda)
-      // Ex: "04688" -> 4688 (Oracle armazena COD_PRODUTO como NUMBER)
       const codProdutoNum = parseInt(plu, 10);
       console.log(`🔢 [ORACLE] PLU convertido: "${plu}" -> ${codProdutoNum}`);
 
-      // Obter nomes de tabelas do MappingService
       const schema = await MappingService.getSchema();
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
-      // Resolver colunas via MappingService
       const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
       const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
       const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
@@ -57,7 +72,6 @@ export class BipWebhookService {
       const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
 
-      // Query para buscar produto pelo código (PLU) com COD_LOJA parametrizado
       const sql = `
         SELECT
           p.${colCodProduto},
@@ -79,8 +93,6 @@ export class BipWebhookService {
       }
 
       const row = rows[0];
-
-      // Mapear para formato esperado pelo sistema (ErpProduct)
       const product: ErpProduct = {
         descricao: row.DES_PRODUTO || `Produto ${plu}`,
         valvenda: String(row.VAL_VENDA || 0),
@@ -88,10 +100,59 @@ export class BipWebhookService {
       };
 
       console.log(`✅ [ORACLE] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}, Oferta: ${product.valoferta ? 'R$ ' + product.valoferta : 'N/A'}`);
-
       return product;
     } catch (error) {
       console.error(`❌ [ORACLE] Erro ao buscar produto PLU ${plu}:`, error);
+      throw error;
+    }
+  }
+
+  private static async fetchProductFromPostgres(plu: string, codLoja: number): Promise<ErpProduct | null> {
+    console.log(`🔍 [POSTGRES] Buscando produto PLU ${plu} no PostgreSQL ERP (Loja ${codLoja})...`);
+
+    try {
+      const codProdutoNum = parseInt(plu, 10);
+      const schema = await MappingService.getSchema();
+      const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
+      const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
+
+      const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
+      const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
+      const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
+      const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
+
+      // Postgres geralmente não tem preco_oferta separado, retorna 0
+      const sql = `
+        SELECT
+          p.${colCodProduto} as cod_produto,
+          p.${colDesProduto} as des_produto,
+          COALESCE(pl.${colValVenda}, 0) as val_venda
+        FROM ${tabProduto} p
+        INNER JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja}
+        WHERE p.${colCodProduto}::int = $1::int
+        AND pl.${colCodLoja}::int = $2::int
+        LIMIT 1
+      `;
+
+      const rows = await PostgresErpService.query<any>(sql, [codProdutoNum, codLoja]);
+
+      if (rows.length === 0) {
+        console.log(`⚠️ [POSTGRES] Produto PLU ${plu} não encontrado na loja ${codLoja}`);
+        return null;
+      }
+
+      const row = rows[0];
+      const product: ErpProduct = {
+        descricao: row.des_produto || `Produto ${plu}`,
+        valvenda: String(row.val_venda || 0),
+        valoferta: null
+      };
+
+      console.log(`✅ [POSTGRES] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}`);
+      return product;
+    } catch (error) {
+      console.error(`❌ [POSTGRES] Erro ao buscar produto PLU ${plu}:`, error);
       throw error;
     }
   }
