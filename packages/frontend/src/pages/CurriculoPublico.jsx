@@ -332,12 +332,12 @@ export default function CurriculoPublico() {
                 return (
                   <button key={lj.id} onClick={() => setLojaEscolhidaId(lj.id)}
                     className="bg-white rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.02] transition border-2 border-transparent hover:border-rose-400 overflow-hidden text-left">
-                    {/* Foto - mostra tamanho original sem cortar */}
-                    <div className="bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center">
+                    {/* Foto - aspect-ratio fixo + object-contain pra todas ficarem mesmo tamanho SEM cortar */}
+                    <div className="bg-gradient-to-br from-rose-100 to-pink-100 aspect-[4/3] w-full overflow-hidden flex items-center justify-center">
                       {lj.foto_fachada_url ? (
-                        <img src={lj.foto_fachada_url} alt={titulo} className="w-full h-auto block" />
+                        <img src={lj.foto_fachada_url} alt={titulo} className="w-full h-full object-contain block" />
                       ) : (
-                        <div className="h-44 flex items-center justify-center text-7xl">🏪</div>
+                        <div className="text-7xl">🏪</div>
                       )}
                     </div>
                     {/* Info */}
