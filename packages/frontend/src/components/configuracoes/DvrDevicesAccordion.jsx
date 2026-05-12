@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
 import {
   listDvrDevices,
   createDvrDevice,
@@ -7,8 +6,14 @@ import {
   deleteDvrDevice,
   testDvrDevice
 } from '../../services/dvr-devices.service';
-import { fetchCompanies } from '../../services/companies.service';
+import { fetchAllCompanies } from '../../services/companies.service';
 import DvrDeviceFormModal from './DvrDeviceFormModal';
+
+// Helper de feedback simples (projeto nao tem lib de toast)
+const toast = {
+  success: (m) => alert('✅ ' + m),
+  error: (m) => alert('❌ ' + m)
+};
 
 export default function DvrDevicesAccordion() {
   const [devices, setDevices] = useState([]);
@@ -24,7 +29,7 @@ export default function DvrDevicesAccordion() {
     try {
       const [devs, comps] = await Promise.all([
         listDvrDevices(),
-        fetchCompanies().catch(() => [])
+        fetchAllCompanies().catch(() => [])
       ]);
       setDevices(devs);
       setCompanies(Array.isArray(comps) ? comps : (comps?.data || []));

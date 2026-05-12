@@ -39,7 +39,8 @@ export class BipWebhookService {
       return {
         descricao: erpProduct.descricao,
         valvenda: erpProduct.valvenda,
-        valoferta: erpProduct.valoferta || null
+        valoferta: erpProduct.valoferta || null,
+        codProduto: erpProduct.codProduto || null
       };
     } catch (error) {
       console.error(`❌ Erro ao buscar produto ${plu} no ERP:`, error);
@@ -93,10 +94,12 @@ export class BipWebhookService {
       }
 
       const row = rows[0];
+      const codProduto = row.COD_PRODUTO ?? row[colCodProduto.toUpperCase()] ?? null;
       const product: ErpProduct = {
         descricao: row.DES_PRODUTO || `Produto ${plu}`,
         valvenda: String(row.VAL_VENDA || 0),
-        valoferta: row.VAL_OFERTA > 0 ? String(row.VAL_OFERTA) : null
+        valoferta: row.VAL_OFERTA > 0 ? String(row.VAL_OFERTA) : null,
+        codProduto: codProduto != null ? String(codProduto) : null
       };
 
       console.log(`✅ [ORACLE] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}, Oferta: ${product.valoferta ? 'R$ ' + product.valoferta : 'N/A'}`);
@@ -149,10 +152,11 @@ export class BipWebhookService {
       const product: ErpProduct = {
         descricao: row.des_produto || `Produto ${plu}`,
         valvenda: String(row.val_venda || 0),
-        valoferta: null
+        valoferta: null,
+        codProduto: row.cod_produto != null ? String(row.cod_produto) : null
       };
 
-      console.log(`✅ [POSTGRES] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}`);
+      console.log(`✅ [POSTGRES] Produto encontrado: ${product.descricao}, Preço: R$ ${product.valvenda}, codProduto: ${product.codProduto}`);
       return product;
     } catch (error) {
       console.error(`❌ [POSTGRES] Erro ao buscar produto PLU ${plu}:`, error);
@@ -210,10 +214,16 @@ export class BipWebhookService {
       ? new Date(eventDate)
       : new Date(formatResult.sell_date!);
 
+    // product_id deve ser o codigo INTERNO do ERP (prod_codigo) — esse e o
+    // identificador que aparece nas vendas do PDV e usado pra cruzamento.
+    // No Nunes, o PLU bipado (40075) != prod_codigo (330442); o ERP retorna
+    // o codProduto correto via fetchProductFromPostgres.
+    const finalProductId = erpProduct.codProduto || formatResult.produto_id!;
+
     return {
       ean: formatResult.sell_code!,
       bip_price_cents: bipPriceCents,
-      product_id: formatResult.produto_id!,
+      product_id: finalProductId,
       product_description: erpProduct.descricao,
       product_full_price_cents_kg: fullPrice,
       bip_weight: weight,

@@ -24,6 +24,10 @@ export interface ErpProduct {
   descricao: string;
   valvenda: string;
   valoferta?: string | null;
+  /** prod_codigo real do ERP — pode diferir do PLU bipado (caso Nunes/RP INFO).
+   *  Quando presente, deve ser usado como product_id da bipagem pra que o
+   *  cruzamento com vendas do PDV bata por codigo interno e nao por PLU. */
+  codProduto?: string | null;
 }
 
 export interface CancellationResult {
