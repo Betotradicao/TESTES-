@@ -172,6 +172,7 @@ export const MENU_SUBMENUS = {
   VISION_RESULTADOS_DIA: 'vision-resultados-dia',
   VISION_RANKINGS: 'vision-rankings',
   VISION_BIPAGENS_ATIVAR_PRODUTOS: 'vision-bipagens-ativar-produtos',
+  VISION_BIPAGENS_LEITORES: 'vision-bipagens-leitores',
 
   // Ecommerce
   GARIMPA_ECOMMERCE: 'garimpa-ecommerce',
@@ -732,6 +733,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.VISION_BIPAGENS_ATIVAR_PRODUTOS,
         title: 'Ativar Produtos',
         path: '/ativar-produtos'
+      },
+      {
+        id: MENU_SUBMENUS.VISION_BIPAGENS_LEITORES,
+        title: 'Leitores',
+        path: '/leitores'
       }
     ]
   },

@@ -186,7 +186,11 @@ export class BipWebhookService {
       ? Math.round(Number(erpValOferta) * 100)
       : Math.round(Number(erpValVenda) * 100);
 
-    const weight = bipPriceCents / productPriceCentsKg;
+    // Se produto não tem preço cadastrado no ERP, não dá pra calcular peso por divisão.
+    // Cap numeric(12,3) é 999_999_999.999; Infinity quebra o INSERT.
+    const weight = productPriceCentsKg > 0
+      ? Math.min(bipPriceCents / productPriceCentsKg, 999_999_999.999)
+      : 0;
 
     // === OUTROS CAMPOS DO PRODUTO ===
     const fullPrice = Math.round(Number(erpProduct.valvenda) * 100);

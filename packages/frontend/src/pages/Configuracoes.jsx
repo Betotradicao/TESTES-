@@ -6,7 +6,6 @@ import TabsNavigation from '../components/configuracoes/TabsNavigation';
 import EmpresaConfigTab from '../components/configuracoes/EmpresaConfigTab';
 import SectorsTab from '../components/configuracoes/SectorsTab';
 import EmployeesTab from '../components/configuracoes/EmployeesTab';
-import PreventionTab from '../components/configuracoes/PreventionTab';
 import HolidaysTab from '../components/configuracoes/HolidaysTab';
 
 export default function Configuracoes() {
@@ -18,6 +17,11 @@ export default function Configuracoes() {
     // Compat: link antigo '?tab=ativar-produtos' redireciona pra nova rota
     if (t === 'ativar-produtos') {
       window.location.replace('/ativar-produtos');
+      return 'empresa';
+    }
+    // Compat: aba 'prevention' (Leitores) foi movida pra Vision Bipagens > Leitores
+    if (t === 'prevention') {
+      window.location.replace('/leitores');
       return 'empresa';
     }
     // Compat: aba 'lgpd' foi movida pra Configurações RH
@@ -34,11 +38,15 @@ export default function Configuracoes() {
       window.location.replace('/ativar-produtos');
       return;
     }
+    if (tabFromUrl === 'prevention') {
+      window.location.replace('/leitores');
+      return;
+    }
     if (tabFromUrl === 'lgpd') {
       window.location.replace('/rh/configuracoes?tab=lgpd');
       return;
     }
-    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'prevention' || tabFromUrl === 'holidays')) {
+    if (tabFromUrl && (tabFromUrl === 'empresa' || tabFromUrl === 'sectors' || tabFromUrl === 'employees' || tabFromUrl === 'holidays')) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -102,7 +110,6 @@ export default function Configuracoes() {
             {activeTab === 'empresa' && <EmpresaConfigTab />}
             {activeTab === 'sectors' && <SectorsTab />}
             {activeTab === 'employees' && <EmployeesTab />}
-            {activeTab === 'prevention' && <PreventionTab />}
             {activeTab === 'holidays' && <HolidaysTab />}
           </div>
         </div>

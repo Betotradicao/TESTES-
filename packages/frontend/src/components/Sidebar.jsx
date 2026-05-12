@@ -780,7 +780,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
             { id: 'bipagens', submenuId: 'bipagens-ao-vivo', title: 'BIPAGENS', path: '/bipagens' },
             { id: 'resultados-do-dia', submenuId: 'bipagens-resultados', title: 'RESULTADOS DO DIA', path: '/resultados-do-dia' },
             { id: 'rankings', submenuId: 'bipagens-rankings', title: 'RANKINGS', path: '/rankings' },
-            { id: 'ativar-produtos', submenuId: 'vision-bipagens-ativar-produtos', title: 'ATIVAR PRODUTOS', path: '/ativar-produtos' }
+            { id: 'ativar-produtos', submenuId: 'vision-bipagens-ativar-produtos', title: 'ATIVAR PRODUTOS', path: '/ativar-produtos' },
+            { id: 'leitores', submenuId: 'vision-bipagens-leitores', title: 'LEITORES', path: '/leitores' }
           ]
         }
       ]

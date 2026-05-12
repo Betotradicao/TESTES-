@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import Bipagens from './pages/Bipagens';
 import Rankings from './pages/Rankings';
 import AtivarProdutos from './pages/AtivarProdutos';
+import Leitores from './pages/Leitores';
 import ResultadosDoDia from './pages/ResultadosDoDia';
 import Configuracoes from './pages/Configuracoes';
 import ConfiguracoesRede from './pages/ConfiguracoesRede';
@@ -178,6 +179,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AtivarProdutos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leitores"
+              element={
+                <ProtectedRoute>
+                  <Leitores />
                 </ProtectedRoute>
               }
             />

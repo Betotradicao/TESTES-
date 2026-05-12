@@ -18,12 +18,12 @@ export default function TabsNavigation({ activeTab, onChange, pageType = 'config
 
   // Abas para Configurações normais
   // Obs: "Ativar Produtos" foi movido pra Vision Bipagens > Ativar Produtos (/ativar-produtos)
+  // Obs: "Leitores" foi movido pra Vision Bipagens > Leitores (/leitores)
   // Obs: "Caixas HortFrut" e "Fornecedores" foram removidos (nao usados mais)
   const configTabs = [
     { id: 'empresa', label: 'Empresa' },
     { id: 'sectors', label: 'Setores' },
     { id: 'employees', label: 'Colaboradores' },
-    { id: 'prevention', label: 'Leitores' },
     { id: 'holidays', label: 'Feriados' }
   ];
 
