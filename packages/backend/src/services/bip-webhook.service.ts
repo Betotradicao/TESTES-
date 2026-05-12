@@ -111,18 +111,21 @@ export class BipWebhookService {
     console.log(`🔍 [POSTGRES] Buscando produto PLU ${plu} no PostgreSQL ERP (Loja ${codLoja})...`);
 
     try {
-      const codProdutoNum = parseInt(plu, 10);
       const schema = await MappingService.getSchema();
       const tabProduto = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO')}`;
       const tabProdutoLoja = `${schema}.${await MappingService.getRealTableName('TAB_PRODUTO_LOJA')}`;
 
       const colCodProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto');
+      const colCodBarras = await MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_barras');
       const colDesProduto = await MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao');
       const colValVenda = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda');
       const colCodLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja');
       const colCodProdutoLoja = await MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto');
 
-      // Postgres geralmente não tem preco_oferta separado, retorna 0
+      // Busca pelo EAN cadastrado (codigo_barras) — PLU da balança é embutido nele.
+      // Ex: balança gera EAN "2 40075 003205 0" → PLU=40075 → busca por prod_codbarras='0000000040075'.
+      const pluPadded = plu.padStart(13, '0');
+
       const sql = `
         SELECT
           p.${colCodProduto} as cod_produto,
@@ -130,12 +133,12 @@ export class BipWebhookService {
           COALESCE(pl.${colValVenda}, 0) as val_venda
         FROM ${tabProduto} p
         INNER JOIN ${tabProdutoLoja} pl ON p.${colCodProduto} = pl.${colCodProdutoLoja}
-        WHERE p.${colCodProduto}::int = $1::int
+        WHERE p.${colCodBarras} = $1
         AND pl.${colCodLoja}::int = $2::int
         LIMIT 1
       `;
 
-      const rows = await PostgresErpService.query<any>(sql, [codProdutoNum, codLoja]);
+      const rows = await PostgresErpService.query<any>(sql, [pluPadded, codLoja]);
 
       if (rows.length === 0) {
         console.log(`⚠️ [POSTGRES] Produto PLU ${plu} não encontrado na loja ${codLoja}`);
