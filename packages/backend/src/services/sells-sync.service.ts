@@ -177,6 +177,10 @@ export class SellsSyncService {
 
     for (const sale of activeSales) {
       const activatedProductId = activeProductMap.get(sale.codProduto);
+      // Skipa vendas de produtos nao ativados (activated_product_id NOT NULL no DB).
+      // Acontece quando o activeProductMap nao tem o cod_produto da venda — pode ocorrer
+      // se a venda veio com codigo desativado ou recem-adicionado ao ERP.
+      if (!activatedProductId) continue;
       const saleValueCents = Math.round(sale.valTotalProduto * 100);
       const normalizedProductCode = String(parseInt(sale.codProduto, 10));
 
