@@ -51,6 +51,7 @@ export default function VisionPalavraChave2() {
   const [barcode, setBarcode] = useState('');
   const [barcodeProduct, setBarcodeProduct] = useState('');
   const [pdvFilter, setPdvFilter] = useState('');
+  const [operadorFilter, setOperadorFilter] = useState('');
   const [periodo, setPeriodo] = useState('personalizado');
   const [startDate, setStartDate] = useState(formatDate(new Date()));
   const [endDate, setEndDate] = useState(formatDate(new Date()));
@@ -288,6 +289,19 @@ export default function VisionPalavraChave2() {
                 placeholder="Todos"
                 className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               />
+            </div>
+            <div className="w-[180px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Operador(a)</label>
+              <select
+                value={operadorFilter}
+                onChange={(e) => setOperadorFilter(e.target.value)}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              >
+                <option value="">Todos</option>
+                {Array.from(new Set((results || []).map(r => r.OPERADOR || r.operador).filter(Boolean))).sort().map(op => (
+                  <option key={op} value={op}>{op}</option>
+                ))}
+              </select>
             </div>
             <div className="w-[130px]">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Periodo</label>
@@ -575,11 +589,16 @@ export default function VisionPalavraChave2() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
             <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
               <h2 className="text-sm font-semibold text-purple-700">Transacoes Encontradas</h2>
-              {total > 0 && (
-                <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                  {total} resultado{total !== 1 ? 's' : ''}
-                </span>
-              )}
+              {total > 0 && (() => {
+                const filtered = operadorFilter
+                  ? results.filter(item => (item.OPERADOR || item.operador) === operadorFilter).length
+                  : total;
+                return (
+                  <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                    {operadorFilter ? `${filtered} de ${total}` : `${total} resultado${total !== 1 ? 's' : ''}`}
+                  </span>
+                );
+              })()}
             </div>
             <div className="overflow-auto flex-1">
               <table className="w-full text-sm">
@@ -604,7 +623,9 @@ export default function VisionPalavraChave2() {
                       </td>
                     </tr>
                   )}
-                  {results.map((item, idx) => (
+                  {results
+                    .filter(item => !operadorFilter || (item.OPERADOR || item.operador) === operadorFilter)
+                    .map((item, idx) => (
                     <tr key={`${item.cupomNum}-${item.pdv}-${idx}`}
                       onClick={() => handlePlayVideo(item)}
                       className={`hover:bg-purple-50 cursor-pointer transition-colors ${videoTime === item.time ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}>
