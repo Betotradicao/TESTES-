@@ -41,7 +41,12 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
     } catch {}
     return {};
   });
-  const [modulesConfig, setModulesConfig] = useState([]);
+  // Inicializa direto do cache pra evitar flicker no primeiro render
+  // (antes era [] vazio → carregava async → re-render mostrava/escondia menus)
+  const [modulesConfig, setModulesConfig] = useState(() => {
+    const cached = readCachedModulesConfig();
+    return Array.isArray(cached.config) ? cached.config : [];
+  });
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
     return saved === 'true';
@@ -89,21 +94,24 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
   }, [expandedItems]);
 
   // Modo de visibilidade dos modulos: 'disabled' (mostra desabilitado) | 'hidden' (esconde)
-  const [visibilityMode, setVisibilityMode] = useState('disabled');
+  // Inicializa direto do cache (igual modulesConfig) pra evitar flicker.
+  const [visibilityMode, setVisibilityMode] = useState(() => {
+    const cached = readCachedModulesConfig();
+    return cached.mode || 'disabled';
+  });
 
-  // Carregar configuracao de modulos do BACKEND (com cache em localStorage pra render imediato).
+  // Carregar configuracao de modulos do BACKEND e atualizar se mudou.
+  // Cache ja foi lido no useState inicializer acima — aqui so refaz a busca do backend.
   // Antes era so localStorage por dispositivo - bug: celular mostrava menus que desktop nao mostrava.
   useEffect(() => {
-    // 1. Le cache do localStorage sincronamente pra primeiro render rapido
-    const cached = readCachedModulesConfig();
-    if (cached.config?.length) setModulesConfig(cached.config);
-    if (cached.mode) setVisibilityMode(cached.mode);
-
-    // 2. Busca a versao oficial do backend e atualiza
+    // Busca a versao oficial do backend e atualiza (so re-renderiza se mudou)
     const refresh = () => {
       loadModulesConfig({ force: true }).then(({ config, mode }) => {
-        setModulesConfig(Array.isArray(config) ? config : []);
-        setVisibilityMode(mode || 'disabled');
+        setModulesConfig(prev => {
+          const next = Array.isArray(config) ? config : [];
+          return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+        });
+        setVisibilityMode(prev => (mode || 'disabled') === prev ? prev : (mode || 'disabled'));
       }).catch(() => {});
     };
     refresh();
