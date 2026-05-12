@@ -6,7 +6,7 @@ import {
   deleteDvrDevice,
   testDvrDevice
 } from '../../services/dvr-devices.service';
-import { fetchAllCompanies } from '../../services/companies.service';
+import { fetchStores } from '../../services/companies.service';
 import DvrDeviceFormModal from './DvrDeviceFormModal';
 
 // Helper de feedback simples (projeto nao tem lib de toast)
@@ -29,7 +29,7 @@ export default function DvrDevicesAccordion() {
     try {
       const [devs, comps] = await Promise.all([
         listDvrDevices(),
-        fetchAllCompanies().catch(() => [])
+        fetchStores().catch(() => [])
       ]);
       setDevices(devs);
       setCompanies(Array.isArray(comps) ? comps : (comps?.data || []));
@@ -43,8 +43,8 @@ export default function DvrDevicesAccordion() {
   useEffect(() => { loadAll(); }, []);
 
   const lojaNome = (codLoja) => {
-    const c = companies.find(cc => cc.codLoja === codLoja || cc.cod_loja === codLoja);
-    return c ? (c.apelido || c.nomeFantasia || c.nome_fantasia || `Loja ${codLoja}`) : `Loja ${codLoja}`;
+    const c = companies.find(cc => (cc.cod_loja ?? cc.codLoja) === codLoja);
+    return c ? (c.apelido || c.nome_fantasia || c.nomeFantasia || `Loja ${codLoja}`) : `Loja ${codLoja}`;
   };
 
   const handleNew = () => {

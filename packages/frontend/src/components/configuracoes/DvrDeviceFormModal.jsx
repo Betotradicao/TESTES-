@@ -99,10 +99,10 @@ export default function DvrDeviceFormModal({ device, companies, onClose, onSave 
               >
                 <option value="">Selecione a loja...</option>
                 {companies.map(c => {
-                  const codLoja = c.codLoja ?? c.cod_loja;
-                  const nome = c.apelido || c.nomeFantasia || c.nome_fantasia || `Loja ${codLoja}`;
+                  const codLoja = c.cod_loja ?? c.codLoja;
+                  const label = c.label || `${c.apelido || c.nome_fantasia || c.nomeFantasia} (cod ${codLoja})`;
                   return (
-                    <option key={codLoja} value={codLoja}>{nome} (cod {codLoja})</option>
+                    <option key={codLoja} value={codLoja}>{label}</option>
                   );
                 })}
               </select>
