@@ -75,12 +75,13 @@ export default function VisionPalavraChave2() {
 
 
 
-  // Carregar config cameras-pdv
+  // Carregar config cameras-pdv (filtrado por loja selecionada quando houver)
   useEffect(() => {
-    api.get('/dvr-cftv/config/cameras-pdv')
+    const params = lojaSelecionada != null ? { codigo_loja: lojaSelecionada } : {};
+    api.get('/dvr-cftv/config/cameras-pdv', { params })
       .then(res => setCamerasPdv(res.data.cameras || []))
       .catch(() => {});
-  }, []);
+  }, [lojaSelecionada]);
 
   // Esc fecha o modal de video expandido
   useEffect(() => {
@@ -232,6 +233,18 @@ export default function VisionPalavraChave2() {
           </div>
         </div>
 
+        {lojaSelecionada == null && (
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-6 mb-3 text-center">
+            <div className="text-4xl mb-2">🏪</div>
+            <h2 className="text-lg font-bold text-yellow-800 mb-1">Selecione uma loja</h2>
+            <p className="text-yellow-700 text-sm">
+              Esta tela depende da configuracao de cameras do DVR de cada loja.
+              Escolha uma loja especifica no seletor (canto superior esquerdo) pra continuar.
+            </p>
+          </div>
+        )}
+
+        {lojaSelecionada != null && <>
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
           {/* Linha 1: Campos de busca */}
@@ -651,6 +664,7 @@ export default function VisionPalavraChave2() {
             </div>
           </div>
         </div>
+        </>}
       </div>
 
       {/* Modal de video expandido (tela grande) */}

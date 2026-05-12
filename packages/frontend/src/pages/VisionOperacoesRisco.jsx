@@ -298,7 +298,7 @@ export default function VisionOperacoesRisco() {
       }
     };
     loadOperadores();
-    getCamerasRisco().then(res => {
+    getCamerasRisco(lojaSelecionada).then(res => {
       if (res.success) setCamerasRisco(res.cameras || []);
     }).catch(() => {});
   }, [lojaSelecionada]);
@@ -609,6 +609,19 @@ export default function VisionOperacoesRisco() {
           </div>
         </div>
 
+        {lojaSelecionada == null ? (
+          <div className="px-4 md:px-6 py-12">
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-8 text-center max-w-2xl mx-auto">
+              <div className="text-5xl mb-4">🏪</div>
+              <h2 className="text-xl font-bold text-yellow-800 mb-2">Selecione uma loja</h2>
+              <p className="text-yellow-700">
+                Esta tela depende da configuracao de cameras do DVR de cada loja.
+                Escolha uma loja especifica no seletor (canto superior esquerdo) pra continuar.
+              </p>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Summary Cards */}
         <div className="px-4 md:px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -941,6 +954,8 @@ export default function VisionOperacoesRisco() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

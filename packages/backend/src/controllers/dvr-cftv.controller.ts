@@ -270,6 +270,19 @@ export class DVRCFTVController {
    */
   static async getCamerasRisco(req: Request, res: Response) {
     try {
+      const codigoLoja = req.query.codigo_loja != null ? parseInt(String(req.query.codigo_loja), 10) : null;
+
+      if (codigoLoja != null && !Number.isNaN(codigoLoja)) {
+        const { AppDataSource } = await import('../config/database');
+        const { DvrDevice } = await import('../entities/DvrDevice');
+        const repo = AppDataSource.getRepository(DvrDevice);
+        const device = await repo.findOne({ where: { codigo_loja: codigoLoja, is_default: true, status: 'active' } })
+          || await repo.findOne({ where: { codigo_loja: codigoLoja, status: 'active' } });
+        if (device) {
+          return res.json({ success: true, cameras: Array.isArray(device.cameras_risco) ? device.cameras_risco : [] });
+        }
+      }
+
       const { ConfigurationService } = await import('../services/configuration.service');
       const raw = await ConfigurationService.get('dvr_cameras_risco');
       let cameras: { channel: number; label: string; pdv: number; antes: number; depois: number }[] = [];
@@ -335,6 +348,24 @@ export class DVRCFTVController {
    */
   static async getCamerasPdv(req: Request, res: Response) {
     try {
+      const codigoLoja = req.query.codigo_loja != null ? parseInt(String(req.query.codigo_loja), 10) : null;
+
+      // 1) Tenta buscar do DVR da loja em dvr_devices
+      if (codigoLoja != null && !Number.isNaN(codigoLoja)) {
+        const { AppDataSource } = await import('../config/database');
+        const { DvrDevice } = await import('../entities/DvrDevice');
+        const repo = AppDataSource.getRepository(DvrDevice);
+        const device = await repo.findOne({
+          where: { codigo_loja: codigoLoja, is_default: true, status: 'active' }
+        }) || await repo.findOne({
+          where: { codigo_loja: codigoLoja, status: 'active' }
+        });
+        if (device) {
+          return res.json({ success: true, cameras: Array.isArray(device.cameras_pdv) ? device.cameras_pdv : [] });
+        }
+      }
+
+      // 2) Fallback legacy: le de configurations
       const { ConfigurationService } = await import('../services/configuration.service');
       const raw = await ConfigurationService.get('dvr_cameras_pdv');
       let cameras: { channel: number; label: string; pdv: number; antes: number; depois: number }[] = [];

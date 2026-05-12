@@ -54,8 +54,9 @@ export async function saveCamerasBipagens(cameras) {
 }
 
 // Buscar câmeras configuradas para Prev. Risco (por PDV)
-export async function getCamerasRisco() {
-  const response = await api.get('/dvr-cftv/config/cameras-risco');
+export async function getCamerasRisco(codigoLoja = null) {
+  const params = codigoLoja != null ? { codigo_loja: codigoLoja } : {};
+  const response = await api.get('/dvr-cftv/config/cameras-risco', { params });
   return response.data; // { success, cameras: [{channel, label, pdv, antes, depois}] }
 }
 
