@@ -6,6 +6,8 @@ FROM node:20-alpine AS builder
 # Argumentos de build para variáveis do Vite
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_CLIENT_NAME="Radar 360"
+ENV VITE_CLIENT_NAME=$VITE_CLIENT_NAME
 
 WORKDIR /app
 
