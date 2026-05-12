@@ -22,8 +22,9 @@ function PendingTimeDisplay({ eventDate, status, timeUpdate }) {
   // Usar horário local para 'now' e tratar eventTime como horário local também
   const now = new Date();
 
-  // Parse da data do evento mantendo como horário local (sem conversão UTC)
-  const eventTime = new Date(eventDate.replace('Z', ''));
+  // Backend salva event_date corretamente em UTC desde o fix do subtract 3h.
+  // new Date(isoUtcString) ja converte pro fuso local do browser.
+  const eventTime = new Date(eventDate);
 
   const diffMs = now - eventTime;
 
@@ -50,8 +51,9 @@ function VideoModal({ bip, cameras, onClose, formatDateTime }) {
   const [allPlaying, setAllPlaying] = useState(false);
   const totalCameras = cameras.length;
 
-  // Converter event_date para formato do DVR
-  const eventDate = new Date(bip.event_date.replace('Z', ''));
+  // Converter event_date pra Date local (fuso do browser). Sem .replace('Z')
+  // porque o backend agora salva certo em UTC.
+  const eventDate = new Date(bip.event_date);
   const yyyy = eventDate.getFullYear();
   const mo = String(eventDate.getMonth() + 1).padStart(2, '0');
   const dd = String(eventDate.getDate()).padStart(2, '0');
@@ -1295,7 +1297,7 @@ export default function Bipagens() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           {bip.status === 'pending' && (() => {
                             const now = new Date();
-                            const eventTime = new Date(bip.event_date.replace('Z', ''));
+                            const eventTime = new Date(bip.event_date);
                             const diffMs = now - eventTime;
                             const totalSeconds = Math.floor(diffMs / 1000);
                             // Mostrar vídeo apenas se pendente há mais de 3 horas (10800 segundos)

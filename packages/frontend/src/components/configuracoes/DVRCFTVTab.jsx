@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import DvrDevicesAccordion from './DvrDevicesAccordion';
 
 export default function DVRCFTVTab() {
   const [isLoading, setIsLoading] = useState(true);
@@ -269,13 +270,16 @@ export default function DVRCFTVTab() {
 
   return (
     <div className="space-y-6">
-      {/* Conexão DVR */}
+      {/* DVRs Configurados (multi-DVR, multi-loja) */}
+      <DvrDevicesAccordion />
+
+      {/* Conexão DVR (LEGADO - sera removido apos migracao completa pra dvr_devices) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
-          Conexao DVR
+          Conexao DVR <span className="text-xs text-gray-400 font-normal">(legado)</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

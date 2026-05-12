@@ -5,6 +5,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { AppDataSource } from '../config/database';
 import { Configuration } from '../entities/Configuration';
+import { DvrDevice } from '../entities/DvrDevice';
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 import { PostgresErpService } from './postgres-erp.service';
@@ -130,9 +131,74 @@ export class DVRCFTVService {
   }
 
   /**
-   * Obter config DVR do banco
+   * Obter config DVR do banco.
+   * Prioridade:
+   *   1. Se opts.dvrId: busca o DVR especifico em dvr_devices
+   *   2. Se opts.lojaId: busca DVR is_default da loja (ou primeiro active dela)
+   *   3. Senao: busca DVR is_default global (primeiro disponivel)
+   *   4. Fallback final (compat): le chaves dvr_* de configurations
    */
-  private static async getConfig() {
+  private static async getConfig(opts: { lojaId?: number; dvrId?: number } = {}) {
+    const device = await this.resolveDvrDevice(opts);
+    if (device) return this.deviceToConfig(device);
+    // Fallback compat: nenhuma row em dvr_devices, cai no antigo
+    return this.getConfigLegacy();
+  }
+
+  /**
+   * Resolve qual DvrDevice usar baseado em prioridade (dvrId > lojaId > default global).
+   * Retorna null se nada encontrado (caller cai pro legacy).
+   */
+  private static async resolveDvrDevice(opts: { lojaId?: number; dvrId?: number }): Promise<DvrDevice | null> {
+    const repo = AppDataSource.getRepository(DvrDevice);
+    if (opts.dvrId) {
+      return repo.findOne({ where: { id: opts.dvrId, status: 'active' } });
+    }
+    if (opts.lojaId != null) {
+      const byLojaDefault = await repo.findOne({
+        where: { codigo_loja: opts.lojaId, is_default: true, status: 'active' }
+      });
+      if (byLojaDefault) return byLojaDefault;
+      return repo.findOne({ where: { codigo_loja: opts.lojaId, status: 'active' } });
+    }
+    return repo.findOne({ where: { is_default: true, status: 'active' } });
+  }
+
+  /**
+   * Converte DvrDevice (entity) pro shape antigo usado por todo o resto do service.
+   * Aplica a mesma logica de host (IP privado -> 172.20.0.1 dentro Docker) e
+   * porta tunelada (>10000 fora docker -> 80/554) pra manter compat.
+   */
+  private static deviceToConfig(d: DvrDevice) {
+    const isDocker = process.env.IS_DOCKER === 'true' || require('fs').existsSync('/.dockerenv');
+    const rawHttpPort = d.porta_http || 80;
+    const rawRtspPort = String(d.porta_rtsp || 554);
+    const httpPort = !isDocker && rawHttpPort > 10000 ? 80 : rawHttpPort;
+    const rtspPort = !isDocker && parseInt(rawRtspPort) > 10000 ? '554' : rawRtspPort;
+
+    const configuredIp = (d.ip || '').trim();
+    const isPrivateIp = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|localhost$)/.test(configuredIp);
+    const dvrIp = isDocker && isPrivateIp && rawHttpPort > 10000 ? '172.20.0.1' : configuredIp;
+
+    return {
+      ip: dvrIp,
+      user: d.usuario || 'admin',
+      pass: d.senha || '',
+      httpPort,
+      rtspPort,
+      canais: Array.isArray(d.canais) ? d.canais : [],
+      canalPadrao: d.canal_padrao ?? 3,
+      antecedenciaSegundos: d.antecedencia_segundos ?? 15,
+      tempoDepoisSegundos: d.tempo_depois_segundos ?? 120,
+      codecMode: (d.codec_mode === 'copy' || d.codec_mode === 'transcode') ? d.codec_mode : 'transcode'
+    };
+  }
+
+  /**
+   * Fallback: le config antiga em configurations (key/value).
+   * Usado APENAS se nao houver nenhum registro em dvr_devices.
+   */
+  private static async getConfigLegacy() {
     const configRepo = AppDataSource.getRepository(Configuration);
     const configs = await configRepo.find({
       where: [
@@ -151,23 +217,15 @@ export class DVRCFTVService {
     const map: Record<string, string> = {};
     configs.forEach(c => { map[c.key] = c.value || ''; });
 
-    // Parse canais JSON
     let canais: { channel: number; pdv: number; label: string }[] = [];
-    try {
-      if (map.dvr_canais) canais = JSON.parse(map.dvr_canais);
-    } catch { /* ignore */ }
+    try { if (map.dvr_canais) canais = JSON.parse(map.dvr_canais); } catch { /* ignore */ }
 
-    // Detectar se estamos rodando fora do Docker (dev local na rede da loja)
-    // Se sim, usar portas padrão do DVR (80/554) em vez das tuneladas (18080/18554)
     const isDocker = process.env.IS_DOCKER === 'true' || require('fs').existsSync('/.dockerenv');
     const rawHttpPort = parseInt(map.dvr_porta_http || '80');
     const rawRtspPort = map.dvr_porta_rtsp || '554';
     const httpPort = !isDocker && rawHttpPort > 10000 ? 80 : rawHttpPort;
     const rtspPort = !isDocker && parseInt(rawRtspPort) > 10000 ? '554' : rawRtspPort;
 
-    // Decidir o IP a usar:
-    // - Se IP configurado é privado (10.x, 192.168.x, 172.16-31.x) → assume modo túnel SSH e usa 172.20.0.1
-    // - Se IP configurado é público (IP fixo ou DDNS) → usa direto, sem passar pelo túnel
     const configuredIp = (map.dvr_ip || '').trim();
     const isPrivateIp = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.|localhost$)/.test(configuredIp);
     const dvrIp = isDocker && isPrivateIp && rawHttpPort > 10000 ? '172.20.0.1' : configuredIp;
