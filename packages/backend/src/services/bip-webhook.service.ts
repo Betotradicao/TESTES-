@@ -202,20 +202,13 @@ export class BipWebhookService {
       : 0;
 
     // === TRATAMENTO DE DATA ===
-    let finalEventDate: Date;
-    if (eventDate) {
-      // Se event_date vem no webhook em UTC, converter para horário de Brasília (UTC-3)
-      const utcDate = new Date(eventDate);
-
-      // Ajustar para timezone de Brasília (UTC-3 = -180 minutos)
-      const brazilOffsetMinutes = 180; // UTC-3
-      const localDate = new Date(utcDate.getTime() - brazilOffsetMinutes * 60 * 1000);
-
-      finalEventDate = localDate;
-    } else {
-      // Senão, usar sell_date do formatador
-      finalEventDate = new Date(formatResult.sell_date!);
-    }
+    // PDV envia em UTC com sufixo Z (ex: "2026-05-12T13:35:30.852Z").
+    // new Date(utcStr) ja cria Date object com timestamp UTC correto;
+    // TypeORM salva os componentes em horario local do servidor automaticamente.
+    // ANTES tinha subtract 3h aqui, mas isso DUPLICAVA a conversao e salvava 3h atrasado.
+    const finalEventDate = eventDate
+      ? new Date(eventDate)
+      : new Date(formatResult.sell_date!);
 
     return {
       ean: formatResult.sell_code!,
