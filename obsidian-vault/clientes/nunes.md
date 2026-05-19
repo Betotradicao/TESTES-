@@ -30,6 +30,15 @@ if (dbType === 'postgresql') {
 Métodos já bifurcados (exemplos):
 - `buscarVendasPorSetorPeriodoPostgresErp`
 - `buscarIndicadoresPeriodoPostgresErp`
+- `BipWebhookService.fetchProductFromERP` (2026-05-12) — chama `fetchProductFromOracle` ou `fetchProductFromPostgres` conforme `getActiveErpType()`. Era hardcoded Oracle, quebrava bipagens do Nunes com `[NÃO ENCONTRADO]` infinito + log poluído de `ORA-12170`.
+
+## 🔑 Regra de ouro
+
+**Tudo que toca o ERP do Nunes (PostgreSQL) DEVE ser bifurcado.**
+- Bifurcar localmente no método que faz a query, **não** trocar tudo pra Postgres.
+- Os 4 clientes Oracle (Tradição, SuperVital, MaxValle, Idealmix) DEVEM continuar usando o caminho Oracle, intocado.
+- O caminho Postgres é caminho NOVO ao lado, selecionado por `getActiveErpType()` (`is_default` + `status='active'` na `database_connections`).
+- **Nunca** colocar fallback cruzado (ex: "se Oracle falhar tenta Postgres") — vai mascarar erros reais.
 
 Ver feature completa: [[../bugs-resolvidos/2026-04-bifurcacao-postgresql-nunes|Bifurcação PostgreSQL para Nunes]]
 
