@@ -1,32 +1,44 @@
 # 🚧 Trabalho em Andamento
 
-## Sessão atual (2026-05-19)
+## Sessão atual (2026-05-20) — Pré-clipes Vision Palavra-Chave
 
-### Tarefa
-Implementado **pre-geracao de clipes DVR no Vision Palavra-Chave** (botao Play instantaneo pros 4 tipos: Canc. Item / Canc. Cupom / Canc. Venda / Desconto). Doc completa: [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave]]
+### Status: ⏸️ Aguardando observação ao longo do dia
 
-### Estado
-- ✅ Migration `1784810000000-CreateDvrPosEventClips.ts`
-- ✅ Entity `DvrPosEventClip`
-- ✅ Cron de pre-geracao (`0 */2 * * *`) em `index.ts`
-- ✅ Cron de limpeza 2 dias (`5 3 * * *`)
-- ✅ `enrichWithPreClips` no `dvr-cftv.controller.ts`
-- ✅ `handlePlayVideo` + botao verde em `VisionPalavraChave2.jsx`
-- ✅ Type-check backend OK
-- ✅ Vault atualizado
+Feature **pré-geração de clipes DVR** está deployada no **Tradição** e funcionando. Botão Play do Vision Palavra-Chave vira verde quando o clipe foi pré-gerado, toca instantâneo.
 
-### Próximo passo
-**Testar localmente:**
-1. Reiniciar backend pra rodar migration: `cd packages/backend && npm run dev`
-2. Reiniciar frontend
-3. Verificar que migration `1784810000000-CreateDvrPosEventClips` rodou sem erro
-4. Aguardar primeiro ciclo do cron (rodara em 0/2/4/6... cheio) ou disparar manualmente pra testar
-5. Validar visualmente: Play verde aparece, toca instantaneo
+Doc completa: [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave]]
 
-**Apos validacao → commit + push + deploy.**
+### Config final do cron (após tuning)
+- **Frequência:** a cada 30min (`*/30 * * * *`)
+- **Limite por execução:** 10 clipes
+- **Jitter:** 0-3min no início (evita pico simultâneo com outras lojas)
+- **Janela de busca:** últimas 48h
+- **Retenção:** 2 dias (cron limpa às 3:05 da manhã)
+- **Ordem:** mais recente → mais antigo (`eventos.reverse()`)
+- **Defesa:** `try/catch` no save absorve duplicate key (race condition)
 
-### Decisoes pendentes
-Nenhuma.
+### Caso de uso alvo
+Auditor abre Vision Palavra-Chave **hoje de manhã** e quer ver vídeos de eventos de **ontem**. Como o cron rodou ao longo do dia anterior, todos os eventos de ontem já estão verdes.
+
+### Cenário de bootstrap (já passou)
+Primeira vez que ligamos, fila de ~100 eventos das últimas 48h. Com 10/exec a cada 30min, zera em ~5-6h. Daí em diante regime normal.
+
+### Deployado em
+- ✅ Tradição (commits `e8b7ad1` + `617bff2`)
+- ✅ Nunes (mesmo commit; bifurca pra PG automaticamente)
+- ✅ SuperVital (cron roda mas pula loja — sem `dvr_devices` configurado)
+- ✅ MaxValle (cron roda mas pula loja — sem `dvr_devices` + Oracle inativo)
+- ⏸️ Idealmix (não deployado — usuario pediu pra pular)
+
+Quando configurarem `dvr_devices.cameras_pdv` no SuperVital ou MaxValle, a feature comeca a gerar clipes sozinha sem precisar mexer em codigo.
+
+### Próximas ações esperadas
+1. Usuário observa Tradição ao longo do dia
+2. Se OK: deploy nos outros 4 clientes
+3. Se precisar ajuste: discutir e novo commit
 
 ### Estado git
-Branch `TESTE`, commit `7a06251` (docs vault) ja pushado. Implementacao atual ainda **nao commitada** — aguardar teste local.
+Branch `TESTE` em sincronia com `origin/TESTE`. Último commit: `617bff2`.
+
+### Pendências de outras tarefas
+- Whitelabel da Mameva (pausado anteriormente — ver [[arquitetura/whitelabel]])

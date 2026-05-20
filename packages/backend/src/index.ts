@@ -1687,7 +1687,7 @@ const startServer = async () => {
 
       for (const company of companies) {
         if (processados >= MAX_POR_CICLO) break;
-        const codLoja = (company as any).cod_loja ?? 1;
+        const codLoja = (company as any).codLoja ?? (company as any).cod_loja ?? 1;
 
         // Cameras configuradas por PDV pra esta loja (dvr_devices)
         const device = await deviceRepo.findOne({
