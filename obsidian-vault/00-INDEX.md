@@ -61,6 +61,9 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 
 ## 🐛 Bugs Resolvidos / Features Recentes
 
+### Maio 2026
+- [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave|Pre-clipes DVR no Vision Palavra-Chave (botao Play verde)]]
+
 ### Abril 2026
 - [[bugs-resolvidos/2026-04-15-tiposSaida-gestao|NF Transferência contaminando Gestão Inteligente]]
 - [[bugs-resolvidos/2026-04-15-dif-anual-itens|Dif Anual em branco nos itens Compra x Venda]]

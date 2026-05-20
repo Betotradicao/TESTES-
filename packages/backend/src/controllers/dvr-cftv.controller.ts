@@ -316,10 +316,63 @@ export class DVRCFTVController {
       console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}, loja=${codLojaNum || 'TODAS'}`);
       const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr, codLojaNum);
 
-      res.json({ success: true, total: result.total, items: result.items });
+      // Enriquece items com pre-clipe (Canc.Item/Cupom/Venda + Desconto pre-gerados pelo cron)
+      const items = await DVRCFTVController.enrichWithPreClips(result.items, codLojaNum);
+
+      res.json({ success: true, total: result.total, items });
     } catch (error: any) {
       console.error('Erro busca Oracle/PG:', error.message);
       res.status(500).json({ error: 'Erro ao buscar: ' + error.message, details: error.message });
+    }
+  }
+
+  /**
+   * Cruza items retornados por searchOracleAllPdvs com a tabela dvr_pos_event_clips
+   * pra adicionar clip_status e clip_filename. Permite o frontend mostrar botao Play
+   * "verde" quando o clipe ja foi pre-gerado pelo cron.
+   */
+  private static async enrichWithPreClips(items: any[], codLoja?: number): Promise<any[]> {
+    if (!Array.isArray(items) || items.length === 0) return items || [];
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { DvrPosEventClip } = await import('../entities/DvrPosEventClip');
+      const repo = AppDataSource.getRepository(DvrPosEventClip);
+
+      // Tipos cobertos pelo cron de pre-geracao
+      const TIPOS_PRE = new Set(['CANC. ITEM', 'CANC. CUPOM', 'CANC. VENDA', 'DESCONTO']);
+
+      // Constroi event_keys apenas dos items elegiveis
+      const keys: string[] = [];
+      for (const it of items) {
+        const tipo = String(it.tipo || '').toUpperCase().trim();
+        if (!TIPOS_PRE.has(tipo)) continue;
+        const tipoKey = tipo.replace(/\s+/g, '').replace('.', '');
+        const loja = codLoja ?? 1;
+        keys.push(`${loja}|${it.pdv}|${it.cupomNum}|${tipoKey}|${it.time}`);
+      }
+      if (keys.length === 0) return items;
+
+      const clips = await repo.createQueryBuilder('c')
+        .where('c.event_key IN (:...keys)', { keys })
+        .getMany();
+      const byKey = new Map<string, { filename: string | null; status: string | null }>();
+      for (const c of clips) byKey.set(c.event_key, { filename: c.filename, status: c.clip_status });
+
+      return items.map((it: any) => {
+        const tipo = String(it.tipo || '').toUpperCase().trim();
+        if (!TIPOS_PRE.has(tipo)) return it;
+        const tipoKey = tipo.replace(/\s+/g, '').replace('.', '');
+        const loja = codLoja ?? 1;
+        const k = `${loja}|${it.pdv}|${it.cupomNum}|${tipoKey}|${it.time}`;
+        const hit = byKey.get(k);
+        if (hit?.status === 'ready' && hit.filename) {
+          return { ...it, clip_status: 'ready', clip_filename: hit.filename };
+        }
+        return it;
+      });
+    } catch (e: any) {
+      console.error('[VISION-PC2] enrichWithPreClips erro:', e?.message || e);
+      return items;
     }
   }
 

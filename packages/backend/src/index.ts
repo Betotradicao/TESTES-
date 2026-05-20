@@ -1635,6 +1635,201 @@ const startServer = async () => {
   console.log('🧹 Clipe-limpeza DVR cron job started (daily 3AM, retencao 2 dias)');
 
   // ==========================================
+  // CRON: Pre-geracao automatica de clipes DVR para eventos do PDV
+  // (Canc.Item/Cupom/Venda + Desconto) usados no Vision Palavra-Chave.
+  // Roda a cada 2h. Busca eventos das ultimas 48h, casa com cameras configuradas
+  // por PDV (dvr_devices.cameras_pdv) e gera o MP4 em background. Idempotente via event_key.
+  // ==========================================
+  cron.schedule('0 */2 * * *', async () => {
+    try {
+      const { AppDataSource } = await import('./config/database');
+      const { DvrPosEventClip } = await import('./entities/DvrPosEventClip');
+      const { DvrDevice } = await import('./entities/DvrDevice');
+      const { Company } = await import('./entities/Company');
+      const { DVRCFTVService } = await import('./services/dvr-cftv.service');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const clipRepo = AppDataSource.getRepository(DvrPosEventClip);
+      const deviceRepo = AppDataSource.getRepository(DvrDevice);
+      const companyRepo = AppDataSource.getRepository(Company);
+
+      // Janela de 48h ate agora (retencao do clipe e 2 dias entao nao faz sentido ir mais longe)
+      const now = new Date();
+      const startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const startStr = fmt(startDate);
+      const endStr = fmt(now);
+
+      // Lojas ativas
+      const companies = await companyRepo.createQueryBuilder('c')
+        .where('c.active = :a', { a: true })
+        .getMany();
+
+      if (companies.length === 0) return;
+
+      const clipsDir = path.join(__dirname, '../uploads/dvr-clips');
+      if (!fs.existsSync(clipsDir)) fs.mkdirSync(clipsDir, { recursive: true });
+
+      const MAX_POR_CICLO = 30;
+      let processados = 0;
+      let okCount = 0;
+      let pendingCount = 0;
+      let failedCount = 0;
+      let skipCount = 0;
+
+      for (const company of companies) {
+        if (processados >= MAX_POR_CICLO) break;
+        const codLoja = (company as any).cod_loja ?? 1;
+
+        // Cameras configuradas por PDV pra esta loja (dvr_devices)
+        const device = await deviceRepo.findOne({
+          where: { codigo_loja: codLoja, is_default: true, status: 'active' }
+        }) || await deviceRepo.findOne({
+          where: { codigo_loja: codLoja, status: 'active' }
+        });
+        const camerasPdv = (device && Array.isArray(device.cameras_pdv)) ? device.cameras_pdv : [];
+        if (camerasPdv.length === 0) continue;
+        const pdvToCam = new Map<number, { channel: number; antes?: number; depois?: number }>();
+        for (const c of camerasPdv) pdvToCam.set(Number(c.pdv), c);
+
+        // Busca os 3 tipos de cancelamento (genérico) + desconto
+        const eventos: any[] = [];
+        try {
+          const r1 = await DVRCFTVService.searchOracleAllPdvs(startStr, endStr, 'cancelado', undefined, undefined, codLoja);
+          if (r1?.items) eventos.push(...r1.items);
+        } catch (e: any) {
+          console.error(`🎬 [Pre-clipe-PDV] Falha busca cancelados loja ${codLoja}: ${e?.message || e}`);
+        }
+        try {
+          const r2 = await DVRCFTVService.searchOracleAllPdvs(startStr, endStr, 'desconto', undefined, undefined, codLoja);
+          if (r2?.items) eventos.push(...r2.items);
+        } catch (e: any) {
+          console.error(`🎬 [Pre-clipe-PDV] Falha busca descontos loja ${codLoja}: ${e?.message || e}`);
+        }
+
+        if (eventos.length === 0) continue;
+
+        // CANC.ITEM retorna 1 linha do Oracle por produto cancelado (mesmo cupom -> mesma event_key).
+        // Deduplicamos pelo event_key pra evitar duplicate key violation no save.
+        const seenKeys = new Set<string>();
+
+        for (const ev of eventos) {
+          if (processados >= MAX_POR_CICLO) break;
+
+          const cam = pdvToCam.get(Number(ev.pdv));
+          if (!cam) { skipCount++; continue; } // PDV sem camera configurada
+
+          // event_time como Date (formato "YYYY-MM-DD HH:mm:ss")
+          const eventTime = new Date(String(ev.time).replace(' ', 'T'));
+          if (isNaN(eventTime.getTime())) { skipCount++; continue; }
+
+          const tipo = String(ev.tipo || '').toUpperCase().trim(); // "CANC. ITEM" / "CANC. CUPOM" / "CANC. VENDA" / "DESCONTO"
+          const tipoKey = tipo.replace(/\s+/g, '').replace('.', ''); // CANCITEM / CANCCUPOM / CANCVENDA / DESCONTO
+          const eventKey = `${codLoja}|${ev.pdv}|${ev.cupomNum}|${tipoKey}|${ev.time}`;
+          if (eventKey.length > 160) continue;
+          if (seenKeys.has(eventKey)) { skipCount++; continue; }
+          seenKeys.add(eventKey);
+
+          // Ja tem registro?
+          const existing = await clipRepo.findOne({ where: { event_key: eventKey } });
+          if (existing && existing.clip_status === 'ready') { skipCount++; continue; }
+          if (existing && existing.clip_status === 'failed') { skipCount++; continue; }
+          if (existing && (existing.clip_retry_count ?? 0) >= 3) { skipCount++; continue; }
+
+          // Gera o clipe (limita duracao igual cron de bipagens)
+          const antes = Math.min(cam.antes ?? 15, 30);
+          const depois = Math.min(cam.depois ?? 120, 150);
+          const duracao = antes + depois;
+
+          processados++;
+          let record = existing || clipRepo.create({
+            event_key: eventKey,
+            cod_loja: codLoja,
+            pdv: Number(ev.pdv),
+            cupom_num: Number(ev.cupomNum),
+            event_time: eventTime,
+            tipo,
+            channel: cam.channel,
+            clip_retry_count: 0
+          });
+
+          try {
+            const filename = await DVRCFTVService.generateClip(cam.channel, ev.time, duracao);
+            record.filename = filename;
+            record.clip_status = 'ready';
+            record.clip_generated_at = new Date();
+            record.clip_retry_count = 0;
+            okCount++;
+          } catch (err: any) {
+            record.clip_retry_count = (record.clip_retry_count || 0) + 1;
+            record.clip_status = record.clip_retry_count >= 3 ? 'failed' : 'pending_retry';
+            if (record.clip_status === 'failed') failedCount++; else pendingCount++;
+            console.error(`🎬 [Pre-clipe-PDV] Falha bip loja=${codLoja} pdv=${ev.pdv} cupom=${ev.cupomNum} ch=${cam.channel}: ${err?.message || err}`);
+          }
+          await clipRepo.save(record);
+        }
+      }
+
+      if (processados > 0) {
+        console.log(`🎬 [Pre-clipe-PDV] Processados ${processados}: ${okCount} OK, ${pendingCount} retry, ${failedCount} desistido, ${skipCount} pulados`);
+      }
+    } catch (error) {
+      console.error('❌ Pre-geracao clipes PDV cron error:', error);
+    }
+  });
+  console.log('🎬 Pre-geracao clipes PDV (Vision Palavra-Chave) cron job started (every 2h)');
+
+  // ==========================================
+  // CRON: Limpeza de clipes do PDV (Vision Palavra-Chave) com mais de 2 dias
+  // Roda 1x por dia (3h05 da manha, depois do cron de bipagens).
+  // ==========================================
+  cron.schedule('5 3 * * *', async () => {
+    try {
+      const { AppDataSource } = await import('./config/database');
+      const { DvrPosEventClip } = await import('./entities/DvrPosEventClip');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const clipRepo = AppDataSource.getRepository(DvrPosEventClip);
+      const cutoff2d = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      const expirados = await clipRepo.createQueryBuilder('c')
+        .where('c.clip_status = :st', { st: 'ready' })
+        .andWhere('c.clip_generated_at < :cutoff', { cutoff: cutoff2d })
+        .getMany();
+
+      if (expirados.length === 0) {
+        console.log('🧹 [Clipe-PDV-limpeza] Nada a apagar.');
+        return;
+      }
+
+      const clipsDir = path.join(__dirname, '../uploads/dvr-clips');
+      let deletedFiles = 0;
+
+      for (const rec of expirados) {
+        if (rec.filename) {
+          const fp = path.join(clipsDir, rec.filename);
+          try {
+            if (fs.existsSync(fp)) { fs.unlinkSync(fp); deletedFiles++; }
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Remove registros expirados de uma vez
+      const ids = expirados.map(r => r.id);
+      if (ids.length > 0) {
+        await clipRepo.createQueryBuilder().delete().whereInIds(ids).execute();
+      }
+
+      console.log(`🧹 [Clipe-PDV-limpeza] ${deletedFiles} arquivos apagados, ${expirados.length} registros removidos (>2 dias).`);
+    } catch (error) {
+      console.error('❌ Clipe-PDV-limpeza cron error:', error);
+    }
+  });
+  console.log('🧹 Clipe-PDV-limpeza cron job started (daily 3:05 AM, retencao 2 dias)');
+
+  // ==========================================
   // CRON: Sync VectorStore do Garimpador (configurável via tela de IA)
   // Verifica a cada hora se é o momento de sincronizar
   // ==========================================

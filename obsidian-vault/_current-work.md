@@ -1,37 +1,32 @@
 # 🚧 Trabalho em Andamento
 
-## Sessão atual (2026-05-08)
+## Sessão atual (2026-05-19)
 
 ### Tarefa
-Planejando implementação de **whitelabel** — cliente Mameva quer revender com domínio próprio (`mameva.com.br`).
-
-**👉 DOC DE REFERÊNCIA: [[arquitetura/whitelabel]]**
-Se este chat cair, ler primeiro esse doc — tem estado atual + plano + rollback completo.
+Implementado **pre-geracao de clipes DVR no Vision Palavra-Chave** (botao Play instantaneo pros 4 tipos: Canc. Item / Canc. Cupom / Canc. Venda / Desconto). Doc completa: [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave]]
 
 ### Estado
-- ✅ Investigação feita: domínio hardcoded em `InstaladorVPS/install-multitenant.sh:134`
-- ✅ Levantamento dos 12 arquivos de UI com "Radar 360"/"Prevenção no Radar" hardcoded (lista no doc)
-- ✅ Confirmado: `client_brand_name` e `client_logo_url` em `configurations` JÁ existem (Logo.jsx + EmpresaConfigTab.jsx leem)
-- ✅ Doc criado: `obsidian-vault/arquitetura/whitelabel.md`
-- ✅ Index do vault atualizado com link
-- ⏸️ **Aguardando OK do usuário** pra começar a implementação fase 1 (3-4h)
-
-### Decisões pendentes
-- DPO Radar 360 continua sendo `dpo@prevencaonoradar.com.br` mesmo no whitelabel? (provavelmente sim — você é Operador real)
-- Cliente piloto: subdomínio real ou `mameva-teste.local` via hosts file?
+- ✅ Migration `1784810000000-CreateDvrPosEventClips.ts`
+- ✅ Entity `DvrPosEventClip`
+- ✅ Cron de pre-geracao (`0 */2 * * *`) em `index.ts`
+- ✅ Cron de limpeza 2 dias (`5 3 * * *`)
+- ✅ `enrichWithPreClips` no `dvr-cftv.controller.ts`
+- ✅ `handlePlayVideo` + botao verde em `VisionPalavraChave2.jsx`
+- ✅ Type-check backend OK
+- ✅ Vault atualizado
 
 ### Próximo passo
-Esperar confirmação. Quando OK, fazer fase 1:
-1. Modificar instalador pra aceitar `CUSTOM_DOMAIN` opcional
-2. Trocar 12 hardcodes pra ler `client_brand_name` (com fallback "Radar 360")
-3. EmpresaConfigTab ganhar campos extras (cor primária, favicon, title, DPO email)
+**Testar localmente:**
+1. Reiniciar backend pra rodar migration: `cd packages/backend && npm run dev`
+2. Reiniciar frontend
+3. Verificar que migration `1784810000000-CreateDvrPosEventClips` rodou sem erro
+4. Aguardar primeiro ciclo do cron (rodara em 0/2/4/6... cheio) ou disparar manualmente pra testar
+5. Validar visualmente: Play verde aparece, toca instantaneo
 
-### Pendências de outras tarefas
-- Deploy nos clientes restantes do commit `3b4be94` (fix módulos no banco): SuperVital, MaxValle, Nunes, Idealmix
-- Já no ar: novacentral, tradicao, mameva
+**Apos validacao → commit + push + deploy.**
+
+### Decisoes pendentes
+Nenhuma.
 
 ### Estado git
-Branch `TESTE`, tudo commitado/pushado. Últimos commits:
-- `3b4be94` fix(modulos): config sai do localStorage e vai pro banco
-- `c90b8f5` feat(rh-curriculos): coluna Idade + filtros normalizam acentos
-- `bd39e6d` feat(rh): vagas com selecao de candidatos + curriculo publico com vagas
+Branch `TESTE`, commit `7a06251` (docs vault) ja pushado. Implementacao atual ainda **nao commitada** — aguardar teste local.

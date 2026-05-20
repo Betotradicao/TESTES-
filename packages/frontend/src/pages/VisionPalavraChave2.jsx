@@ -158,31 +158,38 @@ export default function VisionPalavraChave2() {
       setError(`Nenhuma camera configurada para o PDV ${item.pdv}. Configure em Configuracoes.`);
       return;
     }
-    setLoadingClip(item.cupomNum);
     setVideoTime(item.time);
     setError('');
     setVideoUrl(null);
 
-    // Usa antes/depois configurados por canal (coluna "Pal. Chave 2" em Configurações de Rede)
-    const antes = cam.antes ?? 15;
-    const depois = cam.depois ?? 120;
-    const duracao = antes + depois;
-    try {
-      const res = await api.get('/dvr-cftv/pos/generate-clip', {
-        params: { channel: cam.channel, time: item.time, duration: duracao },
-        timeout: 180000
-      });
-      if (res.data?.success && res.data.filename) {
-        const baseUrl = getApiBaseUrl().replace(/\/$/, '');
-        const token = localStorage.getItem('token');
-        setVideoUrl(`${baseUrl}/dvr-cftv/pos/stream/${res.data.filename}?token=${token}`);
-      } else {
-        setError('Falha ao gerar video');
+    // Atalho: clipe pre-gerado pelo cron (a cada 2h). Toca direto sem chamar ffmpeg.
+    if (item.clip_status === 'ready' && item.clip_filename) {
+      const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+      const token = localStorage.getItem('token');
+      setVideoUrl(`${baseUrl}/dvr-cftv/pos/stream/${item.clip_filename}?token=${token}`);
+    } else {
+      setLoadingClip(item.cupomNum);
+      // Usa antes/depois configurados por canal (coluna "Pal. Chave 2" em Configurações de Rede)
+      const antes = cam.antes ?? 15;
+      const depois = cam.depois ?? 120;
+      const duracao = antes + depois;
+      try {
+        const res = await api.get('/dvr-cftv/pos/generate-clip', {
+          params: { channel: cam.channel, time: item.time, duration: duracao },
+          timeout: 180000
+        });
+        if (res.data?.success && res.data.filename) {
+          const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+          const token = localStorage.getItem('token');
+          setVideoUrl(`${baseUrl}/dvr-cftv/pos/stream/${res.data.filename}?token=${token}`);
+        } else {
+          setError('Falha ao gerar video');
+        }
+      } catch (e) {
+        setError('Erro ao gerar clip: ' + (e?.response?.data?.error || e?.message || 'desconhecido'));
+      } finally {
+        setLoadingClip(null);
       }
-    } catch (e) {
-      setError('Erro ao gerar clip: ' + (e?.response?.data?.error || e?.message || 'desconhecido'));
-    } finally {
-      setLoadingClip(null);
     }
 
     // Buscar cupom automaticamente
@@ -479,7 +486,7 @@ export default function VisionPalavraChave2() {
                     <span className="ml-2 text-sm text-yellow-700">Buscando cupom...</span>
                   </div>
                 ) : cupomData && cupomData.found ? (
-                  <div className="font-mono text-xs p-3" style={{ fontFamily: "'Courier New', monospace", backgroundColor: '#FFFDE7', color: '#5D4037' }}>
+                  <div className="font-mono text-sm p-3" style={{ fontFamily: "'Courier New', monospace", backgroundColor: '#FFFDE7', color: '#5D4037' }}>
                     <div className="text-center border-b border-dashed pb-2 mb-2" style={{ borderColor: '#D4A017' }}>
                       <p className="font-bold">CUPOM FISCAL</p>
                       <p>PDV {cupomData.pdv || '?'} - Cupom #{cupomData.cupom}</p>
@@ -489,7 +496,7 @@ export default function VisionPalavraChave2() {
                       )}
                     </div>
                     {cupomData.operador && (
-                      <div className="border-b border-dashed pb-1 mb-1 text-[10px]" style={{ borderColor: '#D4A017' }}>
+                      <div className="border-b border-dashed pb-1 mb-1 text-[12px]" style={{ borderColor: '#D4A017' }}>
                         <p>Operador: <strong>{cupomData.operador}</strong></p>
                       </div>
                     )}
@@ -509,7 +516,7 @@ export default function VisionPalavraChave2() {
                           <span className="truncate mr-2" style={{ maxWidth: '320px' }}>{item.descricao}</span>
                           <span className={`whitespace-nowrap ${highlight ? 'font-bold' : 'font-semibold'}`}>{formatCurrency(item.total)}</span>
                         </div>
-                        <div className="text-[10px]" style={{ color: highlight ? '#C62828' : '#8D6E63' }}>
+                        <div className="text-[12px]" style={{ color: highlight ? '#C62828' : '#8D6E63' }}>
                           {item.qtd} x {formatCurrency(item.unitario)}{hasDesc ? ` (desconto: -${formatCurrency(item.desconto)})` : ''}
                         </div>
                       </div>
@@ -517,26 +524,26 @@ export default function VisionPalavraChave2() {
                     })}
                     <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
                       {cupomData.desconto > 0 && (
-                        <div className="flex justify-between text-[11px]" style={{ color: '#C62828' }}>
+                        <div className="flex justify-between text-[13px]" style={{ color: '#C62828' }}>
                           <span>DESCONTO</span>
                           <span>-{formatCurrency(cupomData.desconto)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between font-bold text-sm mt-1">
+                      <div className="flex justify-between font-bold text-base mt-1">
                         <span>TOTAL ({cupomData.qtdItens} itens)</span>
                         <span>{formatCurrency(cupomData.total)}</span>
                       </div>
                     </div>
                     {cupomData.itensComDesconto?.length > 0 && (
                       <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
-                        <p className="text-[10px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS COM DESCONTO:</p>
+                        <p className="text-[12px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS COM DESCONTO:</p>
                         {cupomData.itensComDesconto.map((d, i) => (
-                          <div key={`desc-${i}`} className="text-[11px]" style={{ color: '#C62828' }}>
+                          <div key={`desc-${i}`} className="text-[13px]" style={{ color: '#C62828' }}>
                             <div className="flex justify-between">
                               <span className="truncate mr-2" style={{ maxWidth: '260px' }}>{d.descricao}</span>
                               <span className="whitespace-nowrap font-semibold">{formatCurrency(d.totalFinal)}</span>
                             </div>
-                            <div className="text-[10px]" style={{ color: '#8D6E63' }}>
+                            <div className="text-[12px]" style={{ color: '#8D6E63' }}>
                               de {formatCurrency(d.totalAntes)} por {formatCurrency(d.totalFinal)} (-{formatCurrency(d.desconto)})
                             </div>
                           </div>
@@ -545,14 +552,14 @@ export default function VisionPalavraChave2() {
                     )}
                     {cupomData.itensCancelados?.length > 0 && (
                       <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
-                        <p className="text-[10px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS CANCELADOS:</p>
+                        <p className="text-[12px] font-bold mb-0.5" style={{ color: '#C62828' }}>ITENS CANCELADOS:</p>
                         {cupomData.itensCancelados.map((c, i) => (
-                          <div key={`canc-${i}`} className="text-[11px]" style={{ color: '#C62828' }}>
+                          <div key={`canc-${i}`} className="text-[13px]" style={{ color: '#C62828' }}>
                             <div className="flex justify-between">
                               <span className="truncate mr-2" style={{ maxWidth: '260px' }}>{c.descricao}</span>
                               <span className="whitespace-nowrap font-semibold">-{formatCurrency(c.total)}</span>
                             </div>
-                            <div className="text-[10px]" style={{ color: '#8D6E63' }}>
+                            <div className="text-[12px]" style={{ color: '#8D6E63' }}>
                               {c.qtd || 1} x {formatCurrency((c.total || 0) / (c.qtd || 1))}
                             </div>
                           </div>
@@ -561,10 +568,10 @@ export default function VisionPalavraChave2() {
                     )}
                     {cupomData.formaPgto && (
                       <div className="border-t border-dashed mt-1 pt-1" style={{ borderColor: '#D4A017' }}>
-                        <p className="text-[10px] font-bold mb-0.5">PAGAMENTO:</p>
-                        <p className="text-[10px]">{cupomData.formaPgto}</p>
+                        <p className="text-[12px] font-bold mb-0.5">PAGAMENTO:</p>
+                        <p className="text-[12px]">{cupomData.formaPgto}</p>
                         {cupomData.troco > 0 && (
-                          <p className="text-[10px]">TROCO: {formatCurrency(cupomData.troco)}</p>
+                          <p className="text-[12px]">TROCO: {formatCurrency(cupomData.troco)}</p>
                         )}
                       </div>
                     )}
@@ -666,17 +673,34 @@ export default function VisionPalavraChave2() {
                         </button>
                       </td>
                       <td className="px-3 py-1.5 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handlePlayVideo(item); }}
-                          disabled={loadingClip === item.cupomNum || !getCameraForPdv(item.pdv)}
-                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-1"
-                          title={!getCameraForPdv(item.pdv) ? `PDV ${item.pdv} sem camera configurada` : 'Reproduzir video'}
-                        >
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                          Play
-                        </button>
+                        {(() => {
+                          const isReady = item.clip_status === 'ready' && !!item.clip_filename;
+                          const noCam = !getCameraForPdv(item.pdv);
+                          const colorCls = isReady
+                            ? 'bg-green-600 hover:bg-green-700'
+                            : 'bg-purple-600 hover:bg-purple-700';
+                          const titleTxt = noCam
+                            ? `PDV ${item.pdv} sem camera configurada`
+                            : isReady ? 'Clipe pre-carregado — toca instantaneo' : 'Reproduzir video (gera na hora)';
+                          return (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handlePlayVideo(item); }}
+                              disabled={loadingClip === item.cupomNum || noCam}
+                              className={`px-2 py-1 ${colorCls} text-white text-xs rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-1`}
+                              title={titleTxt}
+                            >
+                              {isReady && (
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                              Play
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
