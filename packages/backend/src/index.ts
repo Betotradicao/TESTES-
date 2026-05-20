@@ -1637,11 +1637,18 @@ const startServer = async () => {
   // ==========================================
   // CRON: Pre-geracao automatica de clipes DVR para eventos do PDV
   // (Canc.Item/Cupom/Venda + Desconto) usados no Vision Palavra-Chave.
-  // Roda a cada 2h. Busca eventos das ultimas 48h, casa com cameras configuradas
+  // Roda a cada 30min. Busca eventos das ultimas 48h, casa com cameras configuradas
   // por PDV (dvr_devices.cameras_pdv) e gera o MP4 em background. Idempotente via event_key.
+  //
+  // Jitter de 0-180s no inicio: 5 lojas na mesma VPS nao disparam no mesmo segundo
+  // (evita pico de ffmpegs simultaneos).
   // ==========================================
-  cron.schedule('0 */2 * * *', async () => {
+  cron.schedule('*/30 * * * *', async () => {
     try {
+      // Jitter pra espalhar a carga entre lojas multi-tenant
+      const jitterMs = Math.floor(Math.random() * 180_000);
+      await new Promise(resolve => setTimeout(resolve, jitterMs));
+
       const { AppDataSource } = await import('./config/database');
       const { DvrPosEventClip } = await import('./entities/DvrPosEventClip');
       const { DvrDevice } = await import('./entities/DvrDevice');
@@ -1671,7 +1678,7 @@ const startServer = async () => {
       const clipsDir = path.join(__dirname, '../uploads/dvr-clips');
       if (!fs.existsSync(clipsDir)) fs.mkdirSync(clipsDir, { recursive: true });
 
-      const MAX_POR_CICLO = 30;
+      const MAX_POR_CICLO = 10;
       let processados = 0;
       let okCount = 0;
       let pendingCount = 0;
@@ -1709,6 +1716,9 @@ const startServer = async () => {
         }
 
         if (eventos.length === 0) continue;
+
+        // Processa do MAIS RECENTE pro mais antigo (eventos vem do Oracle ordenados ASC)
+        eventos.reverse();
 
         // CANC.ITEM retorna 1 linha do Oracle por produto cancelado (mesmo cupom -> mesma event_key).
         // Deduplicamos pelo event_key pra evitar duplicate key violation no save.
@@ -1767,7 +1777,13 @@ const startServer = async () => {
             if (record.clip_status === 'failed') failedCount++; else pendingCount++;
             console.error(`🎬 [Pre-clipe-PDV] Falha bip loja=${codLoja} pdv=${ev.pdv} cupom=${ev.cupomNum} ch=${cam.channel}: ${err?.message || err}`);
           }
-          await clipRepo.save(record);
+          try {
+            await clipRepo.save(record);
+          } catch (saveErr: any) {
+            if (saveErr?.code === '23505') {
+              // Duplicate key — outro processo (cron paralelo) ja inseriu
+            } else throw saveErr;
+          }
         }
       }
 
@@ -1778,7 +1794,7 @@ const startServer = async () => {
       console.error('❌ Pre-geracao clipes PDV cron error:', error);
     }
   });
-  console.log('🎬 Pre-geracao clipes PDV (Vision Palavra-Chave) cron job started (every 2h)');
+  console.log('🎬 Pre-geracao clipes PDV (Vision Palavra-Chave) cron job started (every 30min, max 10/exec, jitter 0-3min)');
 
   // ==========================================
   // CRON: Limpeza de clipes do PDV (Vision Palavra-Chave) com mais de 2 dias
