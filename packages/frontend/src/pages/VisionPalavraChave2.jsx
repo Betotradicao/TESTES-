@@ -618,6 +618,7 @@ export default function VisionPalavraChave2() {
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Cupom</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Tipo</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 w-24">Valor</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 w-24">Cedula</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Nota</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Video</th>
                   </tr>
@@ -625,7 +626,7 @@ export default function VisionPalavraChave2() {
                 <tbody className="divide-y divide-gray-100">
                   {results.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-gray-400 text-sm">
+                      <td colSpan={10} className="px-3 py-8 text-center text-gray-400 text-sm">
                         {total === 0 ? 'Faca uma busca para ver os resultados' : 'Nenhum resultado'}
                       </td>
                     </tr>
@@ -653,6 +654,9 @@ export default function VisionPalavraChave2() {
                         <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${tipoColor(item.tipo)}`}>{item.tipo}</span>
                       </td>
                       <td className="px-3 py-1.5 text-right text-sm font-medium">{formatCurrency(item.valor)}</td>
+                      <td className="px-3 py-1.5 text-right text-sm font-semibold text-green-700">
+                        {item.cedula != null ? formatCurrency(item.cedula) : <span className="text-gray-300">-</span>}
+                      </td>
                       <td className="px-3 py-1.5 text-center">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleShowCupom(item); }}

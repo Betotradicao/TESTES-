@@ -1053,13 +1053,23 @@ export class DVRCFTVService {
     const valorExpr = keyword === 'desconto'
       ? `SUM(p.${n.C_PDV_DESCONTO})`
       : `SUM(p.${n.C_PDV_VALOR})`;
+
+    // Cedula = valor entregue pelo cliente na finalizadora.
+    // No Intersolid (Oracle): NAO esta disponivel — VAL_RECEBIDO espelha VAL_LIQUIDO
+    // (PDV nao captura cedula real). Verificado em 1,3M transacoes (2023-2026): VAL_TROCO
+    // sempre 0, VAL_RECEBIDO = VAL_LIQUIDO. Retornamos NULL pra ficar coerente com a UI.
+    // No RP INFO (Postgres / Nunes): vofi_valor/vofi_troco capturam direito — feito
+    // em searchPostgresAllPdvs.
+    const cedulaExpr = 'NULL';
+
     const sql = `
-      SELECT sub.NUM_CUPOM_FISCAL, sub.NUM_PDV, sub.HORA_CUPOM, sub.VALOR, sub.QTD_ITENS,
+      SELECT sub.NUM_CUPOM_FISCAL, sub.NUM_PDV, sub.HORA_CUPOM, sub.VALOR, sub.QTD_ITENS, sub.VALOR_CEDULA,
              op.${n.C_OP_NOME} as NOM_OPERADOR
       FROM (
         SELECT p.${n.C_PDV_CUPOM} as NUM_CUPOM_FISCAL, p.${n.C_PDV_NUM_PDV} as NUM_PDV, p.${n.C_PDV_DATA},
                TO_CHAR(p.${n.C_PDV_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.${n.C_PDV_HORA}), 'HH24:MI:SS') as HORA_CUPOM,
                ${valorExpr} as VALOR,
+               ${cedulaExpr} as VALOR_CEDULA,
                COUNT(*) as QTD_ITENS,
                (SELECT MAX(cf2.${n.C_CF_OPERADOR}) FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf2
                 WHERE cf2.${n.C_CF_CUPOM} = p.${n.C_PDV_CUPOM} AND cf2.${n.C_CF_PDV} = p.${n.C_PDV_NUM_PDV}
@@ -1083,7 +1093,8 @@ export class DVRCFTVService {
         pdv: Number(row.NUM_PDV), produto: '',
         valor: Number(row.VALOR) || 0, tipo: tipoLabel,
         qtdItens: Number(row.QTD_ITENS) || 0,
-        operador: (row.NOM_OPERADOR || '').trim()
+        operador: (row.NOM_OPERADOR || '').trim(),
+        cedula: row.VALOR_CEDULA != null ? Number(row.VALOR_CEDULA) : null
       });
     }
 
@@ -1242,6 +1253,7 @@ export class DVRCFTVService {
       const sql = `SELECT f.vofi_cupom as cupom, f.vofi_pdvs_codigo as pdv,
         f.vofi_datamvto::text || ' ' || SUBSTR(f.vofi_hora,1,2)||':'||SUBSTR(f.vofi_hora,3,2)||':'||SUBSTR(f.vofi_hora,5,2) as hora,
         (f.vofi_valor - COALESCE(f.vofi_troco,0))::float as valor,
+        f.vofi_valor::float as cedula,
         COALESCE(fn.func_nome, vp.vopr_operador::text, '') as operador
         FROM public.vdonlinefi f
         LEFT JOIN public.vdonlineprod vp ON vp.vopr_cupom = f.vofi_cupom AND vp.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND vp.vopr_datamvto = f.vofi_datamvto AND vp.vopr_tiporeg = 'IT' AND vp.vopr_sequencial = (SELECT MIN(v2.vopr_sequencial) FROM public.vdonlineprod v2 WHERE v2.vopr_cupom = f.vofi_cupom AND v2.vopr_pdvs_codigo = f.vofi_pdvs_codigo AND v2.vopr_datamvto = f.vofi_datamvto AND v2.vopr_tiporeg = 'IT')
@@ -1252,7 +1264,7 @@ export class DVRCFTVService {
         ORDER BY f.vofi_hora`;
       const rows = await PostgresErpService.query<any>(sql, fp);
       for (const r of rows) {
-        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: (r.operador || '').trim() });
+        results.push({ time: r.hora, cupomNum: Number(r.cupom), pdv: Number(r.pdv), produto: '', valor: Number(r.valor) || 0, tipo: textUpper || 'FINALIZADORA', operador: (r.operador || '').trim(), cedula: r.cedula != null ? Number(r.cedula) : null });
       }
       return { total: results.length, items: results };
     }
