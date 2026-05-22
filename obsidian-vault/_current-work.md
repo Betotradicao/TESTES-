@@ -1,44 +1,32 @@
 # 🚧 Trabalho em Andamento
 
-## Sessão atual (2026-05-20) — Pré-clipes Vision Palavra-Chave
+## Sessão 2026-05-22 — Custo real Nunes documentado ✅
 
-### Status: ⏸️ Aguardando observação ao longo do dia
+### Status: Descobertas no vault
 
-Feature **pré-geração de clipes DVR** está deployada no **Tradição** e funcionando. Botão Play do Vision Palavra-Chave vira verde quando o clipe foi pré-gerado, toca instantâneo.
+Investigação completa salva em [[bugs-resolvidos/2026-05-22-custo-nunes-formula-correta]] e nota do [[clientes/nunes|Nunes]] atualizada.
 
-Doc completa: [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave]]
+**Resumo da descoberta:**
+- Fórmula correta: `SUM(mprd_ctmedio + mprd_ctvenda)` em `movprodd{MMYY}` com filtro `mprd_dcto_tipo = 'EVP'`
+- Bate 99,85% com o app oficial do RP INFO (R$ 12.849,34 vs 12.829,48 — diff R$ 19,86)
+- Filtro `dcto_tipo='EVP'` é OBRIGATÓRIO — sem ele pega EAQ/ESE/EDC/etc e infla
+- Substitui fórmula antiga `vopr_custoentrada * qtde + vopr_icmsvalor` (errava ~1,5%)
+- Diff residual 0,15% provável crédito PIS/Cofins apurado mensalmente (aceitável)
 
-### Config final do cron (após tuning)
-- **Frequência:** a cada 30min (`*/30 * * * *`)
-- **Limite por execução:** 10 clipes
-- **Jitter:** 0-3min no início (evita pico simultâneo com outras lojas)
-- **Janela de busca:** últimas 48h
-- **Retenção:** 2 dias (cron limpa às 3:05 da manhã)
-- **Ordem:** mais recente → mais antigo (`eventos.reverse()`)
-- **Defesa:** `try/catch` no save absorve duplicate key (race condition)
+### ⏸️ Pendente — aplicar no código
+Arquivo: `packages/backend/src/services/gestao-inteligente.service.ts`
+Caminho Postgres do Nunes — substituir fórmula. Aguardando OK do Roberto pra implementar.
 
-### Caso de uso alvo
-Auditor abre Vision Palavra-Chave **hoje de manhã** e quer ver vídeos de eventos de **ontem**. Como o cron rodou ao longo do dia anterior, todos os eventos de ontem já estão verdes.
+### ✅ Conexão Nunes atualizada (2026-05-22)
+Migrou do túnel SSH pra conexão **direta via DDNS MikroTik**:
+- Host Nuvem: `hea08skfqwk.sn.mynetname.net:10835`
+- Host Local: `192.168.102.10:10835`
+- Testado e funcionando — query custo 21/05 retornou R$ 12.849,34 conforme documentado.
 
-### Cenário de bootstrap (já passou)
-Primeira vez que ligamos, fila de ~100 eventos das últimas 48h. Com 10/exec a cada 30min, zera em ~5-6h. Daí em diante regime normal.
+DVR continua via túnel SSH (portas 38100/38101) — só o ERP migrou pra DDNS.
 
-### Deployado em
-- ✅ Tradição (commits `e8b7ad1` + `617bff2`)
-- ✅ Nunes (mesmo commit; bifurca pra PG automaticamente)
-- ✅ SuperVital (cron roda mas pula loja — sem `dvr_devices` configurado)
-- ✅ MaxValle (cron roda mas pula loja — sem `dvr_devices` + Oracle inativo)
-- ⏸️ Idealmix (não deployado — usuario pediu pra pular)
-
-Quando configurarem `dvr_devices.cameras_pdv` no SuperVital ou MaxValle, a feature comeca a gerar clipes sozinha sem precisar mexer em codigo.
-
-### Próximas ações esperadas
-1. Usuário observa Tradição ao longo do dia
-2. Se OK: deploy nos outros 4 clientes
-3. Se precisar ajuste: discutir e novo commit
-
-### Estado git
-Branch `TESTE` em sincronia com `origin/TESTE`. Último commit: `617bff2`.
-
-### Pendências de outras tarefas
-- Whitelabel da Mameva (pausado anteriormente — ver [[arquitetura/whitelabel]])
+## 📋 Pendências de sessões anteriores
+1. **49 bipagens Tradicao "ready" sem arquivo** — aguardando OK pro UPDATE bips SET clip_status=NULL
+2. **Filtro IP roteador** Tradicao/Nunes (presencial)
+3. **Cliente Fratelli** — esperando portas abrirem
+4. **Fornecedor Pedido Público** — backend + frontend prontos, falta validar fluxo e fazer deploy

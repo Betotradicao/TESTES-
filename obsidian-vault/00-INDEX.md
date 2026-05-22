@@ -62,6 +62,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ## 🐛 Bugs Resolvidos / Features Recentes
 
 ### Maio 2026
+- [[bugs-resolvidos/2026-05-22-custo-nunes-formula-correta|🌟 Custo real Nunes — fórmula ctmedio+ctvenda em movprodd (99,85%)]]
 - [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave|Pre-clipes DVR no Vision Palavra-Chave (botao Play verde)]]
 
 ### Abril 2026

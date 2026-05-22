@@ -6,11 +6,15 @@ Cliente com **ERP diferente dos demais** — usa **RP INFO com PostgreSQL** (nã
 **Nunes NÃO é Oracle.** Tem código bifurcado em várias partes do backend pra suportar Postgres. Antes de alterar query, verificar se existe versão `*PostgresErp` do método.
 
 ## 🔌 ERP
-- **Banco:** PostgreSQL (não Oracle)
+- **Banco:** PostgreSQL 17.5 (não Oracle)
 - **Sistema ERP:** RP INFO
-- **Host ERP:** `192.168.102.10:10835` (via túnel — no container usar `172.20.0.1:10835`)
+- **Conexão (2026-05-22):** Direta via DDNS do MikroTik — **sem túnel SSH**
+  - **Host Nuvem (VPS/Docker):** `hea08skfqwk.sn.mynetname.net:10835`
+  - **Host Local (rede interna):** `192.168.102.10:10835`
+  - O sistema usa Host Local em dev, Host Nuvem rodando na VPS via Docker
 - **Database:** `erp`
 - **Usuário:** `bi`
+- **Senha:** `Nunes@2026` (atualizada 2026-05-22)
 - **Tabelas principais:**
   - `vdonlineprod` — vendas tempo real (~últimos 13 dias)
   - `vdadet{MMYY}` — venda detalhada histórica (particionada por mês, ex: `vdadet0426`)
@@ -47,7 +51,7 @@ Ver feature completa: [[../bugs-resolvidos/2026-04-bifurcacao-postgresql-nunes|B
 - Média linear (histórico do ano anterior) pode não existir no Nunes — variável `skipML`
 - Filtros de TIPO_SAIDA podem ter códigos diferentes em cada ERP
 - `vdonlineprod` só tem ~13 dias — pra períodos anteriores usar `vdadet{MMYY}`
-- Custo PG = `vopr_custoentrada * qtde + vopr_icmsvalor` (fórmula atual em [[gestao-inteligente.service.ts]])
+- Custo PG ✅ correto = `mprd_ctmedio + mprd_ctvenda` em `movprodd{MMYY}` com filtro `dcto_tipo='EVP'`. Detalhes na seção "Fórmula de Custo" abaixo + [[../bugs-resolvidos/2026-05-22-custo-nunes-formula-correta]]
 
 ## 🏷️ Cadastro de Produtos (`produtos`)
 Tabela principal: `public.produtos` (campos prefixados `prod_`).
@@ -68,8 +72,30 @@ Bipagem de produto de balança vem como EAN-13 começando com `2`:
 - Exemplo: `2400750000066` → PLU=`400750`, valor=`00006` (R$ 0,06), DV=`6`
 - Sistema bipagens precisa decompor o EAN e buscar o PLU em `produtos.prod_codigo` filtrando `prod_balanca IN ('P','U')`. Se cair em produto com `prod_balanca='N'`, é EAN bipado incorretamente (não era balança).
 
-## 💰 Fórmula de Custo (aproximação atual)
-Fórmula nossa bate dentro de ~1,5% do "custo" que o app do RP INFO mostra. Diferença vem de impostos adicionais (PIS/COFINS com crédito, ICMS desonerado, apurações mensais) que nosso sistema não reproduz. É **aproximação gerencial**, não apuração fiscal.
+## 💰 Fórmula de Custo (✅ validada 99,85% em 2026-05-22)
+
+**Bater 100% com o app oficial do RP INFO** (fonte da verdade do Roberto):
+
+```sql
+SELECT SUM(mprd_ctmedio + mprd_ctvenda) AS custo_real
+FROM movprodd{MMYY}                         -- particionada (ex: movprodd0526 = maio/26)
+WHERE mprd_datamvto::date = :data
+  AND mprd_unid_codigo::int = :cod_loja
+  AND mprd_dcto_tipo = 'EVP';               -- ⚠️ OBRIGATÓRIO (Estoque Venda PDV)
+```
+
+**Por que `movprodd` e não `vdonlineprod`:**
+- `vdonlineprod` tem venda + custo de entrada cru (sem PIS/Cofins apurados)
+- `movprodd{MMYY}` é movimento contábil completo: `ctmedio` (custo médio puro) + `ctvenda` (ICMS+PIS+Cofins consolidado)
+
+**`mprd_dcto_tipo='EVP'` é essencial** — sem isso pega entradas de fornecedor (EAQ), transferências, devoluções, etc. → custo inflado absurdamente.
+
+**Diff residual:** ~0,15% (R$ 19,86 em R$ 12.829 — caso 21/05/2026 Loja 1). Origem provável: apuração mensal de crédito PIS/Cofins. Aceitável pra dashboard gerencial.
+
+⚠️ **Particionamento por mês**: a tabela muda nome todo mês (`movprodd0526`, `movprodd0626`, ...). Em queries que abrangem mais de um mês precisa de UNION ALL ou montar nome dinâmico.
+
+Investigação completa: [[../bugs-resolvidos/2026-05-22-custo-nunes-formula-correta]]
+Fórmula antiga errada (~1,5% off): `vopr_custoentrada * qtde + vopr_icmsvalor` em `vdonlineprod` — substituir.
 
 ## 🧾 Como o RP INFO marca cancelamentos (crítico pra Vision)
 
@@ -86,12 +112,26 @@ Fórmula nossa bate dentro de ~1,5% do "custo" que o app do RP INFO mostra. Dife
 
 Ver fix completo em [[../bugs-resolvidos/2026-04-16-nunes-vision-canc-desconto|Vision filtros CANC/Desconto do Nunes]].
 
+## 💵 Cédula entregue pelo cliente (Dinheiro)
+
+**Funciona no Nunes** (RP INFO) — diferente dos clientes Intersolid.
+
+| Coluna em `public.vdonlinefi` | Significado |
+|---|---|
+| `vofi_valor` | Cédula bruta entregue pelo cliente |
+| `vofi_troco` | Troco devolvido |
+| `vofi_valor - vofi_troco` | Valor líquido da compra |
+
+Exposto na coluna "Cédula" do Vision Palavra-Chave (verde). Útil para rastreamento forense (notas falsas, diferenças de caixa).
+
+**Intersolid (Tradição, SuperVital, MaxValle) NÃO captura essa info** — confirmado em 1.34M transações: `VAL_TROCO=0` sempre, `VAL_RECEBIDO=VAL_LIQUIDO` sempre. Coluna mostra "-" pra esses clientes.
+
 ## 🎥 DVR / Câmeras (FUNCIONANDO ✅)
 
 ### Rede e portas
 - **DVR local:** `192.168.102.169` — modelo **iMHDX 3132** (Dahua/Intelbras)
 - **Codec nativo:** **H.265 (HEVC)** — converte para H.264 via FFmpeg (ver [[../modulos/dvr-cameras|DVR e Câmeras]])
-- **Portas VPS do túnel:**
+- **Portas VPS do túnel SSH** (mantido — só o ERP migrou pra DDNS):
   - HTTP: `38100`
   - RTSP: `38101`
 - **Host no sistema:** `host.docker.internal` (nunca o IP local do DVR)

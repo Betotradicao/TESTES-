@@ -194,7 +194,6 @@ export class GestaoInteligenteService {
     let vendasSql = `
       SELECT
         COALESCE(SUM(valor_total), 0)::float AS vendas,
-        COALESCE(SUM(custo_total), 0)::float AS custo_vendas,
         COALESCE(SUM(imposto_total), 0)::float AS impostos,
         0::float AS imposto_credito,
         COALESCE(SUM(qtde), 0)::float AS qtd_itens,
@@ -215,6 +214,20 @@ export class GestaoInteligenteService {
     const comprasParams: any[] = [dtIni, dtFim];
     if (codLoja) { comprasSql += ` AND pcpc_unid_dest::int = $${comprasParams.length+1}::int`; comprasParams.push(codLoja); }
 
+    // Custo PDV (EVP) via movprodd — formula validada 2026-05-22 (99,85% vs app RP INFO)
+    // Substitui a antiga `vopr_custoentrada * qtde + vopr_icmsvalor` que errava ~4% por linha
+    // Doc: obsidian-vault/bugs-resolvidos/2026-05-22-custo-nunes-formula-correta.md
+    const evpParts: string[] = [];
+    let cyE = parseInt(dtIni.split('-')[0]), cmE = parseInt(dtIni.split('-')[1]);
+    const yFE = parseInt(dtFim.split('-')[0]), mFE = parseInt(dtFim.split('-')[1]);
+    while (cyE < yFE || (cyE === yFE && cmE <= mFE)) {
+      evpParts.push(`SELECT mprd_ctmedio, mprd_ctvenda, mprd_unid_codigo FROM public.movprodd${String(cmE).padStart(2,'0')}${String(cyE).slice(-2)} WHERE mprd_datamvto BETWEEN $1::date AND $2::date AND mprd_dcto_tipo = 'EVP'`);
+      cmE++; if (cmE > 12) { cmE = 1; cyE++; }
+    }
+    let custoPdvSql = `SELECT COALESCE(SUM(mprd_ctmedio + mprd_ctvenda),0)::float AS custo_pdv FROM (${evpParts.join(' UNION ALL ')}) ev WHERE 1=1`;
+    const custoPdvParams: any[] = [dtIni, dtFim];
+    if (codLoja) { custoPdvSql = `SELECT COALESCE(SUM(mprd_ctmedio + mprd_ctvenda),0)::float AS custo_pdv FROM (${evpParts.map(p => p + ` AND mprd_unid_codigo::int = $3::int`).join(' UNION ALL ')}) ev WHERE 1=1`; custoPdvParams.push(codLoja); }
+
     // Venda Flex (Venda Direta) via movprodd - dcto_tipo EVD
     // movprodd e particionado por mes: movprodd{MMYY}
     const flexParts: string[] = [];
@@ -228,21 +241,22 @@ export class GestaoInteligenteService {
     const flexParams: any[] = [dtIni, dtFim];
     if (codLoja) { flexSql = `SELECT COALESCE(SUM(mprd_valor),0)::float AS venda_flex, COALESCE(SUM(mprd_ctcompra + imp),0)::float AS custo_flex FROM (${flexParts.map(p => p + ` AND mprd_unid_codigo::int = $3::int`).join(' UNION ALL ')}) fx WHERE 1=1`; flexParams.push(codLoja); }
 
-    const [vR, cR, coR, fR] = await Promise.all([
+    const [vR, cR, coR, custoPdvR, fR] = await Promise.all([
       PostgresErpService.query<any>(vendasSql, vendasParams),
       PostgresErpService.query<any>(cuponsSql, cuponsParams),
       PostgresErpService.query<any>(comprasSql, comprasParams),
+      PostgresErpService.query<any>(custoPdvSql, custoPdvParams).catch((e) => { console.error('❌ [GI] Custo PDV (EVP) query error:', e.message); return [{ custo_pdv: 0 }]; }),
       PostgresErpService.query<any>(flexSql, flexParams).catch((e) => { console.error('❌ [GI] Flex query error:', e.message); return [{ venda_flex: 0, custo_flex: 0 }]; })
     ]);
 
     const vendasPdv = Number(vR[0]?.vendas) || 0;
     const vendaFlex = Number(fR[0]?.venda_flex) || 0;
-    const custoPdv = Number(vR[0]?.custo_vendas) || 0;
+    const custoPdv = Number(custoPdvR[0]?.custo_pdv) || 0;
     const custoFlex = Number(fR[0]?.custo_flex) || 0;
 
-    console.log(`📊 [GI PG] Vendas PDV=${vendasPdv.toFixed(2)} Flex=${vendaFlex.toFixed(2)} Total=${(vendasPdv+vendaFlex).toFixed(2)} | Custo PDV=${custoPdv.toFixed(2)} Flex=${custoFlex.toFixed(2)}`);
+    console.log(`📊 [GI PG] Vendas PDV=${vendasPdv.toFixed(2)} Flex=${vendaFlex.toFixed(2)} Total=${(vendasPdv+vendaFlex).toFixed(2)} | Custo PDV(EVP)=${custoPdv.toFixed(2)} Flex=${custoFlex.toFixed(2)}`);
 
-    // PG: custo_total ja inclui impostos (custoentrada + icms)
+    // PG: custo PDV agora vem de movprodd EVP (ctmedio+ctvenda) — bate 99,85% vs app RP INFO
     // Venda total = PDV + Flex (Venda Direta)
     // Retornar impostos=0 para nao duplicar no calculo de lucro liquido
     return {
