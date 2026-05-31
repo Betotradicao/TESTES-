@@ -103,6 +103,8 @@ import { OracleService } from './services/oracle.service';
 import { MappingService } from './services/mapping.service';
 import { EmailMonitorService } from './services/email-monitor.service';
 import { SellsSyncService } from './services/sells-sync.service';
+import { TopQuedasController } from './controllers/top-quedas.controller';
+import { VendasMensaisController } from './controllers/vendas-mensais.controller';
 import { seedMasterUser } from './database/seeds/masterUser.seed';
 import seedConfigurations from './scripts/seed-configurations';
 import * as cron from 'node-cron';
@@ -1402,6 +1404,87 @@ const startServer = async () => {
   });
 
   console.log('⏰ Atrasos report cron job started (checks every minute, respects Brazil timezone)');
+
+  // ==========================================
+  // CRON: Top Quedas Semanal
+  // Verifica a cada minuto se eh o dia da semana + horario configurados.
+  // Dia da semana: whatsapp_top_quedas_dia_semana (0=Dom .. 6=Sab)
+  // Horario: whatsapp_top_quedas_schedule_time (HH:MM)
+  // Guard lastSent pra nao disparar 2x no mesmo minuto
+  // ==========================================
+  let lastTopQuedasSendKey = '';
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_top_quedas_schedule_time');
+      const diaSemanaStr = await ConfigurationService.get('whatsapp_top_quedas_dia_semana');
+      if (!scheduleTime || diaSemanaStr === null) return;
+
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const diaSemanaConfig = parseInt(diaSemanaStr || '1', 10); // default segunda
+      if (brDate.getDay() !== diaSemanaConfig) return;
+
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+      const currentKey = `${brDate.getFullYear()}-${brDate.getMonth()}-${brDate.getDate()}-${brDate.getHours()}:${brDate.getMinutes()}`;
+      if (brDate.getHours() !== configHours || brDate.getMinutes() !== configMinutes) return;
+      if (lastTopQuedasSendKey === currentKey) return;
+      lastTopQuedasSendKey = currentKey;
+
+      console.log(`⏰ [TOP QUEDAS CRON] Disparando envio automatico (dia=${diaSemanaConfig}, hora=${scheduleTime})`);
+      // Mock req/res - reusa o sendTest do controller
+      const mockReq: any = { body: {} };
+      const mockRes: any = {
+        statusCode: 200,
+        json: (data: any) => { console.log('[TOP QUEDAS CRON] resultado:', data?.success ? '✅' : '❌', data?.message || data?.error); return mockRes; },
+        status: (code: number) => { mockRes.statusCode = code; return mockRes; },
+      };
+      await TopQuedasController.sendTest(mockReq, mockRes);
+    } catch (error) {
+      console.error('❌ Top Quedas cron error:', error);
+    }
+  });
+  console.log('📉 Top Quedas Semanal cron job started (checks every minute, dia+horario configurados)');
+
+  // ==========================================
+  // CRON: Vendas Mensais
+  // Verifica a cada minuto se eh o dia do mes + horario configurados.
+  // Dia do mes: whatsapp_vendas_mensais_dia_mes (1-28)
+  // Horario: whatsapp_vendas_mensais_schedule_time (HH:MM)
+  // Dispara o relatorio do MES ANTERIOR fechado.
+  // ==========================================
+  let lastVendasMensaisSendKey = '';
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { ConfigurationService } = await import('./services/configuration.service');
+      const scheduleTime = await ConfigurationService.get('whatsapp_vendas_mensais_schedule_time');
+      const diaMesStr = await ConfigurationService.get('whatsapp_vendas_mensais_dia_mes');
+      if (!scheduleTime || diaMesStr === null) return;
+
+      const now = new Date();
+      const brDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const diaMesConfig = parseInt(diaMesStr || '1', 10);
+      if (brDate.getDate() !== diaMesConfig) return;
+
+      const [configHours, configMinutes] = scheduleTime.split(':').map(Number);
+      const currentKey = `${brDate.getFullYear()}-${brDate.getMonth()}-${brDate.getDate()}-${brDate.getHours()}:${brDate.getMinutes()}`;
+      if (brDate.getHours() !== configHours || brDate.getMinutes() !== configMinutes) return;
+      if (lastVendasMensaisSendKey === currentKey) return;
+      lastVendasMensaisSendKey = currentKey;
+
+      console.log(`⏰ [VENDAS MENSAIS CRON] Disparando envio automatico (dia=${diaMesConfig}, hora=${scheduleTime})`);
+      const mockReq: any = { body: {} };
+      const mockRes: any = {
+        statusCode: 200,
+        json: (data: any) => { console.log('[VENDAS MENSAIS CRON] resultado:', data?.success ? '✅' : '❌', data?.message || data?.error); return mockRes; },
+        status: (code: number) => { mockRes.statusCode = code; return mockRes; },
+      };
+      await VendasMensaisController.sendTest(mockReq, mockRes);
+    } catch (error) {
+      console.error('❌ Vendas Mensais cron error:', error);
+    }
+  });
+  console.log('📊 Vendas Mensais cron job started (checks every minute, dia+horario configurados)');
 
   // ==========================================
   // CRON: Sincronização de Vendas (Sells Sync)
