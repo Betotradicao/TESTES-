@@ -84,6 +84,12 @@ export default function WhatsAppGroupsTab() {
       groupName: '',
       diaSemana: '1',
       scheduleTime: '08:00'
+    },
+    vendasMensais: {
+      groupId: '',
+      groupName: '',
+      diaMes: '1',
+      scheduleTime: '09:00'
     }
   });
 
@@ -105,6 +111,24 @@ export default function WhatsAppGroupsTab() {
     }
   };
 
+  const handleSendVendasMensaisTest = async () => {
+    try {
+      setIsSendingNow(true);
+      setSendNowResult('');
+      const response = await api.post('/vendas-mensais/send-test');
+      if (response.data.success) {
+        setSendNowResult(`✅ ${response.data.message}`);
+      } else {
+        setSendNowResult('❌ Erro ao enviar: ' + (response.data.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar teste Vendas Mensais:', error);
+      setSendNowResult('❌ Erro ao enviar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSendingNow(false);
+    }
+  };
+
   const [modalTarget, setModalTarget] = useState(null);
 
   const subTabs = [
@@ -119,7 +143,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'facial', label: '👤 Prevenção Facial', icon: '👤' },
     { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' },
     { id: 'garimpadorOfertas', label: '🏷️ Oferta no Radar', icon: '🏷️' },
-    { id: 'topQuedas', label: '📉 Top Quedas Semanal', icon: '📉' }
+    { id: 'topQuedas', label: '📉 Top Quedas Semanal', icon: '📉' },
+    { id: 'vendasMensais', label: '📊 Vendas Mensais', icon: '📊' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -353,6 +378,11 @@ Imagem anexada para verificação.`,
             diaSemana: configs.whatsapp_top_quedas_dia_semana || '1',
             scheduleTime: configs.whatsapp_top_quedas_schedule_time || '08:00'
           },
+          vendasMensais: {
+            ...getGroupConfig('whatsapp_group_vendasMensais', 'whatsapp_group_vendasMensais_name'),
+            diaMes: configs.whatsapp_vendas_mensais_dia_mes || '1',
+            scheduleTime: configs.whatsapp_vendas_mensais_schedule_time || '09:00'
+          },
         });
       }
     } catch (error) {
@@ -455,6 +485,16 @@ Imagem anexada para verificação.`,
         }
         if (currentConfig.diaSemana !== undefined) {
           configData.whatsapp_top_quedas_dia_semana = String(currentConfig.diaSemana);
+        }
+      }
+
+      // Se for vendas mensais, salvar dia do mes + horario
+      if (activeSubTab === 'vendasMensais') {
+        if (currentConfig.scheduleTime) {
+          configData.whatsapp_vendas_mensais_schedule_time = currentConfig.scheduleTime;
+        }
+        if (currentConfig.diaMes !== undefined) {
+          configData.whatsapp_vendas_mensais_dia_mes = String(currentConfig.diaMes);
         }
       }
 
@@ -1111,8 +1151,29 @@ Imagem anexada para verificação.`,
                 </div>
               )}
 
+              {/* Dia do Mes - Para Vendas Mensais */}
+              {activeSubTab === 'vendasMensais' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Dia do Mês para Envio
+                  </label>
+                  <select
+                    value={currentConfig.diaMes || '1'}
+                    onChange={(e) => handleInputChange('diaMes', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                      <option key={d} value={String(d)}>Dia {d}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Em qual dia do mês o PDF do mês anterior fechado será enviado (default: dia 1)
+                  </p>
+                </div>
+              )}
+
               {/* Campo de Horário - Para Bipagens e Quebras */}
-              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas') && (
+              {(activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas' || activeSubTab === 'vendasMensais') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ⏰ Horário de Envio Automático
@@ -1136,6 +1197,8 @@ Imagem anexada para verificação.`,
                       ? 'PDF de fornecedores fora do combinado do dia anterior será enviado automaticamente todos os dias neste horário'
                       : activeSubTab === 'topQuedas'
                       ? 'PDF dos top 20 itens em queda por setor será enviado no dia da semana e horário escolhidos'
+                      : activeSubTab === 'vendasMensais'
+                      ? 'PDF de vendas do mês anterior fechado (por setor/grupo) será enviado no dia do mês e horário escolhidos'
                       : 'PDF de quebras/ajustes do dia anterior será enviado automaticamente todos os dias neste horário'}
                   </p>
                 </div>
@@ -1238,6 +1301,17 @@ Imagem anexada para verificação.`,
                     {isSendingNow ? '📤 Enviando...' : '📤 Enviar Teste no WhatsApp'}
                   </button>
                 )}
+
+                {activeSubTab === 'vendasMensais' && (
+                  <button
+                    onClick={handleSendVendasMensaisTest}
+                    disabled={isSendingNow || !currentConfig.groupId?.trim()}
+                    className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    title="Gera o PDF do mes anterior fechado agora e envia pro grupo configurado"
+                  >
+                    {isSendingNow ? '📤 Enviando...' : '📤 Enviar Teste no WhatsApp'}
+                  </button>
+                )}
               </div>
 
               {/* Resultado do Teste */}
@@ -1254,7 +1328,7 @@ Imagem anexada para verificação.`,
               )}
 
               {/* Resultado do Envio Manual (Bipagens e Quebras) */}
-              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas') && (
+              {sendNowResult && (activeSubTab === 'bipagens' || activeSubTab === 'quebras' || activeSubTab === 'abastecimento' || activeSubTab === 'cortes' || activeSubTab === 'atrasos' || activeSubTab === 'prazoFornecedores' || activeSubTab === 'topQuedas' || activeSubTab === 'vendasMensais') && (
                 <div className={`p-4 rounded-lg ${
                   sendNowResult.startsWith('✅') ? 'bg-green-50 border border-green-200' :
                   sendNowResult.startsWith('ℹ️') ? 'bg-blue-50 border border-blue-200' :
