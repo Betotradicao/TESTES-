@@ -185,6 +185,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       // Gestão de Compras
       '/compra-venda-analise': 'compras',
       '/prevencao-pedidos': 'compras',
+      '/pedidos-sugeridos': 'compras',
       '/calendario-atendimento': 'compras',
       '/ruptura-industria': 'compras',
       '/prazo-fornecedores': 'compras',
@@ -216,6 +217,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/analise-relevancia': 'gestao-radar',
       '/compra-venda-analise': 'gestao-radar',
       '/prevencao-pedidos': 'gestao-radar',
+      '/pedidos-sugeridos': 'gestao-radar',
       '/calendario-atendimento': 'gestao-radar',
       '/ruptura-industria': 'gestao-radar',
       '/prazo-fornecedores': 'gestao-radar',
@@ -389,6 +391,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           subItems: [
             { id: 'gestao-compra-venda', submenuId: 'compra-venda', title: 'COMPRA X VENDA', path: '/compra-venda-analise' },
             { id: 'pedidos-lista', submenuId: 'pedidos', title: 'PEDIDOS DE COMPRAS', path: '/prevencao-pedidos' },
+            { id: 'pedidos-sugeridos', submenuId: 'pedidos-sugeridos', title: 'PEDIDOS SUGERIDOS', path: '/pedidos-sugeridos' },
             { id: 'calendario-atendimento', submenuId: 'calendario-atendimento', title: 'CALENDÁRIO DE ATENDIMENTO', path: '/calendario-atendimento' },
             { id: 'ruptura-industria', submenuId: 'ruptura-industria', title: 'RUPTURA INDUSTRIA', path: '/ruptura-industria' },
             { id: 'prazo-fornecedores', submenuId: 'prazo-fornecedores', title: 'PRAZO FORNECEDORES', path: '/prazo-fornecedores' },

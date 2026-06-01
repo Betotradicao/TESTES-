@@ -117,6 +117,8 @@ import ModeloCurriculo from './pages/rh/ModeloCurriculo';
 import BancoCurriculos from './pages/rh/BancoCurriculos';
 import CurriculoPublico from './pages/CurriculoPublico';
 import DiscPublico from './pages/DiscPublico';
+import FornecedorPedidoPublico from './pages/FornecedorPedidoPublico';
+import PedidosSugeridos from './pages/PedidosSugeridos';
 import RhDocumentacao from './pages/RhDocumentacao';
 import RhDepartamentoPessoal from './pages/RhDepartamentoPessoal';
 import RhLancamentos from './pages/RhLancamentos';
@@ -147,6 +149,7 @@ function App() {
             <Route path="/alerta/:token" element={<AlertaResolucao />} />
             <Route path="/curriculo" element={<CurriculoPublico />} />
             <Route path="/disc" element={<DiscPublico />} />
+            <Route path="/fornecedor-pedido" element={<FornecedorPedidoPublico />} />
             <Route path="/pesquisa-publica/:token" element={<PesquisaPublica />} />
 
             {/* Protected Routes */}
@@ -427,6 +430,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CompraVendaAnalise />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pedidos-sugeridos"
+              element={
+                <ProtectedRoute>
+                  <PedidosSugeridos />
                 </ProtectedRoute>
               }
             />
