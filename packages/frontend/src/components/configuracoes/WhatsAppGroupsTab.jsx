@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import AgenteIAConfig from './AgenteIAConfig';
 
 export default function WhatsAppGroupsTab() {
   const [activeSubTab, setActiveSubTab] = useState('ruptura');
@@ -144,7 +145,8 @@ export default function WhatsAppGroupsTab() {
     { id: 'prazoFornecedores', label: '📋 Prazo Fornecedores', icon: '📋' },
     { id: 'garimpadorOfertas', label: '🏷️ Oferta no Radar', icon: '🏷️' },
     { id: 'topQuedas', label: '📉 Top Quedas Semanal', icon: '📉' },
-    { id: 'vendasMensais', label: '📊 Vendas Mensais', icon: '📊' }
+    { id: 'vendasMensais', label: '📊 Vendas Mensais', icon: '📊' },
+    { id: 'agenteIA', label: '🤖 Agente de IA', icon: '🤖' }
   ];
 
   // Mensagens de exemplo para cada tipo
@@ -836,6 +838,9 @@ Imagem anexada para verificação.`,
 
       {/* Content */}
       <div className="p-6">
+        {/* Agente IA - tela totalmente diferente das outras */}
+        {activeSubTab === 'agenteIA' && <AgenteIAConfig />}
+
         {/* Garimpador Ofertas - Layout especial com 4 grupos + percentuais */}
         {activeSubTab === 'garimpadorOfertas' && (
           <div>
@@ -1074,7 +1079,7 @@ Imagem anexada para verificação.`,
           </div>
         )}
 
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${activeSubTab === 'garimpadorOfertas' ? 'hidden' : ''}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${activeSubTab === 'garimpadorOfertas' || activeSubTab === 'agenteIA' ? 'hidden' : ''}`}>
           {/* Configuração do Grupo */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">

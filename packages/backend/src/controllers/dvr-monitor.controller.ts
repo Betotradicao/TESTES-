@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execPromise = promisify(exec);
-const DVREmailMonitor = require('../services/dvr-email-monitor.js');
+const DVREmailMonitor = require('../services/dvr-email-monitor');
 
 let monitorInstance: any = null;
 
