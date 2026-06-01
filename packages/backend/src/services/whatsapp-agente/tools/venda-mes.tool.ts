@@ -21,10 +21,10 @@ export const vendaMesTool: ToolDefinition = {
   execute: async (params, ctx) => {
     const codLoja = params.codLoja || ctx.defaultCodLoja;
     const hoje = new Date();
-    const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1);
     const dia1 = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     const dataInicio = ymd(dia1);
-    const dataFim = ymd(ontem.getDate() >= 1 ? ontem : dia1);
+    // Se hoje for dia 1, intervalo eh so o proprio dia 1 (parcial); caso contrario, dia 1 ate hoje
+    const dataFim = ymd(hoje);
 
     try {
       const ind = await GestaoInteligenteService.getIndicadores({ dataInicio, dataFim, codLoja });

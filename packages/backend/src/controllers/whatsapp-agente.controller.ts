@@ -139,30 +139,22 @@ export class WhatsappAgenteController {
       const axios = require('axios');
       const headers = { apikey: token, 'Content-Type': 'application/json' };
       const payload = {
-        url: webhookUrl,
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: ['MESSAGES_UPSERT'],
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: ['MESSAGES_UPSERT'],
+        }
       };
 
-      // Tentar v2 (Evolution API moderna)
       try {
         const r = await axios.post(`${url}/webhook/set/${encodeURIComponent(instancia)}`,
-          { webhook: payload }, { headers, timeout: 10000 });
+          payload, { headers, timeout: 15000 });
         res.json({ success: true, method: 'POST v2', webhook_url: webhookUrl, data: r.data });
         return;
       } catch (e1: any) {
-        console.log('[Agente Webhook v2 POST] falhou:', e1.response?.status);
-      }
-
-      // Tentar v1 PUT
-      try {
-        const r = await axios.put(`${url}/webhook/set/${encodeURIComponent(instancia)}`,
-          payload, { headers, timeout: 10000 });
-        res.json({ success: true, method: 'PUT v1', webhook_url: webhookUrl, data: r.data });
-        return;
-      } catch (e2: any) {
-        console.log('[Agente Webhook v1 PUT] falhou:', e2.response?.status, e2.response?.data);
+        console.log('[Agente Webhook] falhou:', e1.response?.status, e1.response?.data);
       }
 
       // Listar instancias pra debug

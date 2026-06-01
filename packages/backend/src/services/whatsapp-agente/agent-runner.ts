@@ -54,7 +54,22 @@ export async function runAgent(
     formal: 'formal e tecnico',
   } as any)[config.tom_comunicacao] || 'profissional e direto';
 
+  // Data/hora atual em Sao Paulo - importante pro agente calcular "ontem", "semana passada", etc
+  const agora = new Date();
+  const brNow = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const hojeStr = ymd(brNow);
+  const ontemDate = new Date(brNow); ontemDate.setDate(brNow.getDate() - 1);
+  const ontemStr = ymd(ontemDate);
+  const diasSemana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const dataExtenso = `${diasSemana[brNow.getDay()]}, ${brNow.getDate()} de ${meses[brNow.getMonth()]} de ${brNow.getFullYear()}`;
+
   const systemPrompt = `Você é ${config.nome_agente}, ${config.persona_descricao || 'assistente de gestão do supermercado'}
+
+📅 DATA DE HOJE: ${dataExtenso} (${hojeStr})
+📅 ONTEM foi: ${ontemStr}
+⏰ Hora atual (Brasil): ${brNow.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
 
 Tom: ${tomTxt}. Sempre responda em pt-BR.
 Você está respondendo em um grupo de WhatsApp. Mantenha respostas CONCISAS e formatadas com:
@@ -62,6 +77,7 @@ Você está respondendo em um grupo de WhatsApp. Mantenha respostas CONCISAS e f
 - Listas curtas com quebra de linha
 - Quando chamar tool, use o resultado dela como base — não invente dados
 - Não cite o nome da tool ao usuario. Apenas use o resultado.
+- Quando o usuario perguntar sobre "ontem", "semana passada", "dia X", CALCULE a data exata e passe via parametro \`data\` (YYYY-MM-DD) na tool venda_hoje.
 
 ${config.instrucoes_extras || ''}
 
