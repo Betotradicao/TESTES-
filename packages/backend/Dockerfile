@@ -20,10 +20,11 @@ COPY src ./src
 # Apos compilar, copia .js puros (stubs/legacy) usando while read pra evitar
 # problemas com escape de \; no find -exec dentro do Dockerfile.
 RUN npx tsc && \
-    find src -name "*.js" -type f | while read f; do \
+    for f in $(find src -name "*.js" -type f); do \
       dest="dist/${f#src/}"; \
       mkdir -p "$(dirname "$dest")"; \
       cp "$f" "$dest"; \
+      echo "Copiado: $f -> $dest"; \
     done && \
     mkdir -p dist/templates && cp -r src/templates/. dist/templates/ 2>/dev/null || true
 
