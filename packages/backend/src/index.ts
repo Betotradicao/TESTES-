@@ -1405,6 +1405,39 @@ const startServer = async () => {
 
   console.log('⏰ Atrasos report cron job started (checks every minute, respects Brazil timezone)');
 
+  // Helpers pros crons de relatorio (TopQuedas, VendasMensais)
+  // - buildMockReq / buildMockRes: simulam Express pra chamar os controllers
+  // - runWithRetry: 3 tentativas com 5min entre cada, pra sobreviver a
+  //   conexao Postgres/Oracle oscilando logo apos boot/deploy
+  const buildMockReq = () => ({ body: {} } as any);
+  const buildMockRes = (tag: string) => {
+    const r: any = {
+      statusCode: 200,
+      _data: null,
+      json: (data: any) => { r._data = data; console.log(`[${tag}] resultado:`, data?.success ? '✅' : '❌', data?.message || data?.error); return r; },
+      status: (code: number) => { r.statusCode = code; return r; },
+    };
+    return r;
+  };
+  const runWithRetry = async (tag: string, fn: () => Promise<any>, maxTries = 3, waitMs = 5 * 60 * 1000) => {
+    for (let i = 1; i <= maxTries; i++) {
+      try {
+        await fn();
+        return;
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        // Retry so em erros transientes (timeout, ECONNREFUSED, connection lost)
+        const transient = /timeout|ECONN|connection|terminated|Driver not Connected/i.test(msg);
+        if (!transient || i === maxTries) {
+          console.error(`❌ [${tag}] tentativa ${i}/${maxTries} falhou (final):`, msg);
+          throw e;
+        }
+        console.warn(`⚠️ [${tag}] tentativa ${i}/${maxTries} falhou: ${msg.slice(0, 120)} - retentar em ${waitMs / 60000}min`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
+  };
+
   // ==========================================
   // CRON: Top Quedas Semanal
   // Verifica a cada minuto se eh o dia da semana + horario configurados.
@@ -1432,14 +1465,7 @@ const startServer = async () => {
       lastTopQuedasSendKey = currentKey;
 
       console.log(`⏰ [TOP QUEDAS CRON] Disparando envio automatico (dia=${diaSemanaConfig}, hora=${scheduleTime})`);
-      // Mock req/res - reusa o sendTest do controller
-      const mockReq: any = { body: {} };
-      const mockRes: any = {
-        statusCode: 200,
-        json: (data: any) => { console.log('[TOP QUEDAS CRON] resultado:', data?.success ? '✅' : '❌', data?.message || data?.error); return mockRes; },
-        status: (code: number) => { mockRes.statusCode = code; return mockRes; },
-      };
-      await TopQuedasController.sendTest(mockReq, mockRes);
+      await runWithRetry('TOP QUEDAS', () => TopQuedasController.sendTest(buildMockReq(), buildMockRes('TOP QUEDAS CRON')));
     } catch (error) {
       console.error('❌ Top Quedas cron error:', error);
     }
@@ -1473,13 +1499,7 @@ const startServer = async () => {
       lastVendasMensaisSendKey = currentKey;
 
       console.log(`⏰ [VENDAS MENSAIS CRON] Disparando envio automatico (dia=${diaMesConfig}, hora=${scheduleTime})`);
-      const mockReq: any = { body: {} };
-      const mockRes: any = {
-        statusCode: 200,
-        json: (data: any) => { console.log('[VENDAS MENSAIS CRON] resultado:', data?.success ? '✅' : '❌', data?.message || data?.error); return mockRes; },
-        status: (code: number) => { mockRes.statusCode = code; return mockRes; },
-      };
-      await VendasMensaisController.sendTest(mockReq, mockRes);
+      await runWithRetry('VENDAS MENSAIS', () => VendasMensaisController.sendTest(buildMockReq(), buildMockRes('VENDAS MENSAIS CRON')));
     } catch (error) {
       console.error('❌ Vendas Mensais cron error:', error);
     }
