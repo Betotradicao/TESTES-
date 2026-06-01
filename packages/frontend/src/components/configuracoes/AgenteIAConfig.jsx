@@ -149,6 +149,23 @@ export default function AgenteIAConfig() {
     setShowGroupsModal(false);
   };
 
+  const configurarWebhook = async () => {
+    if (!confirm('Configurar webhook na Evolution apontando pra este servidor?\nIsso fará o bot receber mensagens do WhatsApp.')) return;
+    try {
+      const r = await api.post('/whatsapp-agente/setup-webhook', {});
+      if (r.data?.success) {
+        alert(`✅ Webhook configurado!\n\nURL: ${r.data.webhook_url}\nMétodo: ${r.data.method}`);
+      } else if (r.data?.instances) {
+        alert(`⚠️ Falhou. Instâncias disponíveis:\n${r.data.instances.join(', ')}`);
+      } else {
+        alert('⚠️ Resposta inesperada: ' + JSON.stringify(r.data));
+      }
+    } catch (e) {
+      alert('❌ Erro: ' + (e.response?.data?.error || e.message)
+        + (e.response?.data?.instances ? `\n\nInstâncias: ${e.response.data.instances.join(', ')}` : ''));
+    }
+  };
+
   const enviarPing = async () => {
     try {
       await api.post('/whatsapp-agente/send-ping');
@@ -513,10 +530,16 @@ export default function AgenteIAConfig() {
               <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{testOutput}</pre>
             </div>
           )}
-          <div className="border-t pt-3">
-            <button onClick={enviarPing} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm">
+          <div className="border-t pt-3 space-y-2">
+            <button onClick={enviarPing} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm w-full">
               📤 Enviar Ping no grupo (apresentação do agente)
             </button>
+            <button onClick={configurarWebhook} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm w-full">
+              🔗 Configurar Webhook na Evolution (1ª vez)
+            </button>
+            <p className="text-[11px] text-gray-500">
+              ⚠️ Sem o webhook configurado, o bot NÃO recebe mensagens. Clique aqui após salvar.
+            </p>
           </div>
         </div>
       )}

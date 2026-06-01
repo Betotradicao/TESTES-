@@ -117,6 +117,70 @@ export class WhatsappAgenteController {
     });
   }
 
+  /** POST /api/whatsapp-agente/setup-webhook  -- configura webhook na Evolution */
+  static async setupWebhook(req: Request, res: Response): Promise<void> {
+    try {
+      const ConfigService = require('../services/configuration.service').ConfigurationService;
+      const url = await ConfigService.get('evolution_api_url');
+      const token = await ConfigService.get('evolution_api_token');
+      const instancia = req.body.instancia || await ConfigService.get('evolution_instance');
+      const frontendUrl = await ConfigService.get('frontend_url', process.env.FRONTEND_URL || '');
+
+      if (!url || !token || !instancia) {
+        res.status(400).json({ error: 'Evolution nao configurado (URL/Token/Instancia)' });
+        return;
+      }
+      if (!frontendUrl) {
+        res.status(400).json({ error: 'FRONTEND_URL nao configurado' });
+        return;
+      }
+
+      const webhookUrl = `${frontendUrl.replace(/\/$/, '')}/api/whatsapp-agente/webhook`;
+      const axios = require('axios');
+      const headers = { apikey: token, 'Content-Type': 'application/json' };
+      const payload = {
+        url: webhookUrl,
+        webhook_by_events: false,
+        webhook_base64: false,
+        events: ['MESSAGES_UPSERT'],
+      };
+
+      // Tentar v2 (Evolution API moderna)
+      try {
+        const r = await axios.post(`${url}/webhook/set/${encodeURIComponent(instancia)}`,
+          { webhook: payload }, { headers, timeout: 10000 });
+        res.json({ success: true, method: 'POST v2', webhook_url: webhookUrl, data: r.data });
+        return;
+      } catch (e1: any) {
+        console.log('[Agente Webhook v2 POST] falhou:', e1.response?.status);
+      }
+
+      // Tentar v1 PUT
+      try {
+        const r = await axios.put(`${url}/webhook/set/${encodeURIComponent(instancia)}`,
+          payload, { headers, timeout: 10000 });
+        res.json({ success: true, method: 'PUT v1', webhook_url: webhookUrl, data: r.data });
+        return;
+      } catch (e2: any) {
+        console.log('[Agente Webhook v1 PUT] falhou:', e2.response?.status, e2.response?.data);
+      }
+
+      // Listar instancias pra debug
+      try {
+        const r = await axios.get(`${url}/instance/fetchInstances`, { headers, timeout: 10000 });
+        res.status(500).json({
+          error: 'Falha em ambas APIs. Instancias disponiveis:',
+          instances: r.data?.map((i: any) => i.name || i.instance?.instanceName),
+        });
+      } catch (e3: any) {
+        res.status(500).json({ error: 'Falha total', details: e3.response?.data || e3.message });
+      }
+    } catch (e: any) {
+      console.error('[Agente] setupWebhook erro:', e);
+      res.status(500).json({ error: e.message });
+    }
+  }
+
   /** GET /api/whatsapp-agente/logs?limit=50 */
   static async listLogs(req: Request, res: Response): Promise<void> {
     try {

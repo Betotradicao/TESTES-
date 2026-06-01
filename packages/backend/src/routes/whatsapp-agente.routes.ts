@@ -14,5 +14,6 @@ router.get('/tools', authenticateToken, WhatsappAgenteController.listTools);
 router.get('/logs', authenticateToken, WhatsappAgenteController.listLogs);
 router.post('/test', authenticateToken, WhatsappAgenteController.test);
 router.post('/send-ping', authenticateToken, WhatsappAgenteController.sendPing);
+router.post('/setup-webhook', authenticateToken, WhatsappAgenteController.setupWebhook);
 
 export default router;
