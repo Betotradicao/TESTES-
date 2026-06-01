@@ -16,9 +16,10 @@ RUN npm install && \
 # Copiar código fonte
 COPY src ./src
 
-# Build TypeScript (usar tsc local do node_modules)
+# Build TypeScript (usar tsc local do node_modules).
+# Apos compilar, copia .js puros (stubs/legacy) preservando estrutura via cp --parents
 RUN npx tsc && \
-    find src -name "*.js" -exec sh -c 'mkdir -p dist/$(dirname ${1#src/}) && cp "$1" dist/${1#src/}' _ {} \; && \
+    cd src && find . -name "*.js" -exec cp --parents {} ../dist/ \; && cd .. && \
     mkdir -p dist/templates && cp -r src/templates/. dist/templates/ 2>/dev/null || true
 
 # ===================================
