@@ -1,44 +1,50 @@
-# Ticket médio errado por filtro COD_TIPO=1110 oculto
+# Cupons MaxValle 22.425 vs 16.085 — investigação completa
 
 **Data:** 2026-06-01
-**Cliente reportou:** MaxValle (Mercado Fratelli) — ticket médio do nosso sistema diferente do sistema dela
-**Cliente dela:** 22.425 cupons em maio · Nosso: 16.085 cupons em maio
+**Cliente reportou:** MaxValle (Mercado Fratelli) — cupons diferentes entre o ERP dela e nosso
 
-## 🐛 Sintoma
-Cliente abre a aba "CUPOM ONLINE" no ERP dela, filtra dia 01/05 a 31/05, loja 1 → mostra **22.425 registros**.
-Nosso dashboard de Gestão Inteligente mostra **16.085 cupons** no mesmo período/loja.
-Como ticket médio = vendas / cupons, **ticket médio nosso ficava inflado** (vendas iguais, denominador menor).
+## 🔎 Sintoma reportado pela cliente
+- ERP dela (aba "CUPOM ONLINE" do Intersolid): **22.425 registros encontrados** em maio/2026 loja 1
+- Nosso sistema (Gestão Inteligente): **16.085 cupons** no mesmo período
 
-## 🔍 Causa raiz
-Linha 366 (antes do fix) em `packages/backend/src/services/gestao-inteligente.service.ts`:
+## ❌ Hipótese inicial (descartada)
+Achei que era o filtro `AND cf.COD_TIPO = 1110` na query `cuponsQuery` em `gestao-inteligente.service.ts`.
+- No Tradição: todos os cupons têm COD_TIPO=1110, então remover ou manter não muda nada.
+- No MaxValle: **também todos os cupons têm COD_TIPO=1110** (testado em 01/06/2026).
 
-```sql
-SELECT COUNT(DISTINCT cf.NUM_CUPOM_FISCAL) as QTD_CUPONS
-FROM INTERSOLID.TAB_CUPOM_FINALIZADORA cf
-WHERE cf.DTA_VENDA BETWEEN ... 
-  AND cf.COD_TIPO = 1110   ← filtro escondido
-```
+Removi o filtro mesmo assim (commit `116c99f`) — não causa regressão, é mais robusto pra clientes futuros que tenham outros COD_TIPOS, mas **NÃO era a causa do gap**.
 
-`TAB_CUPOM_FINALIZADORA` tem **1 linha por meio de pagamento do cupom** (dinheiro, cartão, pix, vale...).
-O filtro `COD_TIPO = 1110` (provavelmente "venda à vista / dinheiro") excluía cupons pagos 100% por outros métodos:
-- Cartão puro (sem troco em dinheiro)
-- PIX puro
-- Vale-refeição puro
-- Crediário puro
+## ✅ Verdadeira causa raiz
+A aba "CUPOM ONLINE" do ERP Intersolid **conta REGISTROS de TAB_CUPOM_PDV** (ou TAB_CUPOM_FINALIZADORA), que tem **1 linha por meio de pagamento/sequência financeira**, não 1 linha por cupom.
 
-**No Tradição:** todos os 39.587 cupons de maio têm COD_TIPO=1110 → filtro não fazia diferença → bug ficou escondido por meses.
-**No MaxValle:** 6.340 cupons pagos por outros métodos puros → filtro descartava todos eles.
+Validação Oracle (MaxValle loja 1 / maio 2026):
 
-## 🛠️ Fix aplicado
-Commit `XXX` — removido o filtro `AND cf.COD_TIPO = 1110`.
-Agora `COUNT(DISTINCT NUM_CUPOM_FISCAL)` pega todos os cupons únicos.
+| Tabela | COUNT(*) | COUNT(DISTINCT NUM_CUPOM_FISCAL) |
+|---|---|---|
+| TAB_CUPOM_PDV         | 22.884 | 16.086 |
+| TAB_CUPOM_FINALIZADORA | 22.883 | 16.085 |
+
+A cliente vê **22.425 registros** (próximo dos 22.884 — diff pequena pode ser cupons cancelados/devoluções).
+Cada cupom pago em mais de um meio (ex: parte dinheiro + parte cartão) gera **N linhas** nessas tabelas.
+
+## 📐 Matemática do ticket médio
+- TM correto = `vendas / DISTINCT cupons` = R$ 607.259,48 / 16.085 = **R$ 37,75** ✓
+- TM "como ela calcula" = R$ 607.259,48 / 22.425 = R$ 27,08 (erro: clientes que pagaram em 2 cartões contariam 2×)
+
+**Nosso 16.085 está CORRETO** — é o número real de transações/clientes únicos no mês.
+
+## 💬 Como explicar pra cliente
+"O sistema do Intersolid conta cada linha da TAB_CUPOM_PDV. Como cada cupom pago em mais de um cartão/forma gera várias linhas, o total de 22.425 inclui essas duplicações. Quando você conta a coluna 'N.Cupom' como números únicos, dá 16.085 — que é o real número de vendas (e o ticket médio é calculado em cima desse 16.085)."
+
+## 🛠️ Mudanças aplicadas
+- `gestao-inteligente.service.ts`: filtro `COD_TIPO=1110` removido (defensivo, não corrige nada aqui mas previne bugs em outros clientes Intersolid futuros)
+- Doc vault atualizada com a explicação correta
 
 ## 🧠 Lição
-**Why:** filtros mágicos com magic numbers (1110) sem comentário no código são bombas-relógio. Funcionam num cliente, quebram em outro com a mesma estrutura de banco mas perfil de uso diferente.
+**Why:** assumi que o erro era no nosso lado (filtro mágico) antes de validar a fonte dos números do cliente. O erro estava na **interpretação dela**: "registros encontrados" ≠ "cupons únicos".
 
-**How to apply:** ao adicionar qualquer filtro `= N` em query Oracle (especialmente `COD_TIPO`, `COD_STATUS`, `TIPO_*`), documentar **o que aquele número significa** no schema do cliente E **verificar se outros clientes têm o mesmo valor**. Se não tiverem, abstrair pra mapping/configuração.
+**How to apply:** quando cliente reportar diferença numérica, primeiro pedir UMA query exata de onde o número dela vem (preferível SQL ou screenshot mostrando coluna agrupadora). Só DEPOIS investigar o nosso. Aceitar "está errado" sem essa validação leva a fix-by-guess.
 
 ## 🔗 Links
-- [[../arquitetura/mapeamento-tabelas|MappingService]]
 - [[../clientes/maxvalle|MaxValle]]
-- Histórico: filtro adicionado em commit `a66a833` (2026-02-04) sem justificativa documentada
+- [[../arquitetura/mapeamento-tabelas|MappingService]]
