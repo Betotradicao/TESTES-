@@ -108,38 +108,32 @@ Se a funcionalidade consulta Oracle, verificar ANTES do deploy:
 
 > Consulte `.claude/REGRAS-MAPEAMENTO-TABELAS.md` para detalhes completos.
 
-## Tuneis SSH Caem Apos Deploy (Conhecido)
+## Conexao Oracle: Mikrotik / Rede Direta (NAO usa mais SSH tunnel)
 
-Apos cada deploy de backend, os tuneis SSH dos clientes podem cair (em
-~30s a 2min). NAO e o deploy que derruba — e o `tunnel-service.ps1`
-instalado nos PCs cliente que tem bug:
+A arquitetura mudou. Os clientes agora expoem o Oracle direto via
+**Mikrotik** ou roteador similar com port-forward. A VPS conecta no
+IP publico do cliente:porta diretamente — sem tunel SSH intermediario.
 
-1. Backend reinicia (rapido, segundos)
-2. Cliente detecta "perda" e o servico PS mata o ssh.exe
-3. Servico tenta reabrir o ssh via `[System.Diagnostics.Process]::Start`
-   com stdin fechado — bug que mata ssh em ~2s
-4. Loop infinito. Tunel offline ate intervencao manual.
+**Vantagem:** deploy nao derruba conexao mais. Backend reinicia, abre
+nova conexao TCP no IP do cliente, e segue.
 
-**Workaround imediato (apos cada deploy):**
-- Cliente abre tela "Configuracoes de Tabelas > Instalador de Tunel"
-- Clica em **Baixar Reconectar.bat** (ou o botao "Reconectar" no card
-  individual do tunel offline)
-- Roda o .bat na maquina do cliente como admin
-- Tuneis voltam (modo hidden, sem janela visivel)
+**Quando da erro `ORA-12170: TCP connect timeout`:**
+- Internet do cliente caiu / instavel
+- Mikrotik com problema temporario
+- Port-forward foi removido
+- IP publico do cliente mudou (raro - geralmente IP fixo)
 
-**Solucao definitiva (futura):**
-- Reinstalar tunel em cada cliente com versao corrigida do servico
-  (que nao usa `Process::Start` com stdin fechado).
-- Ate la, o `Reconectar.bat` resolve.
-
-**Diagnostico na VPS:**
+**Diagnostico rapido:**
 ```bash
-# Ver se portas de tunel estao listening
-ss -tlnp | grep sshd
+# Testar TCP ate o Oracle do cliente direto da VPS
+timeout 8 bash -c '</dev/tcp/<IP_CLIENTE>/<PORTA> && echo OK || echo TIMEOUT'
 
-# Conexoes SSH estabelecidas (clientes ativos)
-ss -tn state established '( sport = :22 )'
+# Ver se o backend conseguiu abrir o pool
+docker logs prevencao-<cliente>-backend --since 30m 2>&1 | grep -E 'Oracle|ORA-' | tail -5
 ```
+
+Se TCP responde mas backend nao consegue, verificar credenciais/SID
+em `database_connections` no banco do cliente.
 
 ## Limpeza de Cache (OBRIGATORIA)
 
@@ -163,4 +157,4 @@ Se espaco < 10GB, limpar ANTES do deploy.
 
 ---
 
-**Atualizado em:** 18/02/2026
+**Atualizado em:** 01/06/2026 (removida secao de tunel SSH - usa Mikrotik direto agora)
