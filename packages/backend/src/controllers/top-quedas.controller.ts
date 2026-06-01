@@ -288,27 +288,28 @@ export class TopQuedasController {
     dataFim: string,
     codLoja?: number
   ): Promise<any[]> {
-    // Calcular periodos comparativos
-    const calcPeriodoAnterior = (ini: string, fim: string) => {
-      const [aIni, mIni, dIni] = ini.split('-').map(Number);
-      const [aFim, mFim, dFim] = fim.split('-').map(Number);
-      const mesAntIni = mIni === 1 ? 12 : mIni - 1;
-      const anoAntIni = mIni === 1 ? aIni - 1 : aIni;
-      const mesAntFim = mFim === 1 ? 12 : mFim - 1;
-      const anoAntFim = mFim === 1 ? aFim - 1 : aFim;
-      return {
-        ini: `${anoAntIni}-${String(mesAntIni).padStart(2, '0')}-${String(dIni).padStart(2, '0')}`,
-        fim: `${anoAntFim}-${String(mesAntFim).padStart(2, '0')}-${String(dFim).padStart(2, '0')}`,
-      };
+    // Calcular periodos comparativos.
+    // Usa JS Date com overflow automatico pra evitar datas invalidas como
+    // 31/abril (que nao existe). Se data original eh 31/05, mes anterior
+    // fica 30/04 (ultimo dia de abril) em vez de 31/04 invalido.
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const shiftMes = (iso: string, delta: number) => {
+      const [a, m, dd] = iso.split('-').map(Number);
+      // Cria data fixando dia 1 e depois ajusta dia pra MIN(dia_original, ultimo_dia_do_mes_alvo)
+      const targetMonth = m - 1 + delta; // pode ser negativo - Date entende e ajusta ano
+      const ultimoDiaAlvo = new Date(a, targetMonth + 1, 0).getDate();
+      const diaSeguro = Math.min(dd, ultimoDiaAlvo);
+      return ymd(new Date(a, targetMonth, diaSeguro));
     };
-    const calcPeriodoAnoAnterior = (ini: string, fim: string) => {
-      const [aIni, mIni, dIni] = ini.split('-').map(Number);
-      const [aFim, mFim, dFim] = fim.split('-').map(Number);
-      return {
-        ini: `${aIni - 1}-${String(mIni).padStart(2, '0')}-${String(dIni).padStart(2, '0')}`,
-        fim: `${aFim - 1}-${String(mFim).padStart(2, '0')}-${String(dFim).padStart(2, '0')}`,
-      };
+    const shiftAno = (iso: string, delta: number) => {
+      const [a, m, dd] = iso.split('-').map(Number);
+      const targetYear = a + delta;
+      const ultimoDiaAlvo = new Date(targetYear, m, 0).getDate();
+      const diaSeguro = Math.min(dd, ultimoDiaAlvo);
+      return ymd(new Date(targetYear, m - 1, diaSeguro));
     };
+    const calcPeriodoAnterior = (ini: string, fim: string) => ({ ini: shiftMes(ini, -1), fim: shiftMes(fim, -1) });
+    const calcPeriodoAnoAnterior = (ini: string, fim: string) => ({ ini: shiftAno(ini, -1), fim: shiftAno(fim, -1) });
 
     const mesAnt = calcPeriodoAnterior(dataInicio, dataFim);
     const anoAnt = calcPeriodoAnoAnterior(dataInicio, dataFim);
