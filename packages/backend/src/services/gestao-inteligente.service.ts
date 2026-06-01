@@ -313,6 +313,10 @@ export class GestaoInteligenteService {
     const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
     const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
     const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
+    // PDV eh CHAVE NECESSARIA: cada PDV tem sequencia propria de cupom_fiscal.
+    // Sem ele no DISTINCT, vendas em PDVs diferentes com mesmo NUM_CUPOM_FISCAL
+    // virariam uma so (bug MaxValle: contava 16085 ao inves de 22425).
+    const colNumPdvCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_pdv', 'NUM_PDV');
     // Colunas NF/NF_ITEM (mesma fonte que Compra e Venda)
     const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
     const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
@@ -359,12 +363,11 @@ export class GestaoInteligenteService {
       }
     }
 
-    // Conta cupons UNICOS independente do meio de pagamento. O filtro antigo
-    // COD_TIPO=1110 (provavelmente 'dinheiro/venda a vista') excluia cupons pagos
-    // 100% por outros metodos (so cartao, so pix, so vale) — causava diferenca
-    // grande em clientes com varios meios de pagamento (ex: MaxValle: 22425 vs 16085).
+    // Conta cupons UNICOS por (NUM_CUPOM_FISCAL, NUM_PDV, COD_LOJA). Cada PDV tem
+    // sequencia propria de cupom — Cupom 5176 PDV 1 e Cupom 5176 PDV 2 sao vendas
+    // diferentes. Sem o PDV no DISTINCT, ficavam 16085 ao inves de 22425 (MaxValle).
     let cuponsQuery = `
-      SELECT COUNT(DISTINCT cf.${colNumCupomCf}) as QTD_CUPONS
+      SELECT COUNT(DISTINCT cf.${colNumCupomCf} || '-' || cf.${colNumPdvCf} || '-' || cf.${colCodLojaCf}) as QTD_CUPONS
       FROM ${tabCupomFinalizadora} cf
       WHERE cf.${colDtaVendaCf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
     `;
@@ -556,6 +559,10 @@ export class GestaoInteligenteService {
     const colDtaVendaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'data_venda');
     const colCodTipoCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_tipo');
     const colCodLojaCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'codigo_loja');
+    // PDV eh CHAVE NECESSARIA: cada PDV tem sequencia propria de cupom_fiscal.
+    // Sem ele no DISTINCT, vendas em PDVs diferentes com mesmo NUM_CUPOM_FISCAL
+    // virariam uma so (bug MaxValle: contava 16085 ao inves de 22425).
+    const colNumPdvCf = await MappingService.getColumnFromTable('TAB_CUPOM_FINALIZADORA', 'numero_pdv', 'NUM_PDV');
     // Colunas NF/NF_ITEM (mesma fonte que Compra e Venda)
     const colNumNf = await MappingService.getColumnFromTable('TAB_NF', 'numero_nf');
     const colSerieNf = await MappingService.getColumnFromTable('TAB_NF', 'serie_nf');
@@ -606,12 +613,11 @@ export class GestaoInteligenteService {
     }
     vendasSql += ` GROUP BY TRUNC(pv.${colDtaSaida})`;
 
-    // Query cupons diários (ano anterior inteiro)
+    // Query cupons diários (ano anterior inteiro) — mesmo fix do DISTINCT por (cupom+pdv+loja)
     let cuponsSql = `
-      SELECT TRUNC(cf.${colDtaVendaCf}) as DIA, COUNT(DISTINCT cf.${colNumCupomCf}) as QTD_CUPONS
+      SELECT TRUNC(cf.${colDtaVendaCf}) as DIA, COUNT(DISTINCT cf.${colNumCupomCf} || '-' || cf.${colNumPdvCf} || '-' || cf.${colCodLojaCf}) as QTD_CUPONS
       FROM ${tabCupomFinalizadora} cf
       WHERE cf.${colDtaVendaCf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.${colCodTipoCf} = 1110
     `;
     const cuponsParams: any = { dataInicio: dataInicioAnoAnt, dataFim: dataFimAnoAnt };
     if (codLoja) {
