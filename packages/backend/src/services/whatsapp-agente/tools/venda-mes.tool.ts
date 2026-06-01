@@ -10,21 +10,26 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 export const vendaMesTool: ToolDefinition = {
   name: 'venda_mes',
   categoria: 'Vendas',
-  descricao: 'Venda total do mês corrente (parcial)',
-  descricaoGPT: 'Retorna a venda acumulada do mês corrente (do dia 1 até ontem), com comparativo vs mesmos dias do mês passado e ano passado. Inclui margem e ticket médio. Use quando o usuario perguntar sobre vendas do mês, fechamento mensal parcial, como tá o mês, etc.',
+  descricao: 'Venda total de um mês (atual parcial ou mês especifico fechado)',
+  descricaoGPT: 'Retorna a venda total de UM MÊS. Sem parâmetros = mês corrente (parcial dia 1 ate hoje). Com `mes` e `ano` = mês fechado especifico (ex: maio/2026, abril/2025). IMPORTANTE: se usuario falar "venda de maio", "venda de abril", "fechamento do mês passado", CALCULE mes/ano e passe via parametros. Inclui comparativo vs mes anterior, vs ano anterior, margem e ticket medio.',
   parameters: {
     type: 'object',
     properties: {
+      mes: { type: 'number', description: 'Numero do mes (1-12). Omitir = mes atual.' },
+      ano: { type: 'number', description: 'Ano (ex: 2026). Omitir = ano atual.' },
       codLoja: { type: 'number', description: 'Codigo da loja (opcional)' },
     },
   },
   execute: async (params, ctx) => {
     const codLoja = params.codLoja || ctx.defaultCodLoja;
     const hoje = new Date();
-    const dia1 = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const mesAlvo = params.mes ? params.mes - 1 : hoje.getMonth();
+    const anoAlvo = params.ano || hoje.getFullYear();
+    const isMesCorrente = mesAlvo === hoje.getMonth() && anoAlvo === hoje.getFullYear();
+    const dia1 = new Date(anoAlvo, mesAlvo, 1);
+    const ultimoDia = new Date(anoAlvo, mesAlvo + 1, 0);
     const dataInicio = ymd(dia1);
-    // Se hoje for dia 1, intervalo eh so o proprio dia 1 (parcial); caso contrario, dia 1 ate hoje
-    const dataFim = ymd(hoje);
+    const dataFim = isMesCorrente ? ymd(hoje) : ymd(ultimoDia);
 
     try {
       const ind = await GestaoInteligenteService.getIndicadores({ dataInicio, dataFim, codLoja });
@@ -42,7 +47,8 @@ export const vendaMesTool: ToolDefinition = {
 
       const meses = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 
-      let txt = `📊 *VENDA DO MÊS (${meses[hoje.getMonth()]}/${hoje.getFullYear()})*\n`;
+      const parcial = isMesCorrente ? ' (parcial)' : '';
+      let txt = `📊 *VENDA DO MÊS ${meses[mesAlvo]}/${anoAlvo}${parcial}*\n`;
       txt += `Período: ${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}\n`;
       txt += `\n💰 *${fmtBRL(v)}*\n`;
       txt += `${cor(varMA)} vs mês anterior: *${fmtPct(varMA)}* (${fmtBRL(vMesAnt)})\n`;
