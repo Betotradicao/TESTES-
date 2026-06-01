@@ -16,11 +16,16 @@ RUN npm install && \
 # Copiar código fonte
 COPY src ./src
 
+# DEBUG: verificar se .js puros chegaram no contexto
+RUN echo "=== ARQUIVOS .js NO SRC ===" && find src -name "*.js" -type f && echo "=== FIM ===" && \
+    ls -la src/services/dvr-email-monitor.js || echo "ARQUIVO NAO EXISTE NO CONTEXTO"
+
 # Build TypeScript (usar tsc local do node_modules).
 # Apos compilar, copia .js puros (stubs/legacy) preservando estrutura via cp --parents
 RUN npx tsc && \
     cd src && find . -name "*.js" -exec cp --parents {} ../dist/ \; && cd .. && \
-    mkdir -p dist/templates && cp -r src/templates/. dist/templates/ 2>/dev/null || true
+    mkdir -p dist/templates && cp -r src/templates/. dist/templates/ 2>/dev/null || true && \
+    echo "=== DIST/SERVICES APOS COPIA ===" && ls dist/services/ | grep -i email || true
 
 # ===================================
 # STAGE 2: Production
