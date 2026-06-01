@@ -421,16 +421,21 @@ export default function GestaoInteligente() {
   // Persiste no BANCO (tabela configurations) + cache local em localStorage
   // para nao mostrar tela vazia enquanto carrega.
   const [showAreaVendaModal, setShowAreaVendaModal] = useState(false);
-  const areaVendaKey = `gestao_area_venda_${lojaSelecionada}`;
+  // lojaSelecionada pode ser null (= TODAS) ou um numero; normalizamos pra "todas" pra
+  // a key ficar previsivel e o carregamento funcionar mesmo em modo TODAS
+  const lojaKey = lojaSelecionada == null ? 'todas' : String(lojaSelecionada);
+  const areaVendaKey = `gestao_area_venda_${lojaKey}`;
   const [areaVenda, setAreaVenda] = useState(() => {
     const saved = localStorage.getItem(areaVendaKey);
     return saved ? Number(saved) : 0;
   });
   const [areaVendaTemp, setAreaVendaTemp] = useState(areaVenda);
 
-  // Carrega do banco quando a loja muda
+  // Carrega do banco quando a loja muda (incluindo modo "TODAS")
   useEffect(() => {
-    if (!lojaSelecionada) return;
+    // Atualiza estado a partir do localStorage da key correspondente
+    const cached = localStorage.getItem(areaVendaKey);
+    setAreaVenda(cached ? Number(cached) : 0);
     api.get(`/configurations/${areaVendaKey}`)
       .then(r => {
         const val = Number(r.data?.value || 0);
@@ -459,7 +464,7 @@ export default function GestaoInteligente() {
   // Estado para configuração de colaboradores (card Media Performance)
   // Persiste no BANCO (tabela configurations) + cache local em localStorage
   const [showColabModal, setShowColabModal] = useState(false);
-  const colabConfigKey = `gestao_colab_config_${lojaSelecionada}`;
+  const colabConfigKey = `gestao_colab_config_${lojaKey}`;
   const colabConfigDefault = { clt: 0, aprendiz: 0, estagiario: 0, pesoClt: 1, pesoAprendiz: 0.5, pesoEstagiario: 0.5 };
   const [colabConfig, setColabConfig] = useState(() => {
     const saved = localStorage.getItem(colabConfigKey);
@@ -467,9 +472,10 @@ export default function GestaoInteligente() {
   });
   const [colabConfigTemp, setColabConfigTemp] = useState(colabConfig);
 
-  // Carrega do banco quando a loja muda
+  // Carrega do banco quando a loja muda (incluindo "TODAS")
   useEffect(() => {
-    if (!lojaSelecionada) return;
+    const cached = localStorage.getItem(colabConfigKey);
+    setColabConfig(cached ? JSON.parse(cached) : colabConfigDefault);
     api.get(`/configurations/${colabConfigKey}`)
       .then(r => {
         if (r.data?.value) {
@@ -496,7 +502,6 @@ export default function GestaoInteligente() {
 
   // Carrega as 3 faixas (SKU, Vendas, Ticket) do banco quando troca de loja
   useEffect(() => {
-    if (!lojaSelecionada) return;
     const carregarFaixa = async (key, setter) => {
       try {
         const r = await api.get(`/configurations/${key}`);
@@ -507,9 +512,9 @@ export default function GestaoInteligente() {
         }
       } catch { /* config nao existe */ }
     };
-    carregarFaixa(`gestao_sku_faixas_${lojaSelecionada}`, setSkuFaixas);
-    carregarFaixa(`gestao_vendas_faixas_${lojaSelecionada}`, setVendasFaixas);
-    carregarFaixa(`gestao_ticket_faixas_${lojaSelecionada}`, setTicketFaixas);
+    carregarFaixa(`gestao_sku_faixas_${lojaKey}`, setSkuFaixas);
+    carregarFaixa(`gestao_vendas_faixas_${lojaKey}`, setVendasFaixas);
+    carregarFaixa(`gestao_ticket_faixas_${lojaKey}`, setTicketFaixas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lojaSelecionada]);
 
@@ -523,7 +528,7 @@ export default function GestaoInteligente() {
   ];
   const [showSkuFaixasModal, setShowSkuFaixasModal] = useState(false);
   const [skuFaixas, setSkuFaixas] = useState(() => {
-    const key = `gestao_sku_faixas_${lojaSelecionada}`;
+    const key = `gestao_sku_faixas_${lojaKey}`;
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : defaultSkuFaixas;
   });
@@ -532,9 +537,9 @@ export default function GestaoInteligente() {
   const saveSkuFaixas = async (faixas) => {
     const json = JSON.stringify(faixas);
     setSkuFaixas(faixas);
-    localStorage.setItem(`gestao_sku_faixas_${lojaSelecionada}`, json);
+    localStorage.setItem(`gestao_sku_faixas_${lojaKey}`, json);
     setShowSkuFaixasModal(false);
-    try { await api.put(`/configurations/gestao_sku_faixas_${lojaSelecionada}`, { value: json }); }
+    try { await api.put(`/configurations/gestao_sku_faixas_${lojaKey}`, { value: json }); }
     catch (e) { console.error('Erro salvar faixas SKU:', e); }
   };
 
@@ -570,7 +575,7 @@ export default function GestaoInteligente() {
   ];
   const [showVendasFaixasModal, setShowVendasFaixasModal] = useState(false);
   const [vendasFaixas, setVendasFaixas] = useState(() => {
-    const key = `gestao_vendas_faixas_${lojaSelecionada}`;
+    const key = `gestao_vendas_faixas_${lojaKey}`;
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : defaultVendasFaixas;
   });
@@ -579,9 +584,9 @@ export default function GestaoInteligente() {
   const saveVendasFaixas = async (faixas) => {
     const json = JSON.stringify(faixas);
     setVendasFaixas(faixas);
-    localStorage.setItem(`gestao_vendas_faixas_${lojaSelecionada}`, json);
+    localStorage.setItem(`gestao_vendas_faixas_${lojaKey}`, json);
     setShowVendasFaixasModal(false);
-    try { await api.put(`/configurations/gestao_vendas_faixas_${lojaSelecionada}`, { value: json }); }
+    try { await api.put(`/configurations/gestao_vendas_faixas_${lojaKey}`, { value: json }); }
     catch (e) { console.error('Erro salvar faixas Vendas:', e); }
   };
 
@@ -612,7 +617,7 @@ export default function GestaoInteligente() {
   ];
   const [showTicketFaixasModal, setShowTicketFaixasModal] = useState(false);
   const [ticketFaixas, setTicketFaixas] = useState(() => {
-    const key = `gestao_ticket_faixas_${lojaSelecionada}`;
+    const key = `gestao_ticket_faixas_${lojaKey}`;
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : defaultTicketFaixas;
   });
@@ -621,9 +626,9 @@ export default function GestaoInteligente() {
   const saveTicketFaixas = async (faixas) => {
     const json = JSON.stringify(faixas);
     setTicketFaixas(faixas);
-    localStorage.setItem(`gestao_ticket_faixas_${lojaSelecionada}`, json);
+    localStorage.setItem(`gestao_ticket_faixas_${lojaKey}`, json);
     setShowTicketFaixasModal(false);
-    try { await api.put(`/configurations/gestao_ticket_faixas_${lojaSelecionada}`, { value: json }); }
+    try { await api.put(`/configurations/gestao_ticket_faixas_${lojaKey}`, { value: json }); }
     catch (e) { console.error('Erro salvar faixas Ticket:', e); }
   };
 
@@ -743,7 +748,7 @@ export default function GestaoInteligente() {
 
   // Recarregar config de colaboradores quando loja muda
   useEffect(() => {
-    const key = `gestao_colab_config_${lojaSelecionada}`;
+    const key = `gestao_colab_config_${lojaKey}`;
     const saved = localStorage.getItem(key);
     setColabConfig(saved ? JSON.parse(saved) : { clt: 0, aprendiz: 0, estagiario: 0, pesoClt: 1, pesoAprendiz: 0.5, pesoEstagiario: 0.5 });
   }, [lojaSelecionada]);
