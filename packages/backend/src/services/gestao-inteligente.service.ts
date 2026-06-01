@@ -359,11 +359,14 @@ export class GestaoInteligenteService {
       }
     }
 
+    // Conta cupons UNICOS independente do meio de pagamento. O filtro antigo
+    // COD_TIPO=1110 (provavelmente 'dinheiro/venda a vista') excluia cupons pagos
+    // 100% por outros metodos (so cartao, so pix, so vale) — causava diferenca
+    // grande em clientes com varios meios de pagamento (ex: MaxValle: 22425 vs 16085).
     let cuponsQuery = `
       SELECT COUNT(DISTINCT cf.${colNumCupomCf}) as QTD_CUPONS
       FROM ${tabCupomFinalizadora} cf
       WHERE cf.${colDtaVendaCf} BETWEEN TO_DATE(:dataInicio, 'DD/MM/YYYY') AND TO_DATE(:dataFim, 'DD/MM/YYYY')
-        AND cf.${colCodTipoCf} = 1110
     `;
     const cuponsParams: any = { dataInicio, dataFim };
     if (codLoja) {
