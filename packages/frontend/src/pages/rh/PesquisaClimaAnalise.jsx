@@ -227,29 +227,86 @@ export default function PesquisaClimaAnalise() {
 
 function DashboardRodada({ data, voltar }) {
   const { rodada, analise } = data;
+  // Modo seleção pra impressão: usuário escolhe quais perguntas vão pro PDF
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [selecionadas, setSelecionadas] = useState(() => new Set(analise.map(p => p.id))); // todas marcadas por padrão
+
+  const togglePergunta = (id) => {
+    setSelecionadas(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const selecionarTodas = () => setSelecionadas(new Set(analise.map(p => p.id)));
+  const desmarcarTodas = () => setSelecionadas(new Set());
+
+  const imprimir = () => {
+    // Marca body com classe pra CSS print esconder não-selecionadas
+    document.body.classList.add('printing-dash-pesquisa');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => document.body.classList.remove('printing-dash-pesquisa'), 500);
+    }, 100);
+  };
+
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 print:hidden">
         <button onClick={voltar} className="px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-sm">← Voltar</button>
         <h2 className="text-lg font-bold flex-1">📊 {rodada.modelo_nome} — {rodada.nome}</h2>
+        {!modoSelecao ? (
+          <button onClick={() => setModoSelecao(true)}
+            className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow flex items-center gap-2">
+            🖨️ Imprimir PDF
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 bg-amber-50 border-2 border-amber-300 rounded-lg px-3 py-1.5">
+            <span className="text-xs font-bold text-amber-900">{selecionadas.size}/{analise.length} selecionadas</span>
+            <button onClick={selecionarTodas} className="text-xs bg-white hover:bg-gray-100 border border-gray-300 px-2 py-1 rounded">Todas</button>
+            <button onClick={desmarcarTodas} className="text-xs bg-white hover:bg-gray-100 border border-gray-300 px-2 py-1 rounded">Nenhuma</button>
+            <button onClick={() => setModoSelecao(false)} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded">Cancelar</button>
+            <button onClick={imprimir} disabled={selecionadas.size === 0}
+              className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3 py-1 rounded font-bold">
+              🖨️ Imprimir ({selecionadas.size})
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      {/* Cabeçalho extra que aparece SÓ na impressão */}
+      <div className="hidden print:block mb-4 border-b pb-3">
+        <h1 className="text-2xl font-bold">{rodada.modelo_nome}</h1>
+        <p className="text-gray-600">{rodada.nome} · {rodada.total_respostas} respostas</p>
+        <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleString('pt-BR')}</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 print:hidden">
         <Card label="Respostas" value={rodada.total_respostas} cor="amber" />
         <Card label="NPS Médio" value={rodada.nps_medio != null ? Number(rodada.nps_medio).toFixed(1) : '—'} cor="blue" />
         <Card label="Aberta?" value={rodada.aberta ? 'SIM' : 'NÃO'} cor={rodada.aberta ? 'emerald' : 'gray'} />
         <Card label="Perguntas" value={analise.length} cor="rose" />
       </div>
 
-      <div className="space-y-3">
-        {analise.map(p => (
-          <div key={p.id} className="bg-white rounded-lg shadow p-4">
+      <div className="space-y-3 dash-pesquisa-conteudo">
+        {analise.map(p => {
+          const checked = selecionadas.has(p.id);
+          return (
+          <div key={p.id}
+            className={`bg-white rounded-lg shadow p-4 transition pergunta-pdf ${modoSelecao ? (checked ? 'ring-2 ring-emerald-400' : 'opacity-50') : ''} ${!checked ? 'nao-selecionada-pdf' : ''}`}
+          >
             <div className="flex justify-between items-start mb-2">
-              <div>
-                {p.secao && <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded mr-2">{p.secao}</span>}
-                <span className="font-bold text-sm">{p.enunciado}</span>
+              <div className="flex items-start gap-2 flex-1">
+                {modoSelecao && (
+                  <input type="checkbox" checked={checked} onChange={() => togglePergunta(p.id)}
+                    className="w-5 h-5 mt-0.5 cursor-pointer accent-emerald-600 print:hidden" />
+                )}
+                <div>
+                  {p.secao && <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded mr-2">{p.secao}</span>}
+                  <span className="font-bold text-sm">{p.enunciado}</span>
+                </div>
               </div>
-              <span className="text-xs text-gray-500 whitespace-nowrap">{p.total_respostas} respostas</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap print:hidden">{p.total_respostas} respostas</span>
             </div>
 
             {p.tipo === 'nps_0_10' && (
@@ -306,7 +363,7 @@ function DashboardRodada({ data, voltar }) {
             )}
 
             {(p.tipo === 'texto_curto' || p.tipo === 'texto_longo') && (
-              <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+              <div className="mt-2 space-y-1 max-h-60 overflow-y-auto print:max-h-none">
                 {(p.respostas || []).map((r, i) => (
                   <div key={i} className="bg-gray-50 rounded p-2 text-sm border-l-2 border-rose-300">{r}</div>
                 ))}
@@ -314,8 +371,19 @@ function DashboardRodada({ data, voltar }) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* CSS de impressão: esconde não-selecionadas e ajusta layout pra A4 */}
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 12mm; }
+          body.printing-dash-pesquisa .nao-selecionada-pdf { display: none !important; }
+          body.printing-dash-pesquisa .pergunta-pdf { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd; }
+          body.printing-dash-pesquisa { background: white !important; }
+        }
+      `}</style>
     </>
   );
 }
