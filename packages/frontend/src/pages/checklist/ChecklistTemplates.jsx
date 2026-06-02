@@ -45,6 +45,99 @@ export default function ChecklistTemplates() {
   const autoSaveTimer = useRef(null);
   const skipNextAutoSave = useRef(false);
 
+  // ============ Drag and drop de secoes e perguntas ============
+  // dragState = { type: 'section'|'question', sectionId, questionId, fromSectionId }
+  // dragOver  = { type: 'section'|'question', overSectionId, overQuestionId }
+  const [dragState, setDragState] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+
+  const startDragSection = (e, sectionId) => {
+    setDragState({ type: 'section', sectionId });
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(sectionId)); } catch {}
+  };
+
+  const startDragQuestion = (e, sectionId, questionId) => {
+    e.stopPropagation();
+    setDragState({ type: 'question', questionId, fromSectionId: sectionId });
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(questionId)); } catch {}
+  };
+
+  const onDragOverSection = (e, sectionId) => {
+    if (!dragState || dragState.type !== 'section') return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOver?.overSectionId !== sectionId) setDragOver({ type: 'section', overSectionId: sectionId });
+  };
+
+  const onDragOverQuestion = (e, sectionId, questionId) => {
+    if (!dragState || dragState.type !== 'question') return;
+    // Pergunta so reordena dentro da mesma secao
+    if (dragState.fromSectionId !== sectionId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOver?.overQuestionId !== questionId) setDragOver({ type: 'question', overQuestionId: questionId });
+  };
+
+  const dropSection = async (e, targetSectionId) => {
+    if (!dragState || dragState.type !== 'section') return;
+    e.preventDefault();
+    const fromId = dragState.sectionId;
+    setDragState(null); setDragOver(null);
+    if (fromId === targetSectionId) return;
+    // Reordena local: move fromId pra posicao de targetSectionId
+    const sections = [...(editing.sections || [])];
+    const fromIdx = sections.findIndex(s => s.id === fromId);
+    const targetIdx = sections.findIndex(s => s.id === targetSectionId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+    const [moved] = sections.splice(fromIdx, 1);
+    sections.splice(targetIdx, 0, moved);
+    // Reseta ordem 1..n
+    const reordered = sections.map((s, i) => ({ ...s, ordem: i + 1 }));
+    setEditing({ ...editing, sections: reordered });
+    // Persiste
+    try {
+      await Promise.all(reordered.map(s => api.put(`/checklist/sections/${s.id}`, { ordem: s.ordem })));
+      setAutoSaveStatus('saved'); setTimeout(() => setAutoSaveStatus(''), 1500);
+    } catch (err) {
+      setErro('Erro ao salvar ordem das seções');
+      recarregarEdicao();
+    }
+  };
+
+  const dropQuestion = async (e, targetSectionId, targetQuestionId) => {
+    if (!dragState || dragState.type !== 'question') return;
+    if (dragState.fromSectionId !== targetSectionId) return; // só mesma secao
+    e.preventDefault(); e.stopPropagation();
+    const fromQuestionId = dragState.questionId;
+    setDragState(null); setDragOver(null);
+    if (fromQuestionId === targetQuestionId) return;
+    const sections = (editing.sections || []).map(s => {
+      if (s.id !== targetSectionId) return s;
+      const questions = [...(s.questions || [])];
+      const fromIdx = questions.findIndex(q => q.id === fromQuestionId);
+      const targetIdx = questions.findIndex(q => q.id === targetQuestionId);
+      if (fromIdx < 0 || targetIdx < 0) return s;
+      const [moved] = questions.splice(fromIdx, 1);
+      questions.splice(targetIdx, 0, moved);
+      const reordered = questions.map((q, i) => ({ ...q, ordem: i + 1 }));
+      return { ...s, questions: reordered };
+    });
+    setEditing({ ...editing, sections });
+    const sectionAfter = sections.find(s => s.id === targetSectionId);
+    try {
+      await Promise.all((sectionAfter?.questions || []).map(q => api.put(`/checklist/questions/${q.id}`, { ordem: q.ordem })));
+      setAutoSaveStatus('saved'); setTimeout(() => setAutoSaveStatus(''), 1500);
+    } catch (err) {
+      setErro('Erro ao salvar ordem das perguntas');
+      recarregarEdicao();
+    }
+  };
+
+  const endDrag = () => { setDragState(null); setDragOver(null); };
+
   useEffect(() => {
     carregar();
     // eslint-disable-next-line
@@ -476,9 +569,25 @@ export default function ChecklistTemplates() {
                   ) : (
                     <div className="space-y-3">
                       {editing.sections.map(s => (
-                        <div key={s.id} className="border rounded bg-white">
-                          <div className="flex justify-between items-center px-4 py-2.5 bg-slate-200 border-b border-slate-300 rounded-t">
+                        <div
+                          key={s.id}
+                          onDragOver={(e) => onDragOverSection(e, s.id)}
+                          onDrop={(e) => dropSection(e, s.id)}
+                          className={`border rounded bg-white transition ${
+                            dragOver?.type === 'section' && dragOver.overSectionId === s.id
+                              ? 'border-teal-500 border-2 shadow-lg ring-2 ring-teal-200'
+                              : ''
+                          } ${dragState?.type === 'section' && dragState.sectionId === s.id ? 'opacity-40' : ''}`}
+                        >
+                          <div
+                            draggable
+                            onDragStart={(e) => startDragSection(e, s.id)}
+                            onDragEnd={endDrag}
+                            className="flex justify-between items-center px-4 py-2.5 bg-slate-200 border-b border-slate-300 rounded-t cursor-move select-none"
+                            title="Segure e arraste pra reordenar esta seção"
+                          >
                             <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+                              <span className="text-slate-400">⋮⋮</span>
                               <span>📂</span>
                               <span>{s.nome}</span>
                               <button
@@ -504,8 +613,24 @@ export default function ChecklistTemplates() {
                             <div className="divide-y">
                               {s.questions.map(q => {
                                 const modelo = getModeloDaQuestao(q);
+                                const isDragging = dragState?.type === 'question' && dragState.questionId === q.id;
+                                const isDropTarget = dragOver?.type === 'question' && dragOver.overQuestionId === q.id;
                                 return (
-                                  <div key={q.id} className="p-3 hover:bg-gray-50 flex items-start gap-3">
+                                  <div
+                                    key={q.id}
+                                    onDragOver={(e) => onDragOverQuestion(e, s.id, q.id)}
+                                    onDrop={(e) => dropQuestion(e, s.id, q.id)}
+                                    className={`p-3 hover:bg-gray-50 flex items-start gap-3 transition ${
+                                      isDragging ? 'opacity-40' : ''
+                                    } ${isDropTarget ? 'bg-teal-50 border-l-4 border-teal-500' : ''}`}
+                                  >
+                                    <span
+                                      draggable
+                                      onDragStart={(e) => startDragQuestion(e, s.id, q.id)}
+                                      onDragEnd={endDrag}
+                                      title="Segure aqui e arraste pra reordenar"
+                                      className="text-gray-400 hover:text-gray-700 cursor-move select-none pt-0.5 px-1 text-lg leading-none"
+                                    >⋮⋮</span>
                                     <div className="flex-1">
                                       <div className="text-sm text-gray-800">{q.texto}</div>
                                       <div className="mt-2 flex items-center gap-2 flex-wrap">
