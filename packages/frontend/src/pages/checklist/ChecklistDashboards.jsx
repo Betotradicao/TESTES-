@@ -135,7 +135,7 @@ export default function ChecklistDashboards() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6">
           {erro && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{erro}</div>}
           {loading ? (
             <div className="text-gray-500 py-10 text-center">Carregando…</div>
@@ -245,19 +245,6 @@ export default function ChecklistDashboards() {
                   corPct={corPct}
                   bgBar={bgBar}
                 />
-              )}
-
-              {/* Grafico de Evolucao multi-loja */}
-              {dados.evolucao_multiloja && dados.evolucao_multiloja.series && dados.evolucao_multiloja.series.length > 0 && (
-                <EvolucaoMultiLoja
-                  data={dados.evolucao_multiloja}
-                  companies={dados.ranking_lojas}
-                />
-              )}
-
-              {/* Top 10 perguntas nao-conformes */}
-              {dados.top_perguntas_nc && dados.top_perguntas_nc.length > 0 && (
-                <TopPerguntasNC dados={dados.top_perguntas_nc} />
               )}
 
               {/* Rankings lado a lado */}
@@ -376,6 +363,19 @@ export default function ChecklistDashboards() {
                   </div>
                 )}
               </div>
+
+              {/* Grafico de Evolucao multi-loja */}
+              {dados.evolucao_multiloja && dados.evolucao_multiloja.series && dados.evolucao_multiloja.series.length > 0 && (
+                <EvolucaoMultiLoja
+                  data={dados.evolucao_multiloja}
+                  companies={dados.ranking_lojas}
+                />
+              )}
+
+              {/* Top 10 perguntas nao-conformes */}
+              {dados.top_perguntas_nc && dados.top_perguntas_nc.length > 0 && (
+                <TopPerguntasNC dados={dados.top_perguntas_nc} />
+              )}
 
               {/* Planos de Ação em Aberto — lista */}
               {dados.planos_acao.lista.length > 0 && (
