@@ -38,10 +38,14 @@ export const AppDataSource = new DataSource({
     max: 20,
     // Mínimo de conexões sempre ativas
     min: 2,
-    // Tempo máximo que uma conexão pode ficar idle antes de ser fechada (30 segundos)
-    idleTimeoutMillis: 30000,
-    // Tempo máximo para aguardar uma conexão disponível (3 segundos)
-    connectionTimeoutMillis: 3000,
+    // Tempo que uma conexão pode ficar idle antes de ser fechada (1 minuto)
+    // Subi de 30s pra 60s pra ter mais reuso e menos churn de conexao.
+    idleTimeoutMillis: 60000,
+    // Tempo máximo para aguardar uma conexão disponível (30 segundos).
+    // Subi de 3s pra 30s — 3s estourava nos crons (Top Quedas, Vendas
+    // Mensais, etc) sempre que pool precisava abrir conexao nova depois
+    // de idle, com erro "Connection terminated due to connection timeout".
+    connectionTimeoutMillis: 30000,
     // Testa a conexão antes de usar
     testOnBorrow: true,
   },
@@ -53,10 +57,12 @@ export const AppDataSource = new DataSource({
   connectTimeoutMS: 10000,
 });
 
-// Pool pg para queries raw (usado em autenticação e serviços)
+// Pool pg para queries raw (usado em autenticação e serviços).
+// Mesmos valores que o TypeORM extra acima — connectionTimeoutMillis baixo
+// estourava nos crons toda hora.
 export const pool = new Pool({
   connectionString: getDatabaseUrl(),
   max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 3000,
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 30000,
 });
