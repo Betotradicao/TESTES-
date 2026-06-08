@@ -177,7 +177,15 @@ export class OracleService {
         poolIncrement: 1,
         poolTimeout: 60,
         queueTimeout: 60000,     // 60s max esperando conexão do pool
-        expireTime: 30,          // Verifica conexões mortas a cada 30s
+        expireTime: 30,          // Verifica conexões mortas a cada 30s (TCP keepalive)
+        // Antes de devolver uma conexao idle do pool, valida com um SELECT 1
+        // pra detectar conexao que o NAT/firewall do cliente matou silenciosamente.
+        // Custo: 1 ping por conexao se ficou idle mais que poolPingInterval segundos.
+        // Por que? Clientes via VPS (SuperVital etc) atravessam Mikrotik com NAT
+        // que descarta TCP idle. Sem isso, queries falham com NJS-003 ate o pool
+        // se recompor. Tradicao nao precisa (LAN local, sem NAT no caminho).
+        // ROLLBACK: remover esta linha e rebuildar.
+        poolPingInterval: 60,
       });
 
       console.log('✅ Oracle connection pool initialized');
