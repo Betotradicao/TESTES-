@@ -110,12 +110,13 @@ export class BipPDFService {
 
         const preco = bip.bip_price_cents ? `R$ ${(bip.bip_price_cents / 100).toFixed(2).replace('.', ',')}` : '-';
 
-        // Formatar data/hora - adicionar 3 horas para compensar UTC e exibir horário Brasil
+        // Formatar data/hora - container roda em TZ=America/Sao_Paulo,
+        // entao getHours()/getDate() ja retornam horario Brasil. O codigo
+        // antigo somava +3h pra "compensar UTC" e na verdade jogava o
+        // horario PRA FRENTE (BRT + 3 = UTC), o que aparecia errado no PDF.
         let dataHora = '-';
         if (bip.event_date) {
           const eventDate = new Date(bip.event_date);
-          // Adicionar 3 horas para converter de UTC para Brasil (UTC-3)
-          eventDate.setHours(eventDate.getHours() + 3);
           const dia = String(eventDate.getDate()).padStart(2, '0');
           const mes = String(eventDate.getMonth() + 1).padStart(2, '0');
           const ano = eventDate.getFullYear();
