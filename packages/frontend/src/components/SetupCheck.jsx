@@ -19,7 +19,10 @@ export default function SetupCheck({ children }) {
   const checkSetupStatus = async () => {
     try {
       console.log('🔍 SetupCheck: Verificando status do setup...');
-      const response = await api.get('/api/setup/status');
+      // Timeout defensivo: se o backend estiver pendurado (não caído), o axios
+      // esperaria pra sempre e o spinner ficaria eterno. Com timeout, o catch
+      // dispara e o app degrada para a tela de login em vez de travar.
+      const response = await api.get('/api/setup/status', { timeout: 8000 });
       const { needsSetup } = response.data;
 
       console.log('🔍 SetupCheck: needsSetup =', needsSetup);
