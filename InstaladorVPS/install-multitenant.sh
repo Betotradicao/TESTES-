@@ -542,7 +542,9 @@ NODE_ENV=production
 FRONTEND_URL=https://$CLIENT_SUBDOMAIN
 
 # TÚNEL SSH (portas isoladas por cliente)
-TUNNEL_ORACLE_PORT=$TUNNEL_ORACLE_PORT
+# Oracle VAZIO por padrao = conexao DIRETA via Mikrotik (arquitetura atual).
+# So preencher se o cliente usar tunel SSH (arquitetura antiga).
+TUNNEL_ORACLE_PORT=
 TUNNEL_MSSQL_PORT=$TUNNEL_MSSQL_PORT
 TUNNEL_API_PORT=$TUNNEL_API_PORT
 
