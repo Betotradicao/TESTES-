@@ -206,13 +206,13 @@ export class BipWebhookService {
       : 0;
 
     // === TRATAMENTO DE DATA ===
-    // PDV envia em UTC com sufixo Z (ex: "2026-05-12T13:35:30.852Z").
-    // new Date(utcStr) ja cria Date object com timestamp UTC correto;
-    // TypeORM salva os componentes em horario local do servidor automaticamente.
-    // ANTES tinha subtract 3h aqui, mas isso DUPLICAVA a conversao e salvava 3h atrasado.
-    const finalEventDate = eventDate
-      ? new Date(eventDate)
-      : new Date(formatResult.sell_date!);
+    // Usa a HORA DO SERVIDOR (VPS com NTP, sempre correta) em vez do eventDate
+    // do PC/scanner. O relogio do PC da loja frequentemente fica errado (perde
+    // a hora ao desligar da tomada / bateria CMOS fraca) e gerava bips com
+    // horario errado (ex: ~10h de diferenca). A bipagem chega em tempo real,
+    // entao a hora do servidor ~= hora real da bipagem.
+    // (Antes usava eventDate do PC; fallback mantido caso new Date falhe.)
+    const finalEventDate = new Date();
 
     // product_id deve ser o codigo INTERNO do ERP (prod_codigo) — esse e o
     // identificador que aparece nas vendas do PDV e usado pra cruzamento.
