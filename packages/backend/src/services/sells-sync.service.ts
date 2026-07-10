@@ -22,6 +22,12 @@ interface SyncStats {
  */
 export class SellsSyncService {
   private static isRunning = false;
+  private static runStartedAt = 0;
+  // Watchdog anti-deadlock: se um sync ficar "preso" (ex: query do Postgres que
+  // nunca resolve depois do servidor voltar de uma queda), passado esse tempo a
+  // trava e considerada stale e o proximo tick reassume. 8 min > callTimeout do
+  // Oracle (5 min) + retry, entao nunca aborta um sync legitimo em andamento.
+  private static readonly MAX_RUN_MS = 8 * 60 * 1000;
   private static lastStats: SyncStats | null = null;
 
   /**
@@ -36,13 +42,20 @@ export class SellsSyncService {
    * Seguro para rodar via cron - nunca dá process.exit
    */
   static async syncToday(): Promise<void> {
-    // Evita execução paralela
+    // Evita execução paralela — MAS com watchdog anti-deadlock.
+    // Sem o watchdog, um unico sync travado (query que nunca resolve) deixava
+    // isRunning=true pra sempre e o cron nunca mais rodava ate reiniciar o backend.
     if (this.isRunning) {
-      console.log('[SellsSync] Já está em execução, pulando...');
-      return;
+      const stuckMs = Date.now() - this.runStartedAt;
+      if (stuckMs < this.MAX_RUN_MS) {
+        console.log('[SellsSync] Já está em execução, pulando...');
+        return;
+      }
+      console.warn(`[SellsSync] ⚠️ Sync anterior preso há ${Math.round(stuckMs / 1000)}s — resetando trava e reassumindo`);
     }
 
     this.isRunning = true;
+    this.runStartedAt = Date.now();
     const startTime = Date.now();
 
     try {

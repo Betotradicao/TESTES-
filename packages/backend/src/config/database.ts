@@ -46,6 +46,13 @@ export const AppDataSource = new DataSource({
     // Mensais, etc) sempre que pool precisava abrir conexao nova depois
     // de idle, com erro "Connection terminated due to connection timeout".
     connectionTimeoutMillis: 30000,
+    // Timeout POR QUERY. connectionTimeoutMillis so cobre PEGAR a conexao;
+    // sem isto, uma query que pega a conexao mas o banco nao responde (conexoes
+    // "zumbis" depois do servidor voltar de queda) trava o await pra sempre e
+    // deadlockava o cron Sells Sync. statement_timeout = servidor cancela a query;
+    // query_timeout = cliente (pg) aborta. 120s cobre queries pesadas legitimas.
+    statement_timeout: 120000,
+    query_timeout: 120000,
     // Testa a conexão antes de usar
     testOnBorrow: true,
   },
@@ -65,4 +72,8 @@ export const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 30000,
+  // Timeout por query — mesma razao do pool TypeORM acima: evita que uma query
+  // travada (conexao zumbi pos-queda) pendure o await pra sempre.
+  statement_timeout: 120000,
+  query_timeout: 120000,
 });
