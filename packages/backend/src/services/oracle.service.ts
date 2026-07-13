@@ -29,6 +29,9 @@ export class OracleService {
   private static thickModeInitialized = false;
   private static configLoaded = false;
   private static oracleConfig = { ...DEFAULT_ORACLE_CONFIG };
+  // Guarda pra evitar reinicializacao concorrente do pool (varios getConnection
+  // ao mesmo tempo compartilham UMA inicializacao em vez de criar N pools).
+  private static initPromise: Promise<void> | null = null;
 
   /**
    * Carrega configuração do Oracle de forma dinâmica
@@ -202,8 +205,17 @@ export class OracleService {
    * Obtém uma conexão do pool
    */
   static async getConnection(): Promise<oracledb.Connection> {
-    if (!this.pool) {
-      await this.initialize();
+    // Reinicializa se o pool nao existe OU nao esta aberto (closing/closed/draining).
+    // BUG que isto corrige: um pool preso em "closing" fazia getConnection lancar
+    // NJS-064 pra sempre, porque a checagem antiga so olhava !this.pool (e um pool
+    // fechando NAO e null). initPromise garante que chamadas concorrentes dividam
+    // UMA reinicializacao em vez de criarem varios pools.
+    if (!this.pool || this.pool.status !== oracledb.POOL_STATUS_OPEN) {
+      this.pool = null;
+      if (!this.initPromise) {
+        this.initPromise = this.initialize().finally(() => { this.initPromise = null; });
+      }
+      await this.initPromise;
     }
 
     if (!this.pool) {
@@ -250,7 +262,8 @@ export class OracleService {
       const msg = (err?.message || '').toLowerCase();
       return code === 12541 || code === 12170 || code === 12514 || code === 3114 || code === 3113
         || msg.includes('not available') || msg.includes('not connected') || msg.includes('no listener')
-        || msg.includes('connection lost') || msg.includes('socket') || msg.includes('timeout');
+        || msg.includes('connection lost') || msg.includes('socket') || msg.includes('timeout')
+        || msg.includes('pool is clos'); // NJS-064 (closing) / NJS-065 (closed): pool morto → reinicializar
     };
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -267,10 +280,16 @@ export class OracleService {
 
         if (attempt === 1 && isConnectionError(error)) {
           console.warn(`⚠️ Oracle connection error (attempt ${attempt}), reconnecting: ${error.message}`);
-          // Fechar pool antigo e reinicializar
-          try { if (this.pool) { await this.pool.close(0); } } catch {}
+          // Zera a referencia ANTES de fechar: queries concorrentes reinicializam
+          // em vez de baterem num pool "closing" (NJS-064). Fecha o pool antigo em
+          // background com timeout de 5s — se o close pendurar (conexao presa), a
+          // recuperacao nao trava esperando por ele.
+          const oldPool = this.pool;
           this.pool = null;
           this.configLoaded = false;
+          if (oldPool) {
+            Promise.race([oldPool.close(0), new Promise(r => setTimeout(r, 5000))]).catch(() => {});
+          }
           await new Promise(r => setTimeout(r, 2000)); // Esperar 2s
           continue; // Tenta de novo
         }
