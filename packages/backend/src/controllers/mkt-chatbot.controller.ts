@@ -187,23 +187,279 @@ export class MktChatbotController {
 
   // ========== CONVERSAS ==========
   static async listarConversas(_req: Request, res: Response) {
-    const sessoes = await AppDataSource.getRepository(MktChatbotSessao)
-      .createQueryBuilder('s')
-      .leftJoinAndSelect('s.contato', 'c')
-      .leftJoinAndSelect('s.bloco_atual', 'b')
-      .orderBy('s.ultima_atividade_at', 'DESC')
-      .limit(100)
-      .getMany();
-    res.json({ success: true, sessoes });
+    try {
+      const sessoes = await AppDataSource.getRepository(MktChatbotSessao)
+        .createQueryBuilder('s')
+        .leftJoinAndSelect('s.contato', 'c')
+        .leftJoinAndSelect('s.bloco_atual', 'b')
+        .orderBy('s.ultima_atividade_at', 'DESC')
+        .limit(100)
+        .getMany();
+      res.json({ success: true, sessoes });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   }
 
   static async listarMensagensSessao(req: Request, res: Response) {
-    const sessaoId = parseInt(req.params.id);
-    const msgs = await AppDataSource.getRepository(MktChatbotMensagem).find({
-      where: { sessao_id: sessaoId }, order: { created_at: 'ASC' },
-    });
-    res.json({ success: true, mensagens: msgs });
+    try {
+      const sessaoId = parseInt(req.params.id);
+      const msgs = await AppDataSource.getRepository(MktChatbotMensagem).find({
+        where: { sessao_id: sessaoId }, order: { created_at: 'ASC' },
+      });
+      res.json({ success: true, mensagens: msgs });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   }
+
+  // ========== MENU SIMPLES ==========
+  // O editor visual monta grafo qualquer, mas o caso real do supermercado e um
+  // menu unico: "digite 1 pra X". Estes dois endpoints leem/gravam esse formato
+  // por cima do MESMO grafo, sem canvas.
+  //
+  // Cada opcao do menu e uma SEQUENCIA de passos (uma cadeia de blocos):
+  //   menu --[1]--> passo1 --[auto|palavra]--> passo2 --> ... --> volta pro menu
+  // Passo 'pergunta' espera o cliente digitar: a palavra vira a condicao da
+  // conexao que sai dele. Passo 'mensagem' segue sozinho. 'atendente'/'encerrar'
+  // terminam a cadeia (nao voltam pro menu).
+
+  /** Percorre a cadeia de blocos de uma opcao, parando ao voltar pro menu. */
+  private static percorrerCadeia(
+    inicioId: number,
+    inicialId: number,
+    blocos: MktChatbotBloco[],
+    conexoes: MktChatbotConexao[],
+  ): Array<{ bloco: MktChatbotBloco; saida: MktChatbotConexao | undefined }> {
+    const cadeia: Array<{ bloco: MktChatbotBloco; saida: MktChatbotConexao | undefined }> = [];
+    const vistos = new Set<number>();
+    let atualId: number | undefined = inicioId;
+
+    while (atualId && !vistos.has(atualId) && atualId !== inicialId) {
+      vistos.add(atualId);
+      const bloco = blocos.find(b => b.id === atualId);
+      if (!bloco) break;
+      const saida = conexoes.find(c => c.origem_id === atualId);
+      cadeia.push({ bloco, saida });
+      atualId = saida?.destino_id;
+    }
+    return cadeia;
+  }
+
+  /** GET /api/mkt-chatbot/fluxos/:id/menu */
+  static async obterMenu(req: Request, res: Response) {
+    try {
+      const fluxoId = parseInt(req.params.id);
+      const blocos = await AppDataSource.getRepository(MktChatbotBloco).find({ where: { fluxo_id: fluxoId } });
+      const inicial = blocos.find(b => b.is_inicial);
+      if (!inicial) return res.json({ success: true, texto_menu: '', opcoes: [] });
+
+      const conexoes = await AppDataSource.getRepository(MktChatbotConexao).find({
+        where: { fluxo_id: fluxoId }, order: { ordem: 'ASC', id: 'ASC' },
+      });
+
+      const opcoes = (Array.isArray(inicial.dados?.opcoes) ? inicial.dados.opcoes : []).map((o: any) => {
+        const cx = conexoes.find(c => c.origem_id === inicial!.id && c.condicao === String(o.numero));
+        const cadeia = cx ? MktChatbotController.percorrerCadeia(cx.destino_id, inicial!.id, blocos, conexoes) : [];
+
+        const passos = cadeia.map(({ bloco, saida }) => {
+          const d = bloco.dados || {};
+          return {
+            tipo: bloco.tipo,
+            texto: (bloco.tipo === 'atendente' ? d.mensagem_transferencia
+                  : bloco.tipo === 'encerrar'  ? d.mensagem_despedida
+                  : d.texto) || '',
+            // So passo 'pergunta' usa palavra: ela mora na conexao de saida dele.
+            palavra_chave: bloco.tipo === 'pergunta' ? (saida?.condicao || '') : '',
+          };
+        });
+
+        return { numero: String(o.numero ?? ''), label: o.label || '', passos };
+      });
+
+      res.json({ success: true, texto_menu: inicial.dados?.texto || '', opcoes });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  /**
+   * PUT /api/mkt-chatbot/fluxos/:id/menu
+   * Body: { texto_menu, opcoes: [{ numero, label, passos: [{ tipo, texto, palavra_chave }] }] }
+   *
+   * Reaproveita os blocos que ja existem na cadeia (upsert por posicao) em vez de
+   * recriar tudo: id de bloco e referenciado por sessao e mensagem, e recriar
+   * quebraria conversa em andamento.
+   */
+  static async salvarMenu(req: Request, res: Response) {
+    const runner = AppDataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const fluxoId = parseInt(req.params.id);
+      const textoMenu = String(req.body?.texto_menu || '');
+      const brutas = Array.isArray(req.body?.opcoes) ? req.body.opcoes : [];
+
+      const fluxo = await runner.manager.findOne(MktChatbotFluxo, { where: { id: fluxoId } });
+      if (!fluxo) {
+        await runner.rollbackTransaction();
+        return res.status(404).json({ success: false, error: 'Fluxo nao encontrado' });
+      }
+
+      const TIPOS_OK = ['mensagem', 'pergunta', 'atendente', 'encerrar'];
+      const validas = brutas
+        .map((o: any) => ({
+          numero: String(o?.numero ?? '').trim(),
+          label: String(o?.label ?? '').trim(),
+          passos: (Array.isArray(o?.passos) ? o.passos : [])
+            .map((p: any) => ({
+              tipo: TIPOS_OK.includes(p?.tipo) ? p.tipo : 'mensagem',
+              texto: String(p?.texto ?? ''),
+              palavra_chave: String(p?.palavra_chave ?? '').trim(),
+            }))
+            .filter((p: any) => p.texto.trim() || p.palavra_chave),
+        }))
+        .filter((o: any) => o.numero && o.label);
+
+      const dup = validas.map((o: any) => o.numero).filter((n: string, idx: number, a: string[]) => a.indexOf(n) !== idx);
+      if (dup.length) {
+        await runner.rollbackTransaction();
+        return res.status(400).json({ success: false, error: `Numero de opcao repetido: ${dup.join(', ')}` });
+      }
+      for (const o of validas) {
+        const semPalavra = o.passos.find((p: any) => p.tipo === 'pergunta' && !p.palavra_chave);
+        if (semPalavra) {
+          await runner.rollbackTransaction();
+          return res.status(400).json({
+            success: false,
+            error: `Na opcao "${o.label}" tem um passo que espera o cliente digitar, mas sem palavra definida`,
+          });
+        }
+      }
+
+      // ---- Bloco do menu (pergunta inicial) ----
+      let inicial = await runner.manager.findOne(MktChatbotBloco, { where: { fluxo_id: fluxoId, is_inicial: true } });
+      if (!inicial) {
+        inicial = await runner.manager.save(runner.manager.create(MktChatbotBloco, {
+          fluxo_id: fluxoId, tipo: 'pergunta', nome: 'Menu Principal',
+          posicao_x: 0, posicao_y: 0, is_inicial: true, dados: {},
+        }));
+      }
+      inicial.tipo = 'pergunta';
+      inicial.dados = {
+        ...(inicial.dados || {}),
+        texto: textoMenu,
+        opcoes: validas.map((o: any) => ({ numero: o.numero, label: o.label })),
+      };
+      await runner.manager.save(inicial);
+
+      const todosBlocos = await runner.manager.find(MktChatbotBloco, { where: { fluxo_id: fluxoId } });
+      const todasConexoes = await runner.manager.find(MktChatbotConexao, {
+        where: { fluxo_id: fluxoId }, order: { ordem: 'ASC', id: 'ASC' },
+      });
+
+      const usados = new Set<number>([inicial.id]);
+      let i = 0;
+
+      for (const o of validas) {
+        i++;
+        const cxOpcao = todasConexoes.find(c => c.origem_id === inicial!.id && c.condicao === o.numero);
+        const cadeiaAtual = cxOpcao
+          ? MktChatbotController.percorrerCadeia(cxOpcao.destino_id, inicial.id, todosBlocos, todasConexoes)
+          : [];
+
+        // Upsert de cada passo, reaproveitando o bloco da mesma posicao
+        const idsDaCadeia: number[] = [];
+        for (let j = 0; j < o.passos.length; j++) {
+          const p = o.passos[j];
+          let bloco: MktChatbotBloco | null = cadeiaAtual[j]?.bloco
+            ? await runner.manager.findOne(MktChatbotBloco, { where: { id: cadeiaAtual[j].bloco.id } })
+            : null;
+          if (!bloco) {
+            bloco = await runner.manager.save(runner.manager.create(MktChatbotBloco, {
+              fluxo_id: fluxoId, tipo: p.tipo, nome: o.label,
+              posicao_x: 320 + j * 320, posicao_y: (i - 1) * 190, is_inicial: false, dados: {},
+            }));
+          }
+          bloco.tipo = p.tipo;
+          bloco.nome = j === 0 ? o.label : `${o.label} — passo ${j + 1}`;
+          // Cada tipo le o texto de uma chave diferente (ver renderizarBloco)
+          const { opcoes: _descarta, ...dadosLimpos } = bloco.dados || {};
+          bloco.dados = {
+            // 'opcoes' sai fora: so o bloco do menu tem lista de opcoes, e o engine
+            // anexa ela no fim do texto. Sobrando aqui, vira um "0 Voltar ao Menu"
+            // fantasma no meio da resposta (heranca da conversao arvore->grafo).
+            ...dadosLimpos,
+            ...(p.tipo === 'atendente' ? { mensagem_transferencia: p.texto }
+              : p.tipo === 'encerrar'  ? { mensagem_despedida: p.texto }
+              : { texto: p.texto }),
+          };
+          await runner.manager.save(bloco);
+          idsDaCadeia.push(bloco.id);
+          usados.add(bloco.id);
+        }
+
+        // Menu --[numero]--> primeiro passo
+        if (idsDaCadeia.length) {
+          if (!cxOpcao) {
+            await runner.manager.save(runner.manager.create(MktChatbotConexao, {
+              fluxo_id: fluxoId, origem_id: inicial.id, destino_id: idsDaCadeia[0],
+              condicao: o.numero, label: o.label, ordem: i,
+            }));
+          } else {
+            cxOpcao.destino_id = idsDaCadeia[0];
+            cxOpcao.label = o.label;
+            cxOpcao.ordem = i;
+            await runner.manager.save(cxOpcao);
+          }
+        } else if (cxOpcao) {
+          await runner.manager.delete(MktChatbotConexao, { id: cxOpcao.id });
+        }
+
+        // Religa a cadeia do zero: mais simples e seguro que remendar aresta a aresta
+        for (const id of idsDaCadeia) {
+          await runner.manager.delete(MktChatbotConexao, { origem_id: id });
+        }
+        for (let j = 0; j < idsDaCadeia.length; j++) {
+          const p = o.passos[j];
+          if (p.tipo === 'atendente' || p.tipo === 'encerrar') continue; // termina aqui
+          const proximo = j + 1 < idsDaCadeia.length ? idsDaCadeia[j + 1] : inicial.id;
+          await runner.manager.save(runner.manager.create(MktChatbotConexao, {
+            fluxo_id: fluxoId,
+            origem_id: idsDaCadeia[j],
+            destino_id: proximo,
+            // 'pergunta' so avanca se o cliente digitar a palavra; 'mensagem' segue sozinha
+            condicao: p.tipo === 'pergunta' ? p.palavra_chave : null,
+            label: p.tipo === 'pergunta' ? p.palavra_chave : (proximo === inicial.id ? 'volta ao menu' : ''),
+            ordem: j + 1,
+          }));
+        }
+      }
+
+      // ---- Limpeza: blocos que sairam do menu ----
+      // So apaga o que ficou orfao de verdade. Bloco com sessao viva fica.
+      for (const b of todosBlocos) {
+        if (usados.has(b.id) || b.is_inicial) continue;
+        const temSessao = await runner.manager.count(MktChatbotSessao, { where: { bloco_atual_id: b.id } });
+        const alguemAponta = await runner.manager.count(MktChatbotConexao, { where: { destino_id: b.id } });
+        if (!temSessao && !alguemAponta) {
+          await runner.manager.delete(MktChatbotConexao, { origem_id: b.id });
+          await runner.manager.update(MktChatbotMensagem, { bloco_id: b.id }, { bloco_id: null as any });
+          await runner.manager.delete(MktChatbotBloco, { id: b.id });
+        }
+      }
+
+      await runner.commitTransaction();
+      res.json({ success: true });
+    } catch (e: any) {
+      await runner.rollbackTransaction();
+      console.error('[Chatbot] salvarMenu erro:', e?.message || e);
+      res.status(500).json({ success: false, error: e.message });
+    } finally {
+      await runner.release();
+    }
+  }
+
 
   // ========== SEED DE FLUXOS PRONTOS ==========
   static async seedExemplos(_req: Request, res: Response) {
@@ -396,35 +652,10 @@ Se estiver fora desse horário, vamos responder na próxima abertura.`,
 
   // ========== WEBHOOK Evolution ==========
   static async webhook(req: Request, res: Response) {
-    try {
-      res.json({ success: true });
-      const body = req.body || {};
-      const event = body.event || body.eventType;
-      if (event && !String(event).includes('messages')) return;
-
-      const data = body.data || body;
-      const fromMe = data?.key?.fromMe;
-      if (fromMe) return;
-
-      const remoteJid: string = data?.key?.remoteJid || '';
-      if (remoteJid.endsWith('@g.us')) return;
-
-      const telefone = (remoteJid.split('@')[0] || '').replace(/\D/g, '');
-      if (!telefone) return;
-
-      const nome = data?.pushName || null;
-      const texto =
-        data?.message?.conversation ||
-        data?.message?.extendedTextMessage?.text ||
-        data?.message?.imageMessage?.caption ||
-        '';
-      if (!texto.trim()) return;
-
-      MktChatbotService.processarMensagemRecebida(telefone, nome, texto.trim()).catch(e => {
-        console.error('[Chatbot] processar erro:', e);
-      });
-    } catch (e: any) {
-      console.error('[Chatbot] webhook erro:', e?.message);
-    }
+    // Responde antes de processar: o fluxo tem delay/typing de varios segundos.
+    res.json({ success: true });
+    MktChatbotService.processarPayloadEvolution(req.body).catch(e =>
+      console.error('[Chatbot] webhook erro:', e?.message || e)
+    );
   }
 }

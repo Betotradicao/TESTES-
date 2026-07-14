@@ -17,6 +17,10 @@ router.put('/fluxos/:id', MktChatbotController.atualizarFluxo);
 router.delete('/fluxos/:id', MktChatbotController.deletarFluxo);
 router.post('/fluxos/seed-exemplos', MktChatbotController.seedExemplos);
 
+// Menu simples (numero -> resposta) por cima do grafo
+router.get('/fluxos/:id/menu', MktChatbotController.obterMenu);
+router.put('/fluxos/:id/menu', MktChatbotController.salvarMenu);
+
 // Blocos
 router.post('/blocos', MktChatbotController.criarBloco);
 router.put('/blocos/:id', MktChatbotController.atualizarBloco);

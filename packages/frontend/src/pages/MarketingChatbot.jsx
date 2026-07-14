@@ -13,6 +13,19 @@ import toast, { Toaster } from 'react-hot-toast';
 // ============================================================
 // Tipos de bloco e suas paletas
 // ============================================================
+/**
+ * Texto que aparece em cima da seta no canvas.
+ *
+ * A condicao e o que amarra a opcao do menu ao bloco de destino — e o dado mais
+ * importante da conexao. Mostrar so o label ("Ofertas e Promocoes") esconde
+ * justamente isso, entao o numero vem primeiro e sempre.
+ */
+function rotuloConexao(c) {
+  if (!c?.condicao) return c?.label || '⤵ automático';
+  const cond = c.condicao === '*' ? 'qualquer outra' : `digitou ${c.condicao}`;
+  return c.label && c.label !== c.condicao ? `${cond} · ${c.label}` : cond;
+}
+
 const TIPOS = [
   { tipo: 'mensagem', nome: 'Mensagem', emoji: '💬', cor: 'bg-blue-500', desc: 'Envia texto pro cliente' },
   { tipo: 'pergunta', nome: 'Pergunta', emoji: '❓', cor: 'bg-purple-500', desc: 'Envia + aguarda resposta' },
@@ -86,6 +99,7 @@ export default function MarketingChatbot() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [editandoFluxo, setEditandoFluxo] = useState(null);
+  const [fluxoMenu, setFluxoMenu] = useState(null);
   const [blocoSelecionado, setBlocoSelecionado] = useState(null);
 
   const [conversas, setConversas] = useState([]);
@@ -115,7 +129,7 @@ export default function MarketingChatbot() {
         id: String(c.id),
         source: String(c.origem_id),
         target: String(c.destino_id),
-        label: c.label || c.condicao || '',
+        label: rotuloConexao(c),
         type: 'default',
         animated: true,
         style: { stroke: '#10b981', strokeWidth: 2 },
@@ -160,7 +174,7 @@ export default function MarketingChatbot() {
       setEdges(eds => addEdge({
         ...params,
         id: String(c.id),
-        label: c.label || '',
+        label: rotuloConexao(c),
         type: 'default',
         animated: true,
         style: { stroke: '#10b981', strokeWidth: 2 },
@@ -265,6 +279,7 @@ export default function MarketingChatbot() {
 
         <div className="border-b bg-white px-6 flex">
           <button onClick={() => { setAba('fluxos'); setFluxoAtual(null); }} className={`px-4 py-2.5 font-semibold border-b-2 transition ${aba === 'fluxos' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500'}`}>📋 Fluxos</button>
+          {fluxoMenu && <button onClick={() => setAba('menu')} className={`px-4 py-2.5 font-semibold border-b-2 transition ${aba === 'menu' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500'}`}>✏️ Menu</button>}
           {fluxoAtual && <button onClick={() => setAba('editor')} className={`px-4 py-2.5 font-semibold border-b-2 transition ${aba === 'editor' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500'}`}>🎨 Editor Visual</button>}
           <button onClick={() => setAba('conversas')} className={`px-4 py-2.5 font-semibold border-b-2 transition ${aba === 'conversas' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500'}`}>💬 Conversas</button>
         </div>
@@ -294,14 +309,19 @@ export default function MarketingChatbot() {
                   </div>
                   {f.descricao && <p className="text-xs text-gray-500 mb-2">{f.descricao}</p>}
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => abrirEditor(f.id)} className="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded">🎨 Editar Visual</button>
-                    <button onClick={() => setEditandoFluxo(f)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs rounded">⚙️</button>
+                    <button onClick={() => { setFluxoMenu(f); setAba('menu'); }} className="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded">✏️ Editar Menu</button>
+                    <button onClick={() => abrirEditor(f.id)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs rounded" title="Editor visual (fluxo complexo)">🎨</button>
+                    <button onClick={() => setEditandoFluxo(f)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs rounded" title="Configurações do fluxo">⚙️</button>
                     <button onClick={async () => { if (window.confirm(`Excluir fluxo "${f.nome}"?`)) { await api.delete(`/mkt-chatbot/fluxos/${f.id}`); carregarFluxos(); } }} className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs rounded">🗑️</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        )}
+
+        {aba === 'menu' && fluxoMenu && (
+          <EditorMenu fluxo={fluxoMenu} onVoltar={() => { setAba('fluxos'); setFluxoMenu(null); }} />
         )}
 
         {aba === 'editor' && fluxoAtual && (
@@ -383,12 +403,19 @@ export default function MarketingChatbot() {
         )}
 
         {editandoFluxo && (
-          <ModalFluxo fluxo={editandoFluxo} onClose={() => setEditandoFluxo(null)} onSave={async (data) => {
+          <ModalFluxo fluxo={editandoFluxo} onClose={() => setEditandoFluxo(null)} onSave={async (data, menu) => {
             try {
-              if (editandoFluxo.id) await api.put(`/mkt-chatbot/fluxos/${editandoFluxo.id}`, data);
-              else await api.post('/mkt-chatbot/fluxos', data);
+              // Fluxo primeiro: um fluxo novo so ganha id aqui, e o menu precisa dele.
+              let fluxoId = editandoFluxo.id;
+              if (fluxoId) await api.put(`/mkt-chatbot/fluxos/${fluxoId}`, data);
+              else fluxoId = (await api.post('/mkt-chatbot/fluxos', data))?.data?.fluxo?.id;
+
+              if (fluxoId && menu) await api.put(`/mkt-chatbot/fluxos/${fluxoId}/menu`, menu);
+
               setEditandoFluxo(null); toast.success('Salvo!'); carregarFluxos();
-            } catch { toast.error('Erro'); }
+            } catch (e) {
+              toast.error(e?.response?.data?.error || 'Erro ao salvar');
+            }
           }} />
         )}
       </div>
@@ -525,6 +552,20 @@ function PainelBloco({ bloco, onClose, onSave, onExcluir }) {
 // ============================================================
 // Modal de Fluxo (config geral)
 // ============================================================
+const TIPOS_OPCAO = [
+  { v: 'mensagem',  label: '💬 Responder com um texto' },
+  { v: 'pergunta',  label: '❓ Responder e esperar uma palavra' },
+  { v: 'atendente', label: '🤝 Transferir pra atendente' },
+  { v: 'encerrar',  label: '👋 Despedir e encerrar' },
+];
+
+const RODAPE_TIPO = {
+  mensagem:  '↩️ Depois de responder, o bot volta pro menu sozinho.',
+  pergunta:  '⏳ O bot espera o cliente digitar a palavra antes de continuar.',
+  atendente: '🏁 Encerra a automação e passa pra um humano.',
+  encerrar:  '🏁 Encerra a conversa.',
+};
+
 function ModalFluxo({ fluxo, onClose, onSave }) {
   const [form, setForm] = useState({
     nome: fluxo?.nome || '',
@@ -535,6 +576,15 @@ function ModalFluxo({ fluxo, onClose, onSave }) {
     mensagem_recorrente: fluxo?.mensagem_recorrente || '',
     timeout_inatividade_min: fluxo?.timeout_inatividade_min || 1440,
   });
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    if (!form.nome.trim()) return toast.error('Dê um nome ao fluxo');
+    setSalvando(true);
+    await onSave(form);
+    setSalvando(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
@@ -554,7 +604,7 @@ function ModalFluxo({ fluxo, onClose, onSave }) {
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600">Mensagem de boas-vindas (1ª vez)</label>
-            <textarea value={form.mensagem_primeira_vez} onChange={e => setForm({ ...form, mensagem_primeira_vez: e.target.value })} rows={4} className="w-full px-3 py-2 border rounded-lg" />
+            <textarea value={form.mensagem_primeira_vez} onChange={e => setForm({ ...form, mensagem_primeira_vez: e.target.value })} rows={3} className="w-full px-3 py-2 border rounded-lg" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600">Mensagem recorrente</label>
@@ -566,9 +616,228 @@ function ModalFluxo({ fluxo, onClose, onSave }) {
           </div>
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.ativo} onChange={e => setForm({ ...form, ativo: e.target.checked })} /><span className="text-sm">Ativo</span></label>
         </div>
+
         <div className="flex gap-2 mt-5">
           <button onClick={onClose} className="flex-1 px-4 py-2 border rounded-lg">Cancelar</button>
-          <button onClick={() => onSave(form)} className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold">Salvar</button>
+          <button onClick={salvar} disabled={salvando} className="flex-1 px-4 py-2 bg-emerald-600 disabled:bg-gray-400 text-white rounded-lg font-bold">
+            {salvando ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Editor de Menu — tela cheia.
+// O canvas continua existindo pra fluxo complexo, mas o caso real do
+// supermercado e um menu unico. Aqui cada opcao e uma SEQUENCIA de passos:
+// responde algo, espera uma palavra, responde de novo... quantos quiser.
+// Grava no MESMO grafo (blocos + conexoes), sem arrastar caixinha.
+// ============================================================
+const PASSO_NOVO = () => ({ tipo: 'mensagem', texto: '', palavra_chave: '' });
+
+function EditorMenu({ fluxo, onVoltar }) {
+  const [textoMenu, setTextoMenu] = useState('');
+  const [opcoes, setOpcoes] = useState([]);
+  const [salvando, setSalvando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!fluxo?.id) return;
+    setCarregando(true);
+    api.get(`/mkt-chatbot/fluxos/${fluxo.id}/menu`)
+      .then(r => {
+        setTextoMenu(r.data?.texto_menu || '');
+        setOpcoes((r.data?.opcoes || []).map(o => ({
+          ...o,
+          passos: o.passos?.length ? o.passos : [PASSO_NOVO()],
+        })));
+      })
+      .catch(e => toast.error(e?.response?.data?.error || 'Não consegui carregar o menu'))
+      .finally(() => setCarregando(false));
+  }, [fluxo?.id]);
+
+  const setOpcao = (i, campo, valor) =>
+    setOpcoes(prev => prev.map((o, idx) => idx === i ? { ...o, [campo]: valor } : o));
+
+  const setPasso = (i, j, campo, valor) =>
+    setOpcoes(prev => prev.map((o, idx) => idx !== i ? o : {
+      ...o,
+      passos: o.passos.map((p, pj) => pj === j ? { ...p, [campo]: valor } : p),
+    }));
+
+  const addPasso = (i) =>
+    setOpcoes(prev => prev.map((o, idx) => idx !== i ? o : { ...o, passos: [...o.passos, PASSO_NOVO()] }));
+
+  const delPasso = (i, j) =>
+    setOpcoes(prev => prev.map((o, idx) => idx !== i ? o : { ...o, passos: o.passos.filter((_, pj) => pj !== j) }));
+
+  const addOpcao = () => setOpcoes(prev => [...prev, {
+    numero: String(prev.length + 1), label: '', passos: [PASSO_NOVO()],
+  }]);
+
+  const salvar = async () => {
+    if (opcoes.some(o => String(o.numero).trim() && !String(o.label).trim()))
+      return toast.error('Toda opção precisa de um texto no menu');
+    const nums = opcoes.map(o => String(o.numero).trim()).filter(Boolean);
+    if (nums.length !== new Set(nums).size) return toast.error('Tem número de opção repetido');
+    for (const o of opcoes) {
+      const p = o.passos?.find(p => p.tipo === 'pergunta' && !String(p.palavra_chave || '').trim());
+      if (p) return toast.error(`Em "${o.label}" tem um passo esperando o cliente digitar — diga qual palavra`);
+    }
+
+    setSalvando(true);
+    try {
+      await api.put(`/mkt-chatbot/fluxos/${fluxo.id}/menu`, { texto_menu: textoMenu, opcoes });
+      toast.success('Menu salvo!');
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Erro ao salvar o menu');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const visiveis = opcoes.filter(o => String(o.numero).trim() && String(o.label).trim());
+  const exemplo = visiveis[0];
+
+  if (carregando) return <div className="flex-1 flex items-center justify-center text-gray-400">Carregando menu...</div>;
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">📋 Menu de atendimento</h2>
+            <p className="text-sm text-gray-500">{fluxo?.nome}</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onVoltar} className="px-4 py-2 border rounded-lg bg-white">Voltar</button>
+            <button onClick={salvar} disabled={salvando}
+              className="px-6 py-2 bg-emerald-600 disabled:bg-gray-400 hover:bg-emerald-700 text-white font-bold rounded-lg">
+              {salvando ? 'Salvando...' : '💾 Salvar menu'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 space-y-4">
+            <div className="bg-white rounded-xl border p-4">
+              <label className="text-sm font-bold text-gray-700">Texto do menu</label>
+              <p className="text-xs text-gray-500 mb-2">As opções entram sozinhas no fim — não digite "1 - ..." na mão.</p>
+              <textarea value={textoMenu} onChange={e => setTextoMenu(e.target.value)} rows={4}
+                placeholder={'📋 *MENU DE ATENDIMENTO*\n\nDigite o número da opção desejada:'}
+                className="w-full px-3 py-2 border rounded-lg" />
+            </div>
+
+            {opcoes.map((o, i) => (
+              <div key={i} className="bg-white rounded-xl border-2 border-emerald-100 p-4">
+                {/* Cabecalho da opcao */}
+                <div className="flex gap-3 items-start pb-3 border-b">
+                  <div className="w-20">
+                    <label className="text-[11px] font-bold text-gray-500 block mb-1">Cliente digita</label>
+                    <input value={o.numero} onChange={e => setOpcao(i, 'numero', e.target.value)}
+                      className="w-full px-2 py-2 border rounded-lg text-center font-bold text-lg" placeholder="1" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[11px] font-bold text-gray-500 block mb-1">Aparece no menu</label>
+                    <input value={o.label} onChange={e => setOpcao(i, 'label', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg" placeholder="Ofertas e Promoções" />
+                  </div>
+                  <button onClick={() => setOpcoes(opcoes.filter((_, idx) => idx !== i))}
+                    className="mt-6 px-2 py-2 text-red-500 hover:bg-red-50 rounded" title="Remover opção inteira">🗑️</button>
+                </div>
+
+                {/* Sequencia de passos */}
+                <div className="mt-3 space-y-3">
+                  {o.passos.map((p, j) => (
+                    <div key={j} className="border-l-4 border-emerald-300 bg-gray-50 rounded-r-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          Passo {j + 1}
+                        </span>
+                        <select value={p.tipo} onChange={e => setPasso(i, j, 'tipo', e.target.value)}
+                          className="flex-1 px-2 py-1.5 border rounded bg-white text-sm">
+                          {TIPOS_OPCAO.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+                        </select>
+                        {o.passos.length > 1 && (
+                          <button onClick={() => delPasso(i, j)}
+                            className="px-2 py-1 text-red-400 hover:bg-red-50 rounded text-sm" title="Remover passo">✕</button>
+                        )}
+                      </div>
+
+                      <label className="text-[11px] font-bold text-gray-500 block mb-1">
+                        {p.tipo === 'atendente' ? 'Mensagem antes de passar pro atendente'
+                          : p.tipo === 'encerrar' ? 'Mensagem de despedida'
+                          : 'O que o bot envia'}
+                      </label>
+                      <textarea value={p.texto} onChange={e => setPasso(i, j, 'texto', e.target.value)} rows={3}
+                        className="w-full px-3 py-2 border rounded-lg" />
+
+                      {p.tipo === 'pergunta' && (
+                        <div className="mt-2">
+                          <label className="text-[11px] font-bold text-purple-800 block mb-1">
+                            ⏳ ...e espera o cliente digitar
+                          </label>
+                          <input value={p.palavra_chave || ''} onChange={e => setPasso(i, j, 'palavra_chave', e.target.value)}
+                            className="w-56 px-3 py-2 border-2 border-purple-300 rounded-lg font-bold" placeholder="salvei" />
+                          <span className="text-[10px] text-gray-400 ml-2">Não diferencia maiúscula nem acento.</span>
+                        </div>
+                      )}
+
+                      <p className="text-[11px] text-gray-400 mt-2">{RODAPE_TIPO[p.tipo] || ''}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => addPasso(i)}
+                  className="mt-3 w-full py-2 border-2 border-dashed border-gray-300 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 hover:border-emerald-400 hover:text-emerald-700">
+                  + Adicionar passo nesta opção
+                </button>
+              </div>
+            ))}
+
+            <button onClick={addOpcao}
+              className="w-full py-3 border-2 border-dashed border-emerald-400 text-emerald-700 rounded-xl font-bold hover:bg-emerald-50">
+              + Adicionar opção no menu
+            </button>
+          </div>
+
+          {/* Previa */}
+          <div>
+            <div className="bg-white rounded-xl border p-4 sticky top-4">
+              <h3 className="text-sm font-bold text-gray-700 mb-3">📱 Prévia no WhatsApp</h3>
+              <div className="bg-[#e5ddd5] rounded-lg p-3 space-y-2 max-h-[70vh] overflow-y-auto">
+                {fluxo?.mensagem_primeira_vez && (
+                  <div className="bg-white rounded-lg p-2 text-xs whitespace-pre-wrap shadow-sm">
+                    {fluxo.mensagem_primeira_vez}
+                  </div>
+                )}
+                <div className="bg-white rounded-lg p-2 text-xs whitespace-pre-wrap shadow-sm">
+                  {textoMenu || <span className="text-gray-400">(texto do menu)</span>}
+                  {visiveis.length > 0 && '\n\n' + visiveis.map(o => `${o.numero}️⃣ ${o.label}`).join('\n')}
+                </div>
+
+                {/* Simula a conversa da primeira opcao, passo a passo */}
+                {exemplo && (
+                  <div className="bg-[#dcf8c6] rounded-lg p-2 text-xs ml-8 shadow-sm">{exemplo.numero}</div>
+                )}
+                {exemplo?.passos?.map((p, j) => (
+                  <div key={j}>
+                    {p.texto && (
+                      <div className="bg-white rounded-lg p-2 text-xs whitespace-pre-wrap shadow-sm mb-2">{p.texto}</div>
+                    )}
+                    {p.tipo === 'pergunta' && p.palavra_chave && (
+                      <div className="bg-[#dcf8c6] rounded-lg p-2 text-xs ml-8 shadow-sm">{p.palavra_chave}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-3">
+                Conversa da opção {exemplo?.numero || '1'}, passo a passo. Verde = o cliente.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

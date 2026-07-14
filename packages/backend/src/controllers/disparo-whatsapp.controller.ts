@@ -4,6 +4,7 @@ import { DisparoContato } from '../entities/DisparoContato';
 import { DisparoCampanha } from '../entities/DisparoCampanha';
 import { DisparoMensagem } from '../entities/DisparoMensagem';
 import { DisparoWhatsAppService } from '../services/disparo-whatsapp.service';
+import { MktChatbotService } from '../services/mkt-chatbot.service';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -382,12 +383,23 @@ export class DisparoWhatsAppController {
   // ========== WEBHOOK ==========
 
   static async webhook(req: Request, res: Response) {
-    try {
-      await DisparoWhatsAppService.handleWebhook(req.body);
-      res.json({ received: true });
-    } catch (err: any) {
-      console.error('Erro webhook disparo:', err);
-      res.status(500).json({ error: err.message });
-    }
+    // Responde na hora: a Evolution nao pode ficar esperando o fluxo do bot rodar
+    // (o chatbot tem delay/typing proposital de varios segundos).
+    res.json({ received: true });
+
+    const body = req.body;
+
+    // Recibo de entrega/leitura -> disparo
+    DisparoWhatsAppService.handleWebhook(body).catch(err =>
+      console.error('Erro webhook disparo:', err?.message || err)
+    );
+
+    // Mensagem recebida do cliente -> chatbot.
+    // Disparo e chatbot dividem a instancia MARKETING, e a Evolution so aceita um
+    // webhook por instancia — entao os dois eventos entram por aqui e sao
+    // separados por tipo: 'messages.update' = recibo, 'messages.upsert' = mensagem.
+    MktChatbotService.processarPayloadEvolution(body).catch(err =>
+      console.error('Erro webhook chatbot:', err?.message || err)
+    );
   }
 }

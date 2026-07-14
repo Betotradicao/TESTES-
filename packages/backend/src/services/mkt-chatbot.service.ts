@@ -30,6 +30,20 @@ export class MktChatbotService {
     return (tel || '').replace(/\D/g, '');
   }
 
+  /**
+   * Deixa a resposta do cliente comparavel com a condicao da conexao.
+   * Tira acento, pontuacao e caixa: "Salvei!", " SALVEI " e "salvei" viram o mesmo.
+   * O cliente digita no celular, com pressa — nao da pra exigir texto exato.
+   */
+  private static normalizarResposta(txt: string): string {
+    return (txt || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // tira acento (marcas combinantes)
+      .replace(/[^\w\s]/g, '')                          // tira pontuacao
+      .trim();
+  }
+
   private static async resolverInstance(fluxo: MktChatbotFluxo): Promise<string> {
     if (fluxo.instance_name) return fluxo.instance_name;
     const fromConfig = await ConfigurationService.get('disparo_whats_instancia', '');
@@ -222,9 +236,11 @@ export class MktChatbotService {
     let proxId: number | null = null;
 
     if (blocoAtual.tipo === 'pergunta' || blocoAtual.tipo === 'ia') {
-      const resp = (respostaUsuario || '').trim();
-      // Procura conexao com condicao igual a resposta
-      const match = conexoes.find(c => c.condicao === resp);
+      // Normaliza dos dois lados: a condicao pode ser um numero de menu ("1") ou
+      // uma palavra ("salvei"). Cliente digita "Salvei", " SALVEI " ou "salvei." —
+      // tudo tem que bater. Sem isso, so o texto identico funcionava.
+      const resp = this.normalizarResposta(respostaUsuario);
+      const match = conexoes.find(c => c.condicao && this.normalizarResposta(c.condicao) === resp);
       if (match) proxId = match.destino_id;
       else {
         // Fallback
@@ -238,6 +254,40 @@ export class MktChatbotService {
 
     if (!proxId) return null;
     return AppDataSource.getRepository(MktChatbotBloco).findOne({ where: { id: proxId } });
+  }
+
+  /**
+   * Recebe o payload cru da Evolution e toca o fluxo se for mensagem de cliente.
+   *
+   * Mora aqui (e nao no controller) porque a Evolution so aceita UM webhook por
+   * instancia: como o disparo e o chatbot dividem a instancia MARKETING, o
+   * webhook do disparo tambem precisa despachar pra ca. Os dois entram por este
+   * mesmo ponto.
+   */
+  static async processarPayloadEvolution(body: any): Promise<void> {
+    const evento = String(body?.event || body?.eventType || '').toLowerCase().replace(/_/g, '.');
+    // So mensagem nova. 'messages.update' e recibo de entrega — e do disparo.
+    if (evento && evento !== 'messages.upsert') return;
+
+    const data = body?.data || body;
+    if (!data?.key || data.key.fromMe) return;
+
+    const remoteJid: string = data.key.remoteJid || '';
+    if (!remoteJid || remoteJid.endsWith('@g.us')) return; // grupo nao
+
+    const telefone = (remoteJid.split('@')[0] || '').replace(/\D/g, '');
+    if (!telefone) return;
+
+    const texto = (
+      data.message?.conversation ||
+      data.message?.extendedTextMessage?.text ||
+      data.message?.imageMessage?.caption ||
+      data.message?.videoMessage?.caption ||
+      ''
+    ).trim();
+    if (!texto) return;
+
+    await this.processarMensagemRecebida(telefone, data.pushName || null, texto);
   }
 
   /**
