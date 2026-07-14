@@ -346,6 +346,10 @@ export class MktChatbotService {
     const blocoRepo = AppDataSource.getRepository(MktChatbotBloco);
     let proximoBloco: MktChatbotBloco | null = null;
 
+    // Cooldown do menu: "ja mandei o menu pra esse contato faz pouco tempo".
+    // Sem isso o bot despeja o menu inteiro a cada "oi" que nao casa com opcao.
+    const menuEmCooldown = this.menuEmCooldown(fluxo, contato);
+
     if (!sessao) {
       const inicial = await blocoRepo.findOne({ where: { fluxo_id: fluxo.id, is_inicial: true } });
       if (!inicial) {
@@ -355,7 +359,9 @@ export class MktChatbotService {
       sessao = sessaoRepo.create({
         contato_id: contato.id,
         fluxo_id: fluxo.id,
-        bloco_atual_id: null,
+        // Ja aponta pro menu: mesmo calado, se o cliente digitar "1" a gente
+        // sabe de onde ele esta respondendo.
+        bloco_atual_id: inicial.id,
         iniciada_at: new Date(),
         ultima_atividade_at: new Date(),
         status: 'ativa',
@@ -369,6 +375,11 @@ export class MktChatbotService {
         direcao: 'recebida',
         conteudo: textoRecebido,
       } as MktChatbotMensagem);
+
+      if (menuEmCooldown) {
+        console.log(`[Chatbot] ${tel}: menu em cooldown (${fluxo.intervalo_menu_horas}h), nao reenviando`);
+        return;
+      }
 
       // Saudacao 1a vez ou recorrente
       const saudacao = eraNovo ? fluxo.mensagem_primeira_vez : fluxo.mensagem_recorrente;
@@ -401,7 +412,13 @@ export class MktChatbotService {
       } else {
         proximoBloco = await this.resolverProximoBloco(blocoAtual, textoRecebido);
         if (!proximoBloco) {
-          // Re-renderiza atual com aviso de opcao invalida
+          // Nao casou com nenhuma opcao. Repetir o bloco e o certo (o cliente
+          // errou a opcao), mas se o bloco for o MENU e ele acabou de receber o
+          // menu, repetir vira spam — cala a boca ate o cooldown passar.
+          if (blocoAtual.is_inicial && menuEmCooldown) {
+            console.log(`[Chatbot] ${tel}: resposta invalida no menu, mas menu em cooldown — ignorando`);
+            return;
+          }
           await this.delay(1);
           await this.enviarTexto(instance, tel, '❓ Não entendi sua resposta. Por favor, escolha uma das opções abaixo:');
           proximoBloco = blocoAtual;
@@ -412,10 +429,26 @@ export class MktChatbotService {
     // Renderiza em loop ate aguardar resposta ou encerrar
     let safety = 0;
     while (proximoBloco && safety++ < 10) {
+      // Marca quando o menu vai pro contato — e o relogio do cooldown
+      if (proximoBloco.is_inicial) {
+        contato.ultimo_menu_at = new Date();
+        await contatoRepo.save(contato);
+      }
       const result = await this.renderizarBloco(sessao, proximoBloco, instance, tel, textoRecebido);
       if (result.aguardaResposta || result.encerrar) break;
       // Bloco automatico — avanca
       proximoBloco = await this.resolverProximoBloco(proximoBloco, '');
     }
+  }
+
+  /**
+   * O menu ja foi pra esse contato ha menos de `intervalo_menu_horas`?
+   * 0 (default) desliga o cooldown e mantem o comportamento antigo.
+   */
+  private static menuEmCooldown(fluxo: MktChatbotFluxo, contato: MktChatbotContato): boolean {
+    const horas = Number(fluxo.intervalo_menu_horas || 0);
+    if (horas <= 0 || !contato.ultimo_menu_at) return false;
+    const decorridoMs = Date.now() - new Date(contato.ultimo_menu_at).getTime();
+    return decorridoMs < horas * 60 * 60 * 1000;
   }
 }

@@ -61,7 +61,7 @@ export class MktChatbotController {
       const repo = AppDataSource.getRepository(MktChatbotFluxo);
       const fluxo = await repo.findOne({ where: { id } });
       if (!fluxo) return res.status(404).json({ success: false, error: 'Fluxo nao encontrado' });
-      const fields = ['nome', 'descricao', 'ativo', 'instance_name', 'mensagem_primeira_vez', 'mensagem_recorrente', 'timeout_inatividade_min'];
+      const fields = ['nome', 'descricao', 'ativo', 'instance_name', 'mensagem_primeira_vez', 'mensagem_recorrente', 'timeout_inatividade_min', 'intervalo_menu_horas'];
       for (const f of fields) {
         if (req.body[f] !== undefined) (fluxo as any)[f] = req.body[f];
       }

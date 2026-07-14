@@ -37,6 +37,11 @@ export class MktChatbotFluxo {
   @Column({ type: 'int', default: 1440 })
   timeout_inatividade_min: number;
 
+  // Horas de silencio antes de reenviar o menu pro MESMO contato. 0 = sempre reenvia.
+  // Evita despejar o menu a cada "oi"/"bom dia" que nao casa com nenhuma opcao.
+  @Column({ type: 'int', default: 0 })
+  intervalo_menu_horas: number;
+
   @CreateDateColumn()
   created_at: Date;
 

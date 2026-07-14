@@ -24,6 +24,11 @@ export class MktChatbotContato {
   @Column({ type: 'timestamp', nullable: true })
   ultima_msg_at: Date | null;
 
+  // Ultima vez que ESTE contato recebeu o menu — base do cooldown
+  // (fluxo.intervalo_menu_horas).
+  @Column({ type: 'timestamp', nullable: true })
+  ultimo_menu_at: Date | null;
+
   @Column({ type: 'int', default: 0 })
   total_msgs: number;
 

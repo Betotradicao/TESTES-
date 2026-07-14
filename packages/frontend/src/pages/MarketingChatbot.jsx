@@ -321,7 +321,7 @@ export default function MarketingChatbot() {
         )}
 
         {aba === 'menu' && fluxoMenu && (
-          <EditorMenu fluxo={fluxoMenu} onVoltar={() => { setAba('fluxos'); setFluxoMenu(null); }} />
+          <EditorMenu fluxo={fluxoMenu} onVoltar={() => { setAba('fluxos'); setFluxoMenu(null); }} onFluxoSalvo={carregarFluxos} />
         )}
 
         {aba === 'editor' && fluxoAtual && (
@@ -637,14 +637,22 @@ function ModalFluxo({ fluxo, onClose, onSave }) {
 // ============================================================
 const PASSO_NOVO = () => ({ tipo: 'mensagem', texto: '', palavra_chave: '' });
 
-function EditorMenu({ fluxo, onVoltar }) {
+function EditorMenu({ fluxo, onVoltar, onFluxoSalvo }) {
   const [textoMenu, setTextoMenu] = useState('');
   const [opcoes, setOpcoes] = useState([]);
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  // Saudacoes moram no fluxo, nao no grafo — mas sao a 1a coisa que o cliente le,
+  // entao editar junto do menu (e nao num modal a parte) e o que faz sentido.
+  const [msgPrimeira, setMsgPrimeira] = useState('');
+  const [msgRecorrente, setMsgRecorrente] = useState('');
+  const [intervaloMenu, setIntervaloMenu] = useState(0);
 
   useEffect(() => {
     if (!fluxo?.id) return;
+    setMsgPrimeira(fluxo.mensagem_primeira_vez || '');
+    setMsgRecorrente(fluxo.mensagem_recorrente || '');
+    setIntervaloMenu(fluxo.intervalo_menu_horas ?? 0);
     setCarregando(true);
     api.get(`/mkt-chatbot/fluxos/${fluxo.id}/menu`)
       .then(r => {
@@ -689,10 +697,17 @@ function EditorMenu({ fluxo, onVoltar }) {
 
     setSalvando(true);
     try {
+      // Saudacoes vao no fluxo; menu vai no grafo. Dois destinos, um botao.
+      await api.put(`/mkt-chatbot/fluxos/${fluxo.id}`, {
+        mensagem_primeira_vez: msgPrimeira,
+        mensagem_recorrente: msgRecorrente,
+        intervalo_menu_horas: Number(intervaloMenu) || 0,
+      });
       await api.put(`/mkt-chatbot/fluxos/${fluxo.id}/menu`, { texto_menu: textoMenu, opcoes });
-      toast.success('Menu salvo!');
+      toast.success('Salvo!');
+      onFluxoSalvo?.();
     } catch (e) {
-      toast.error(e?.response?.data?.error || 'Erro ao salvar o menu');
+      toast.error(e?.response?.data?.error || 'Erro ao salvar');
     } finally {
       setSalvando(false);
     }
@@ -722,6 +737,37 @@ function EditorMenu({ fluxo, onVoltar }) {
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2 space-y-4">
+            <div className="bg-white rounded-xl border p-4">
+              <h3 className="text-sm font-bold text-gray-700 mb-3">👋 Abertura da conversa</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Primeira vez que o cliente fala</label>
+                  <textarea value={msgPrimeira} onChange={e => setMsgPrimeira(e.target.value)} rows={7}
+                    className="w-full px-3 py-2 border rounded-lg mt-1" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Quando ele já conhece o bot</label>
+                  <textarea value={msgRecorrente} onChange={e => setMsgRecorrente(e.target.value)} rows={7}
+                    className="w-full px-3 py-2 border rounded-lg mt-1" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+              <label className="text-sm font-bold text-gray-700">⏱️ Só reenviar o menu depois de</label>
+              <div className="flex items-center gap-2 mt-2">
+                <input type="number" min="0" value={intervaloMenu}
+                  onChange={e => setIntervaloMenu(e.target.value)}
+                  className="w-24 px-3 py-2 border rounded-lg text-center font-bold text-lg" />
+                <span className="text-sm font-bold text-gray-700">horas</span>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                {Number(intervaloMenu) > 0
+                  ? <>Se o cliente escrever de novo antes de {intervaloMenu}h e não digitar uma opção válida, o bot <strong>fica calado</strong> em vez de repetir o menu. Digitar uma opção (1, 2...) funciona sempre.</>
+                  : <><strong>0 = sem limite.</strong> O bot repete o menu toda vez que a mensagem não casar com uma opção — cliente mandando "oi", "bom dia", "tem pão?" leva três menus seguidos.</>}
+              </p>
+            </div>
+
             <div className="bg-white rounded-xl border p-4">
               <label className="text-sm font-bold text-gray-700">Texto do menu</label>
               <p className="text-xs text-gray-500 mb-2">As opções entram sozinhas no fim — não digite "1 - ..." na mão.</p>
@@ -808,9 +854,9 @@ function EditorMenu({ fluxo, onVoltar }) {
             <div className="bg-white rounded-xl border p-4 sticky top-4">
               <h3 className="text-sm font-bold text-gray-700 mb-3">📱 Prévia no WhatsApp</h3>
               <div className="bg-[#e5ddd5] rounded-lg p-3 space-y-2 max-h-[70vh] overflow-y-auto">
-                {fluxo?.mensagem_primeira_vez && (
+                {msgPrimeira && (
                   <div className="bg-white rounded-lg p-2 text-xs whitespace-pre-wrap shadow-sm">
-                    {fluxo.mensagem_primeira_vez}
+                    {msgPrimeira}
                   </div>
                 )}
                 <div className="bg-white rounded-lg p-2 text-xs whitespace-pre-wrap shadow-sm">
