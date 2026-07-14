@@ -41,7 +41,96 @@ export class MktChatbotService {
       .toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '') // tira acento (marcas combinantes)
       .replace(/[^\w\s]/g, '')                          // tira pontuacao
+      .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  /** Numero por extenso -> digito. Muita gente escreve "dois" em vez de "2". */
+  private static readonly NUMERO_EXTENSO: Record<string, string> = {
+    zero: '0', um: '1', uma: '1', primeiro: '1', primeira: '1',
+    dois: '2', duas: '2', segundo: '2', segunda: '2',
+    tres: '3', terceiro: '3', terceira: '3',
+    quatro: '4', quarto: '4', quarta: '4',
+    cinco: '5', quinto: '5', quinta: '5',
+    seis: '6', sexto: '6', sexta: '6',
+    sete: '7', setimo: '7', setima: '7',
+    oito: '8', oitavo: '8', oitava: '8',
+    nove: '9', nono: '9', nona: '9',
+    dez: '10', decimo: '10', decima: '10',
+  };
+
+  /**
+   * Damerau-Levenshtein (optimal string alignment) — quantas edicoes separam
+   * duas strings, contando troca de letras VIZINHAS como uma so.
+   *
+   * Levenshtein puro cobraria 2 por "salvei"->"salvie", que e justamente o erro
+   * de digitacao mais comum (dedo mais rapido que a cabeca). Com o limite em 1,
+   * o typo mais provavel seria o unico a nao ser perdoado.
+   */
+  private static distancia(a: string, b: string): number {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+
+    const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) =>
+      Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+    );
+
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        const custo = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(
+          d[i - 1][j] + 1,          // remocao
+          d[i][j - 1] + 1,          // insercao
+          d[i - 1][j - 1] + custo,  // substituicao
+        );
+        // Transposicao de vizinhas: "ie" <-> "ei"
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+          d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+        }
+      }
+    }
+    return d[a.length][b.length];
+  }
+
+  /**
+   * A resposta do cliente casa com a condicao desta conexao?
+   *
+   * Vai afrouxando em camadas, da mais segura pra mais tolerante:
+   *  1. igual (ja normalizado)
+   *  2. numero por extenso: "um" casa com "1"
+   *  3. a palavra aparece na frase: "ja salvei aqui" casa com "salvei"
+   *  4. erro de digitacao: "salvie" casa com "salvei"
+   *
+   * As camadas 3 e 4 SO valem pra palavra. Em numero de menu seria um tiro no pe:
+   * "1" e "2" tem distancia 1, entao aproximar mandaria o cliente pra opcao errada.
+   */
+  private static condicaoBate(condicao: string, resposta: string): boolean {
+    const cond = this.normalizarResposta(condicao);
+    const resp = this.normalizarResposta(resposta);
+    if (!cond || !resp) return false;
+
+    if (cond === resp) return true;
+
+    // Numero por extenso, nos dois sentidos
+    const respNum = this.NUMERO_EXTENSO[resp];
+    if (respNum && respNum === cond) return true;
+    const condNum = this.NUMERO_EXTENSO[cond];
+    if (condNum && (condNum === resp || condNum === respNum)) return true;
+
+    // Dai pra frente, so palavra. Numero para aqui.
+    const ehNumero = /^\d+$/.test(cond);
+    if (ehNumero || cond.length < 4) return false;
+
+    // A palavra esperada aparece solta na frase
+    const palavras = resp.split(' ');
+    if (palavras.includes(cond)) return true;
+
+    // Erro de digitacao — tolerancia cresce com o tamanho da palavra
+    const limite = cond.length >= 8 ? 2 : 1;
+    if (this.distancia(cond, resp) <= limite) return true;
+    // ...ou numa das palavras da frase ("ja salvie" -> "salvei")
+    return palavras.some(p => p.length >= 4 && this.distancia(cond, p) <= limite);
   }
 
   private static async resolverInstance(fluxo: MktChatbotFluxo): Promise<string> {
@@ -236,11 +325,9 @@ export class MktChatbotService {
     let proxId: number | null = null;
 
     if (blocoAtual.tipo === 'pergunta' || blocoAtual.tipo === 'ia') {
-      // Normaliza dos dois lados: a condicao pode ser um numero de menu ("1") ou
-      // uma palavra ("salvei"). Cliente digita "Salvei", " SALVEI " ou "salvei." —
-      // tudo tem que bater. Sem isso, so o texto identico funcionava.
-      const resp = this.normalizarResposta(respostaUsuario);
-      const match = conexoes.find(c => c.condicao && this.normalizarResposta(c.condicao) === resp);
+      // Ordem importa: quem vier primeiro na lista ganha. Por isso condicaoBate
+      // e conservador — nunca aproxima numero (ver la).
+      const match = conexoes.find(c => c.condicao && c.condicao !== '*' && this.condicaoBate(c.condicao, respostaUsuario));
       if (match) proxId = match.destino_id;
       else {
         // Fallback
