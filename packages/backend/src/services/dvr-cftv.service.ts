@@ -1894,11 +1894,15 @@ export class DVRCFTVService {
         stderrData += data.toString();
       });
 
+      // Transcode roda a ~0.7x com H.265 5MP em 4 CPUs: um clipe de 126s leva ~187s.
+      // Margem sobre a duração do clipe, com piso de 300s (180s fixos matavam o ffmpeg
+      // a 7s do fim e o vídeo nunca aparecia).
+      const timeoutMs = Math.max(300000, clipDuration * 3000);
       const timeout = setTimeout(() => {
         proc.kill('SIGKILL');
-        console.log(`[DVR] ffmpeg stderr (timeout):\n${stderrData.slice(-500)}`);
+        console.log(`[DVR] ffmpeg stderr (timeout ${timeoutMs}ms):\n${stderrData.slice(-500)}`);
         reject(new Error('ffmpeg timeout'));
-      }, 180000);
+      }, timeoutMs);
 
       proc.on('close', (code) => {
         clearTimeout(timeout);

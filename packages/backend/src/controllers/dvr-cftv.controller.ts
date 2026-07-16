@@ -338,8 +338,10 @@ export class DVRCFTVController {
       const { DvrPosEventClip } = await import('../entities/DvrPosEventClip');
       const repo = AppDataSource.getRepository(DvrPosEventClip);
 
-      // Tipos cobertos pelo cron de pre-geracao
-      const TIPOS_PRE = new Set(['CANC. ITEM', 'CANC. CUPOM', 'CANC. VENDA', 'DESCONTO']);
+      // Tipos que podem ter clipe pre-gerado.
+      // FINALIZADORA nao e coberto pelo cron (que so varre cancelado/desconto), mas clipes
+      // gerados sob demanda ficam em dvr_pos_event_clips e devem ser reaproveitados.
+      const TIPOS_PRE = new Set(['CANC. ITEM', 'CANC. CUPOM', 'CANC. VENDA', 'DESCONTO', 'FINALIZADORA']);
 
       // Constroi event_keys apenas dos items elegiveis
       const keys: string[] = [];

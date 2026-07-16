@@ -20,7 +20,9 @@ export async function searchPOS({ text, channel = 3, start, end }) {
 export async function generateClip(channel, time, duration) {
   const response = await api.get('/dvr-cftv/pos/generate-clip', {
     params: { channel, time, duration },
-    timeout: 120000, // 2 min timeout para ffmpeg
+    // Acompanha o timeout do backend: H.265 5MP transcodifica a ~0.7x, entao a espera
+    // cresce com a duracao do clipe (126s de video => ~187s de conversao).
+    timeout: Math.max(300000, (Number(duration) || 90) * 3000),
   });
   return response.data; // { filename }
 }

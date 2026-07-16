@@ -174,9 +174,11 @@ export default function VisionPalavraChave2() {
       const depois = cam.depois ?? 120;
       const duracao = antes + depois;
       try {
+        // H.265 5MP transcodifica a ~0.7x: um clipe de 126s leva ~187s. Precisa acompanhar
+        // o timeout do backend, senão o navegador desiste com o ffmpeg quase terminando.
         const res = await api.get('/dvr-cftv/pos/generate-clip', {
           params: { channel: cam.channel, time: item.time, duration: duracao },
-          timeout: 180000
+          timeout: Math.max(300000, duracao * 3000)
         });
         if (res.data?.success && res.data.filename) {
           const baseUrl = getApiBaseUrl().replace(/\/$/, '');
@@ -405,6 +407,10 @@ export default function VisionPalavraChave2() {
               className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'desconto' ? 'bg-emerald-100 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700'}`}>
               💰 Descontos
             </button>
+            <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('busca preco'); }}
+              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'busca preco' ? 'bg-sky-100 border-sky-400 text-sky-800 ring-1 ring-sky-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700'}`}>
+              🔎 Busca Preco
+            </button>
           </div>
           {error && (
             <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-lg">{error}</div>
@@ -455,7 +461,7 @@ export default function VisionPalavraChave2() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                     <span className="font-semibold">Gerando clipe do DVR...</span>
-                    <span className="text-xs text-gray-400">Aguarde, pode levar alguns segundos</span>
+                    <span className="text-xs text-gray-400">Convertendo o video da camera. Pode levar 2 a 3 minutos.</span>
                   </div>
                 ) : videoUrl ? (
                   <video ref={videoRef} src={videoUrl} controls autoPlay
