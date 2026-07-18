@@ -302,19 +302,23 @@ export class DVRCFTVController {
    */
   static async searchOracle(req: Request, res: Response) {
     try {
-      const { text, barcode, start, end, pdv, codLoja } = req.query;
+      const { text, barcode, start, end, pdv, codLoja, operador, valorMin, valorMax } = req.query;
       const textStr = text ? (text as string).trim() : '';
       const barcodeStr = barcode ? (barcode as string).trim() : '';
-      if (!textStr && !barcodeStr) {
-        return res.status(400).json({ error: 'Parâmetro "text" ou "barcode" é obrigatório' });
+      const codOperador = operador != null && operador !== '' ? parseInt(operador as string) : undefined;
+      const vMin = valorMin != null && valorMin !== '' ? Number(valorMin) : undefined;
+      const vMax = valorMax != null && valorMax !== '' ? Number(valorMax) : undefined;
+      const temCriterio = codOperador != null || vMin != null || vMax != null;
+      if (!textStr && !barcodeStr && !temCriterio) {
+        return res.status(400).json({ error: 'Informe "text", "barcode" ou um filtro (operador/valor)' });
       }
       const startDate = (start as string) || new Date().toISOString().slice(0, 10);
       const endDate = (end as string) || startDate;
       const pdvNum = pdv ? parseInt(pdv as string) : undefined;
       const codLojaNum = codLoja ? parseInt(codLoja as string) : undefined;
 
-      console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}, loja=${codLojaNum || 'TODAS'}`);
-      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr, codLojaNum);
+      console.log(`[VISION-PC2] Busca Oracle: text="${textStr}", barcode="${barcodeStr}", op=${codOperador ?? '-'}, valor=${vMin ?? '-'}..${vMax ?? '-'}, start=${startDate}, end=${endDate}, pdv=${pdvNum || 'TODOS'}, loja=${codLojaNum || 'TODAS'}`);
+      const result = await DVRCFTVService.searchOracleAllPdvs(startDate, endDate, textStr, pdvNum, barcodeStr, codLojaNum, { codOperador, valorMin: vMin, valorMax: vMax });
 
       // Enriquece items com pre-clipe (Canc.Item/Cupom/Venda + Desconto pre-gerados pelo cron)
       const items = await DVRCFTVController.enrichWithPreClips(result.items, codLojaNum);
@@ -323,6 +327,21 @@ export class DVRCFTVController {
     } catch (error: any) {
       console.error('Erro busca Oracle/PG:', error.message);
       res.status(500).json({ error: 'Erro ao buscar: ' + error.message, details: error.message });
+    }
+  }
+
+  /**
+   * Lista operadores/caixas do ERP pra popular o filtro do Vision Palavra-Chave.
+   * GET /api/dvr-cftv/pos/operadores
+   */
+  static async getOperadores(req: Request, res: Response) {
+    try {
+      const { start, end } = req.query;
+      const operadores = await DVRCFTVService.getOperadores(start as string, end as string);
+      res.json({ success: true, operadores });
+    } catch (error: any) {
+      console.error('Erro getOperadores:', error.message);
+      res.status(500).json({ error: 'Erro ao listar operadores', details: error.message });
     }
   }
 

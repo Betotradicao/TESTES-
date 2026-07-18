@@ -52,6 +52,9 @@ router.get('/config/cameras-risco', authenticateToken, DVRCFTVController.getCame
 // Busca Oracle-only por palavra-chave (Vision Palavra Chave 2)
 router.get('/pos/search-oracle', authenticateToken, DVRCFTVController.searchOracle);
 
+// Lista operadores/caixas do ERP (filtro do Vision Palavra Chave)
+router.get('/pos/operadores', authenticateToken, DVRCFTVController.getOperadores);
+
 // Buscar produto pelo código de barras
 router.get('/pos/produto-by-barcode', authenticateToken, DVRCFTVController.produtoByBarcode);
 

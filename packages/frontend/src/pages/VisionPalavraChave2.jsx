@@ -36,6 +36,36 @@ function getDateRange(periodo) {
 
 const formatCurrency = (v) => v == null ? '-' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// "2025-11-22 18:08:00" -> { data: "22/11/2025", hora: "18:08:00" }
+const splitDateTime = (t) => {
+  if (!t) return { data: '', hora: '' };
+  const [d, h] = String(t).split(' ');
+  if (h) {
+    const [y, m, day] = d.split('-');
+    return { data: (y && m && day) ? `${day}/${m}/${y}` : d, hora: h };
+  }
+  return { data: '', hora: d }; // só veio a hora
+};
+
+// Cabeçalho clicável: ordena a coluna A→Z (asc) / Z→A (desc)
+function SortableTh({ label, col, align = 'left', width = '', sortCol, sortDir, onSort }) {
+  const active = sortCol === col;
+  const alignCls = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+  const arrow = !active ? '↕' : sortDir === 'asc' ? '▲' : '▼';
+  return (
+    <th
+      onClick={() => onSort(col)}
+      title="Clique para ordenar"
+      className={`px-3 py-2 ${alignCls} text-xs font-semibold text-purple-600 ${width} cursor-pointer select-none hover:bg-purple-100`}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+        {label}
+        <span className={active ? 'text-purple-700' : 'text-purple-300'}>{arrow}</span>
+      </span>
+    </th>
+  );
+}
+
 function getLiveStreamUrl(channel, time, antes, depois) {
   const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('token');
@@ -52,6 +82,11 @@ export default function VisionPalavraChave2() {
   const [barcodeProduct, setBarcodeProduct] = useState('');
   const [pdvFilter, setPdvFilter] = useState('');
   const [operadorFilter, setOperadorFilter] = useState('');
+  const [operadores, setOperadores] = useState([]);
+  const [valorMin, setValorMin] = useState('');
+  const [valorMax, setValorMax] = useState('');
+  const [sortCol, setSortCol] = useState(null);   // 'time' | 'operador' | 'pdv' | 'cupomNum' | 'tipo' | 'valor' | 'cedula'
+  const [sortDir, setSortDir] = useState('asc');   // 'asc' | 'desc'
   const [periodo, setPeriodo] = useState('personalizado');
   const [startDate, setStartDate] = useState(formatDate(new Date()));
   const [endDate, setEndDate] = useState(formatDate(new Date()));
@@ -84,6 +119,21 @@ export default function VisionPalavraChave2() {
       .catch(() => {});
   }, [lojaSelecionada]);
 
+  // Carrega operadores que tiveram venda no período selecionado (não o cadastro inteiro)
+  useEffect(() => {
+    let start, end;
+    if (periodo === 'personalizado') {
+      start = startDate; end = endDate;
+    } else {
+      const range = getDateRange(periodo);
+      if (range) { start = range.start; end = range.end; }
+    }
+    const params = start ? { start, end } : {};
+    api.get('/dvr-cftv/pos/operadores', { params })
+      .then(res => setOperadores(res.data.operadores || []))
+      .catch(() => {});
+  }, [lojaSelecionada, periodo, startDate, endDate]);
+
   // Esc fecha o modal de video expandido
   useEffect(() => {
     if (!videoExpandido) return;
@@ -110,8 +160,9 @@ export default function VisionPalavraChave2() {
   };
 
   const handleSearch = async () => {
-    if (!text.trim() && !barcode.trim()) {
-      setError('Digite uma palavra-chave ou codigo de barras');
+    const temCriterio = operadorFilter || valorMin !== '' || valorMax !== '';
+    if (!text.trim() && !barcode.trim() && !temCriterio) {
+      setError('Digite uma palavra-chave, codigo de barras ou escolha operador/faixa de valor');
       return;
     }
     setError('');
@@ -136,6 +187,9 @@ export default function VisionPalavraChave2() {
       if (text.trim()) params.text = text.trim();
       if (barcode.trim()) params.barcode = barcode.trim();
       if (pdvFilter) params.pdv = pdvFilter;
+      if (operadorFilter) params.operador = operadorFilter;
+      if (valorMin !== '') params.valorMin = valorMin;
+      if (valorMax !== '') params.valorMax = valorMax;
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
 
       const res = await api.get('/dvr-cftv/pos/search-oracle', { params, timeout: 120000 });
@@ -151,6 +205,37 @@ export default function VisionPalavraChave2() {
       setLoading(false);
     }
   };
+
+  // Clique no cabeçalho: 1º clique ordena A→Z (asc), 2º inverte Z→A, mesma coluna
+  const toggleSort = (col) => {
+    if (sortCol === col) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  // Resultados já ordenados pela coluna escolhida (mantém ordem original se nenhuma)
+  const sortedResults = (() => {
+    if (!sortCol) return results;
+    const numericCols = new Set(['pdv', 'cupomNum', 'valor', 'cedula']);
+    const arr = [...results];
+    arr.sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'hora') { va = splitDateTime(a.time).hora; vb = splitDateTime(b.time).hora; }
+      else { va = a[sortCol]; vb = b[sortCol]; }
+      if (numericCols.has(sortCol)) {
+        va = Number(va) || 0; vb = Number(vb) || 0;
+        return sortDir === 'asc' ? va - vb : vb - va;
+      }
+      va = (va ?? '').toString().toLowerCase();
+      vb = (vb ?? '').toString().toLowerCase();
+      const cmp = va.localeCompare(vb, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  })();
 
   const handlePlayVideo = async (item) => {
     const cam = getCameraForPdv(item.pdv);
@@ -307,10 +392,32 @@ export default function VisionPalavraChave2() {
                 className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 <option value="">Todos</option>
-                {Array.from(new Set((results || []).map(r => r.OPERADOR || r.operador).filter(Boolean))).sort().map(op => (
-                  <option key={op} value={op}>{op}</option>
+                {operadores.map(op => (
+                  <option key={op.cod} value={op.cod}>{op.nome}</option>
                 ))}
               </select>
+            </div>
+            <div className="w-[110px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Valor de</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={valorMin}
+                onChange={(e) => setValorMin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="R$ min"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+            <div className="w-[110px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Valor até</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={valorMax}
+                onChange={(e) => setValorMax(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="R$ max"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
             </div>
             <div className="w-[130px]">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Periodo</label>
@@ -602,29 +709,25 @@ export default function VisionPalavraChave2() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
             <div className="px-3 py-1.5 bg-purple-100 border-b flex items-center justify-between">
               <h2 className="text-sm font-semibold text-purple-700">Transacoes Encontradas</h2>
-              {total > 0 && (() => {
-                const filtered = operadorFilter
-                  ? results.filter(item => (item.OPERADOR || item.operador) === operadorFilter).length
-                  : total;
-                return (
-                  <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                    {operadorFilter ? `${filtered} de ${total}` : `${total} resultado${total !== 1 ? 's' : ''}`}
-                  </span>
-                );
-              })()}
+              {total > 0 && (
+                <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                  {total} resultado{total !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
             <div className="overflow-auto flex-1">
               <table className="w-full text-sm">
                 <thead className="bg-purple-50 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600 w-12">No.</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Horario</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-purple-600">Operador(a)</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-16">PDV</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Cupom</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-24">Tipo</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 w-24">Valor</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 w-24">Cedula</th>
+                    <SortableTh label="Data" col="time" align="left" width="w-28" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Hora" col="hora" align="left" width="w-24" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Operador(a)" col="operador" align="left" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="PDV" col="pdv" align="center" width="w-16" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Cupom" col="cupomNum" align="center" width="w-24" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Tipo" col="tipo" align="center" width="w-24" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Valor" col="valor" align="right" width="w-24" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Cedula" col="cedula" align="right" width="w-24" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Nota</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-purple-600 w-20">Video</th>
                   </tr>
@@ -632,19 +735,19 @@ export default function VisionPalavraChave2() {
                 <tbody className="divide-y divide-gray-100">
                   {results.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={10} className="px-3 py-8 text-center text-gray-400 text-sm">
+                      <td colSpan={11} className="px-3 py-8 text-center text-gray-400 text-sm">
                         {total === 0 ? 'Faca uma busca para ver os resultados' : 'Nenhum resultado'}
                       </td>
                     </tr>
                   )}
-                  {results
-                    .filter(item => !operadorFilter || (item.OPERADOR || item.operador) === operadorFilter)
+                  {sortedResults
                     .map((item, idx) => (
                     <tr key={`${item.cupomNum}-${item.pdv}-${idx}`}
                       onClick={() => handlePlayVideo(item)}
                       className={`hover:bg-purple-50 cursor-pointer transition-colors ${videoTime === item.time ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}>
                       <td className="px-3 py-1.5 text-gray-500 text-xs">{idx + 1}</td>
-                      <td className="px-3 py-1.5 font-medium text-gray-800 text-sm">{item.time}</td>
+                      <td className="px-3 py-1.5 font-medium text-gray-800 text-sm">{splitDateTime(item.time).data || '-'}</td>
+                      <td className="px-3 py-1.5 text-gray-700 text-sm">{splitDateTime(item.time).hora || '-'}</td>
                       <td className="px-3 py-1.5 text-sm text-gray-700 truncate max-w-[150px]" title={item.operador || '-'}>{item.operador || '-'}</td>
                       <td className="px-3 py-1.5 text-center">
                         <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-semibold">{item.pdv}</span>

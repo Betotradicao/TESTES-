@@ -829,7 +829,37 @@ export class DVRCFTVService {
    * Busca Oracle por palavra-chave em TODOS os PDVs (sem usar DVR POS).
    * Retorna transações com PDV, horário, cupom, operador, valor e tipo.
    */
-  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number): Promise<{ total: number; items: any[] }> {
+  /**
+   * Lista operadores/caixas pra popular o filtro do Vision Palavra-Chave.
+   * Com start/end → só quem teve venda no período (evita listar caixa que não vende).
+   * Sem datas → cadastro inteiro (TAB_OPERADORES).
+   */
+  static async getOperadores(startDate?: string, endDate?: string): Promise<{ cod: number; nome: string }[]> {
+    const n = await this.getOracleNames();
+    let sql: string;
+    let params: any = {};
+    if (startDate) {
+      const [sy, sm, sd] = startDate.split('-');
+      const [ey, em, ed] = (endDate || startDate).split('-');
+      params = { dStart: `${sd}/${sm}/${sy}`, dEnd: `${ed}/${em}/${ey}` };
+      sql = `
+        SELECT DISTINCT op.${n.C_OP_COD} as COD, op.${n.C_OP_NOME} as NOME
+        FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf
+        JOIN ${n.schema}.${n.T_OPERADORES} op ON op.${n.C_OP_COD} = cf.${n.C_CF_OPERADOR}
+        WHERE cf.${n.C_CF_DATA} >= TO_DATE(:dStart, 'DD/MM/YYYY')
+          AND cf.${n.C_CF_DATA} < TO_DATE(:dEnd, 'DD/MM/YYYY') + 1
+          AND cf.${n.C_CF_OPERADOR} IS NOT NULL
+        ORDER BY op.${n.C_OP_NOME}`;
+    } else {
+      sql = `SELECT ${n.C_OP_COD} as COD, ${n.C_OP_NOME} as NOME FROM ${n.schema}.${n.T_OPERADORES} ORDER BY ${n.C_OP_NOME}`;
+    }
+    const rows: any[] = await OracleService.query(sql, params);
+    return rows
+      .map(r => ({ cod: Number(r.COD), nome: (r.NOME || '').trim() }))
+      .filter(o => o.nome && !isNaN(o.cod));
+  }
+
+  static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number, opts?: { codOperador?: number; valorMin?: number; valorMax?: number }): Promise<{ total: number; items: any[] }> {
     // Bifurcar Oracle/PG
     try {
       if (AppDataSource.isInitialized) {
@@ -853,6 +883,58 @@ export class DVRCFTVService {
     // Se barcode fornecido, buscar vendas por código de barras
     if (barcode) {
       return this.searchByBarcode(n, dateStr, barcode, pdvFilter);
+    }
+
+    // NOVO MODO: filtro por OPERADOR e/ou FAIXA DE VALOR (sem palavra-chave)
+    // Traz um cupom por linha, com total do cupom, pra dar Play no vídeo de cada.
+    const temOperador = opts?.codOperador != null && !isNaN(Number(opts.codOperador));
+    const temValor = (opts?.valorMin != null && !isNaN(Number(opts.valorMin))) || (opts?.valorMax != null && !isNaN(Number(opts.valorMax)));
+    if (!text && (temOperador || temValor)) {
+      const p: any = { dateStrStart, dateStrEnd };
+      if (pdvFilter) p.pdv = pdvFilter;
+      const having: string[] = [];
+      if (opts?.valorMin != null && !isNaN(Number(opts.valorMin))) { p.vmin = Number(opts.valorMin); having.push(`SUM(p.${n.C_PDV_VALOR}) >= :vmin`); }
+      if (opts?.valorMax != null && !isNaN(Number(opts.valorMax))) { p.vmax = Number(opts.valorMax); having.push(`SUM(p.${n.C_PDV_VALOR}) <= :vmax`); }
+      let operadorExists = '';
+      if (temOperador) {
+        p.codOp = Number(opts!.codOperador);
+        operadorExists = `AND EXISTS (
+          SELECT 1 FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cfo
+          WHERE cfo.${n.C_CF_CUPOM} = p.${n.C_PDV_CUPOM} AND cfo.${n.C_CF_PDV} = p.${n.C_PDV_NUM_PDV}
+            AND TRUNC(cfo.${n.C_CF_DATA}) = TRUNC(p.${n.C_PDV_DATA}) AND cfo.${n.C_CF_OPERADOR} = :codOp)`;
+      }
+      const sql = `
+        SELECT p.${n.C_PDV_CUPOM} as NUM_CUPOM_FISCAL, p.${n.C_PDV_NUM_PDV} as NUM_PDV,
+               TO_CHAR(p.${n.C_PDV_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(MIN(p.${n.C_PDV_HORA}), 'HH24:MI:SS') as HORA_CUPOM,
+               SUM(p.${n.C_PDV_VALOR}) as VALOR,
+               (SELECT op.${n.C_OP_NOME} FROM ${n.schema}.${n.T_CUPOM_FINALIZADORA} cf2
+                  LEFT JOIN ${n.schema}.${n.T_OPERADORES} op ON op.${n.C_OP_COD} = cf2.${n.C_CF_OPERADOR}
+                 WHERE cf2.${n.C_CF_CUPOM} = p.${n.C_PDV_CUPOM} AND cf2.${n.C_CF_PDV} = p.${n.C_PDV_NUM_PDV}
+                   AND TRUNC(cf2.${n.C_CF_DATA}) = TRUNC(p.${n.C_PDV_DATA}) AND cf2.${n.C_CF_OPERADOR} IS NOT NULL AND ROWNUM = 1) as NOM_OPERADOR
+        FROM ${n.schema}.${n.T_PRODUTO_PDV} p
+        WHERE p.${n.C_PDV_DATA} >= TO_DATE(:dateStrStart, 'DD/MM/YYYY')
+          AND p.${n.C_PDV_DATA} < TO_DATE(:dateStrEnd, 'DD/MM/YYYY') + 1
+          AND p.${n.C_PDV_CUPOM} > 0
+          ${pdvFilter ? `AND p.${n.C_PDV_NUM_PDV} = :pdv` : ''}
+          ${operadorExists}
+        GROUP BY p.${n.C_PDV_CUPOM}, p.${n.C_PDV_NUM_PDV}, p.${n.C_PDV_DATA}
+        ${having.length ? `HAVING ${having.join(' AND ')}` : ''}
+        ORDER BY p.${n.C_PDV_DATA}, MIN(p.${n.C_PDV_HORA})
+      `;
+      const results: any[] = [];
+      try {
+        const rows = await OracleService.query(sql, p);
+        for (const row of rows) {
+          results.push({
+            Channel: '', ID: `crit_${row.NUM_PDV}_${row.NUM_CUPOM_FISCAL}`,
+            time: row.HORA_CUPOM, cupomNum: Number(row.NUM_CUPOM_FISCAL), pdv: Number(row.NUM_PDV),
+            produto: '', valor: Number(row.VALOR) || 0, tipo: 'VENDA', operador: (row.NOM_OPERADOR || '').trim(),
+          });
+        }
+      } catch (err: any) {
+        console.error('[VISION-PC2] Erro busca por operador/valor:', err.message);
+      }
+      return { total: results.length, items: results };
     }
 
     // Detectar palavras-chave especiais
