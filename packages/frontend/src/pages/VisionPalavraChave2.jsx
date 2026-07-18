@@ -306,7 +306,7 @@ export default function VisionPalavraChave2() {
     if (tipo === 'CANCELAMENTO') return 'bg-red-100 text-red-700';
     if (tipo === 'DESCONTO') return 'bg-green-100 text-green-700';
     if (tipo === 'FINALIZADORA') return 'bg-blue-100 text-blue-700';
-    if (tipo === 'BUSCA PRECO') return 'bg-yellow-100 text-yellow-700';
+    if (tipo === 'BUSCA PRECO' || tipo === 'CONSULTA') return 'bg-yellow-100 text-yellow-700';
     return 'bg-purple-100 text-purple-700';
   };
 
@@ -516,7 +516,7 @@ export default function VisionPalavraChave2() {
             </button>
             <button onClick={() => { setBarcode(''); setBarcodeProduct(''); setText('busca preco'); }}
               className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${text === 'busca preco' ? 'bg-sky-100 border-sky-400 text-sky-800 ring-1 ring-sky-300' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700'}`}>
-              🔎 Busca Preco
+              🔎 Consulta Preco
             </button>
           </div>
           {error && (

@@ -20,8 +20,21 @@ Roberto pediu 2 filtros novos no Vision Palavra-Chave (sem precisar de palavra-c
   Corrigido contador "0 de 93" do cabeçalho (resquício do filtro antigo por nome).
 - `tsc --noEmit` limpo. Detalhes em [[modulos/vision-palavra-chave]].
 
-⏭️ **PRÓXIMO:** Roberto testar em `http://10.6.1.171:3004` (Vision Palavra-Chave). Depois commit + push
-se validar. **NÃO commitar sem ele pedir.**
+⏭️ **PRÓXIMO:** Roberto testar em `http://10.6.1.171:3004` (Vision Palavra-Chave). Filtros+ordenação+
+data/hora já **commitados** na TESTE (`3fdd208`). **Não deployado.**
+
+## 🚨 Investigação "consulta de preço" (18/07) — PROVADO: não existe no Oracle
+
+Roberto pediu pra achar onde a Intersolid grava a consulta de preço (a que o DVR acha com
+`consulta` no POS Info). **Cruzei os 4 horários exatos do DVR (13/07) contra TODAS as colunas
+de hora do schema INTERSOLID → 0 matches.** Conclusão dura: **Oracle não grava consulta de preço.**
+- `Canal 2` do DVR = **PDV 3** (canal ≠ pdv). Cupom=0 do TAB_PRODUTO_PDV = **baixa de associado**.
+- A consulta só vive no **DVR** (campo `.Text`/`.Data` do item POS). Nosso código hardcodava
+  `Text:''` no `POS.startFind` e mandava pro Oracle → errava.
+- **✅ FIX IMPLEMENTADO:** `searchConsultaPrecoDVR` puxa do índice POS do DVR filtrando pelo texto;
+  `busca_preco` delega pra ele; botão "🔎 Consulta Preco". Detalhes em [[modulos/vision-palavra-chave]].
+- ⚠️ **DVR rodando SEM HD** (liga/pinga mas não serve porta; índice POS mora no HD). Não deu pra
+  testar ao vivo. Histórico 11-15 está no HD removido — precisa recolocar pra validar.
 
 ---
 

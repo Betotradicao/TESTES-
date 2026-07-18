@@ -25,11 +25,60 @@ Cron a cada 2h pre-gera os clipes dos 4 tipos visiveis na tela: **CANC. ITEM, CA
 - Cron limpeza: `5 3 * * *` (apaga MP4 + remove registro >2 dias)
 - Detalhes: [[../bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave|Pre-clipes Vision Palavra-Chave]]
 
-## 🔎 Busca Preço — o que é, e o que NÃO dá pra saber
+## 🚨 CONSULTA DE PREÇO NÃO EXISTE NO ORACLE — PROVADO (18/07/2026)
+
+> Roberto pediu pra achar de vez onde a Intersolid grava a "consulta de preço" (a mesma que
+> o **DVR acha** digitando `consulta` no campo *POS Info*, com data/hora exatas). **Resposta
+> definitiva: o Oracle NÃO grava isso em lugar nenhum.**
+
+**Método (evidência dura, não inferência):** peguei 4 horários EXATOS que o DVR achou pra
+`consulta` (13/07, "Canal 2": 07:43:49, 07:44:23, 07:57:17, 08:31:13) e cruzei contra:
+- `TAB_PRODUTO_PDV` (qualquer PDV, qualquer cupom) no dia → **0 linhas** nesses horários.
+- **TODAS** as colunas de hora `DATE` do schema INTERSOLID → **0**.
+- **TODAS** as colunas de hora `VARCHAR` do schema → **0**.
+- Tabelas candidatas (`TAB_CUPOM_PDV` 1,4M linhas, `TAB_LOG_VENDA`, `PDV_*`) → nenhuma tem
+  hora-do-dia com esses valores.
+
+**Descobertas colaterais decisivas:**
+1. **`Canal 2` do DVR = `PDV 3`** (não PDV 2!). Labels do DVR: `Canal 2 - PDV 3`,
+   `Canal 3 - PDV 4`, `Canal 4 - PDV 1`, `Canal 6 - PDV 2`. **Canal ≠ NUM_PDV.**
+   Os horários de manhã batem com PDV 3 (abre 07:33) — PDV 2 só abriu 17:05 nesse dia.
+2. **Os `cupom=0` do `TAB_PRODUTO_PDV` são BAIXA DE ASSOCIADO, não consulta.** Todos têm
+   `NUM_CUPOM_ASSOC_FILHO` preenchido, `COD_ULT_ASSOC_FILHO`=produto, `valor=0`, `qtd=0`,
+   e caem na tarde/noite. A hipótese antiga ("cupom=0 = consulta de pão francês") está
+   **ERRADA** — ver bloco riscado abaixo. O botão "Busca Preço" traz baixa-associado.
+
+**Onde a consulta REALMENTE vive:** só no **DVR**. Cada item POS do DVR tem um campo
+`.Text`/`.Data` com o texto sobreposto ("CONSULTA..."). A busca nativa do DVR filtra por
+esse texto via `POS.startFind` com `condition.Text`. **Nosso código joga fora esse texto:**
+`fetchAllDVRItems` (dvr-cftv.service.ts ~L493) hardcoda **`Text: ''`** e manda o keyword pro
+Oracle (→ `busca_preco` → baixa-associado). Por isso a UI do DVR acha e a nossa não.
+
+### ✅ Correção de produção — IMPLEMENTADA (18/07, commit na TESTE)
+Pra `consulta`/`busca preço`, **não vai mais no Oracle**. Novo método
+`DVRCFTVService.searchConsultaPrecoDVR(start,end,pdvFilter,codLoja)`:
+- `fetchAllDVRItems` ganhou param `text` → passa no `condition.Text` do `POS.startFind`
+  (mesmo filtro da UI do DVR). Antes era hardcoded `Text:''`.
+- Varre os **canais de caixa** (label contém "PDV"), dia a dia, filtra `item.Text/Data ~ /consulta/i`.
+- Retorna 1 linha por evento: `{time, pdv (parseado do label), channel, tipo:'CONSULTA', produto=texto}`.
+- `busca_preco` no `searchOracleAllPdvs` agora delega pra esse método (não faz mais a query cupom=0).
+- Botão renomeado "🔎 Consulta Preco"; `tipoColor` cobre 'CONSULTA'.
+- Se o DVR estiver offline, lança erro claro ("consulta é lida do DVR... indisponível").
+
+⚠️ **Não testado ao vivo** — DVR do Tradição está **rodando SEM HD** (liga/pinga, mas não serve
+nenhuma porta; o índice POS + gravações moram no HD). Histórico de 11-15 está no HD removido.
+Só dá pra validar recolocando o HD (risco de voltar a reiniciar — defeito de placa, ver [[dvr-cameras]]).
+
+---
+
+## 🔎 Busca Preço — ⚠️ HIPÓTESE ANTIGA (SUPERSEDED pelo bloco acima)
 
 Filtro adicionado em 16/07 (commit `75d6788`). O backend **já suportava desde antes**
 (`['BUSCA','BUSCA PRECO','CONSULTA','CONSULTA PRECO']` → `keyword='busca_preco'`) — só
 faltava o botão. Digitar "consulta" na caixa dá o mesmo resultado.
+
+> ❌ **O que segue abaixo (cupom=0 = consulta de balança/pão) foi refutado em 18/07.**
+> O `cupom=0` é baixa de associado. Mantido só como histórico do raciocínio.
 
 ### Como o evento existe no Oracle
 Linha em `TAB_PRODUTO_PDV` com **`NUM_CUPOM_FISCAL = 0`** (consulta não gera cupom).

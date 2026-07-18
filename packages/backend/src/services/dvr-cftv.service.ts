@@ -471,7 +471,8 @@ export class DVRCFTVService {
     sessionId: string,
     channel: number,
     startTime: string,
-    endTime: string
+    endTime: string,
+    text: string = ''
   ): Promise<POSSearchResult[]> {
     // Extrair data base do startTime (ex: "2026-03-05 00:00:00" → "2026-03-05")
     const dateBase = startTime.split(' ')[0];
@@ -488,9 +489,11 @@ export class DVRCFTVService {
 
     for (const [chStart, chEnd] of timeChunks) {
       try {
+        // Text no condition = mesmo filtro que a busca nativa do DVR usa (campo "POS Info").
+        // Vazio = traz tudo (comportamento antigo, filtro via Oracle depois).
         const findResult = await this.rpcCall(config.ip, '/RPC2', sessionId, 'POS.startFind', {
           channel,
-          condition: { StartTime: chStart, EndTime: chEnd, Text: '' }
+          condition: { StartTime: chStart, EndTime: chEnd, Text: text || '' }
         }, 10, config.httpPort);
 
         if (!findResult.result) {
@@ -569,6 +572,80 @@ export class DVRCFTVService {
       // Fallback: retornar tudo sem filtro
       return { total: allItems.length, items: allItems };
     }
+  }
+
+  /** Extrai o PDV real do label do canal ("Canal 2 - PDV 3" -> 3). Fallback: pdv do config. */
+  private static realPdvFromLabel(label: string, fallback: number): number {
+    const m = /PDV\s*(\d+)/i.exec(label || '');
+    return m ? parseInt(m[1]) : fallback;
+  }
+
+  /** Lista os dias (YYYY-MM-DD) entre start e end, inclusivo. */
+  private static enumerateDays(start: string, end: string): string[] {
+    const days: string[] = [];
+    const s = new Date(`${start}T00:00:00`);
+    const e = new Date(`${end || start}T00:00:00`);
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      days.push(`${y}-${mo}-${da}`);
+    }
+    return days;
+  }
+
+  /**
+   * CONSULTA DE PREÇO — lida DIRETO do índice POS do DVR (o Oracle/Intersolid NÃO grava isso;
+   * provado em 18/07 cruzando horários exatos do DVR contra todo o schema → 0 matches).
+   * Filtra pelo texto sobreposto ("CONSULTA...") em cada evento POS, em todos os canais de caixa.
+   * 1 linha por evento, com Play do vídeo (tipo CONSULTA, sem cupom/valor no ERP).
+   */
+  static async searchConsultaPrecoDVR(startDate: string, endDate: string, pdvFilter?: number, _codLoja?: number): Promise<{ total: number; items: any[] }> {
+    let config: Awaited<ReturnType<typeof DVRCFTVService.getConfig>>;
+    let sessionId: string;
+    try {
+      config = await this.getConfig();
+      sessionId = await this.login();
+    } catch (e: any) {
+      // Sem DVR não há como saber a consulta de preço — Oracle não guarda.
+      throw new Error('Consulta de preço é lida do DVR (o ERP não registra). DVR indisponível no momento: ' + e.message);
+    }
+
+    // Canais de caixa = label contém "PDV" (ignora facial/estacionamento/estoque).
+    const canaisCaixa = (config.canais || []).filter((c: any) => /PDV/i.test(c.label || ''));
+    const alvos = canaisCaixa.length ? canaisCaixa : (config.canais || []);
+    const days = this.enumerateDays(startDate, endDate);
+    const results: any[] = [];
+
+    for (const ch of alvos as any[]) {
+      const pdvReal = this.realPdvFromLabel(ch.label, ch.pdv);
+      if (pdvFilter && pdvReal !== pdvFilter) continue;
+      for (const day of days) {
+        let items: POSSearchResult[] = [];
+        try {
+          // passa "consulta" pro DVR (mesmo filtro da UI dele) — reduz muito o volume
+          items = await this.fetchAllDVRItems(config, sessionId, ch.channel, `${day} 00:00:00`, `${day} 23:59:59`, 'consulta');
+        } catch (err: any) {
+          console.log(`[VISION-PC2] consulta ch${ch.channel} ${day}: ${err.message}`);
+          continue;
+        }
+        for (const it of items as any[]) {
+          const texto = String(it.Text || it.Data || '');
+          // dupla garantia: só mantém o que realmente tem "consulta" no texto sobreposto
+          if (texto && !/consulta/i.test(texto)) continue;
+          results.push({
+            Channel: String(ch.channel), ID: `cons_${ch.channel}_${it.Time}`,
+            time: it.Time, cupomNum: 0, pdv: pdvReal, channel: ch.channel,
+            produto: texto.replace(/\s+/g, ' ').trim().slice(0, 120),
+            valor: 0, tipo: 'CONSULTA', operador: '',
+          });
+        }
+      }
+    }
+
+    results.sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    console.log(`[VISION-PC2] Consulta de preço (DVR): ${results.length} evento(s) em ${alvos.length} canal(is), ${days.length} dia(s)`);
+    return { total: results.length, items: results };
   }
 
   /**
@@ -1086,30 +1163,12 @@ export class DVRCFTVService {
       return { total: results.length, items: results };
     }
 
-    // BUSCA PREÇO
+    // CONSULTA / BUSCA PREÇO — vem do DVR, NÃO do Oracle.
+    // Provado (18/07/2026): o ERP não grava consulta de preço. O único registro é o texto
+    // sobreposto no DVR (campo POS "Text"). Antes isto caía em cupom=0 do TAB_PRODUTO_PDV,
+    // que na verdade é BAIXA DE ASSOCIADO — resultado enganoso. Ver modulos/vision-palavra-chave.
     if (keyword === 'busca_preco') {
-      const sql = `
-        SELECT 0 as NUM_CUPOM_FISCAL, p.${n.C_PDV_NUM_PDV} as NUM_PDV,
-               TO_CHAR(p.${n.C_PDV_DATA}, 'YYYY-MM-DD') || ' ' || TO_CHAR(p.${n.C_PDV_HORA}, 'HH24:MI:SS') as HORA_CUPOM,
-               pr.${n.C_PROD_DESC} as DES_PRODUTO, p.${n.C_PDV_VALOR} as VALOR,
-               'BUSCA PRECO' as TIPO
-        FROM ${n.schema}.${n.T_PRODUTO_PDV} p
-        LEFT JOIN ${n.schema}.${n.T_PRODUTO} pr ON p.${n.C_PDV_COD_PROD} = pr.${n.C_PROD_COD}
-        WHERE p.${n.C_PDV_DATA} BETWEEN TO_DATE(:dateStrStart, 'DD/MM/YYYY') AND TO_DATE(:dateStrEnd, 'DD/MM/YYYY')
-          AND p.${n.C_PDV_CUPOM} = 0
-          ${pdvWhere}
-        ORDER BY p.${n.C_PDV_HORA}
-      `;
-      const rows = await OracleService.query(sql, params);
-      for (const row of rows) {
-        results.push({
-          time: row.HORA_CUPOM, cupomNum: 0,
-          pdv: Number(row.NUM_PDV), produto: row.DES_PRODUTO || '',
-          valor: Number(row.VALOR) || 0, tipo: 'BUSCA PRECO',
-          operador: ''
-        });
-      }
-      return { total: results.length, items: results };
+      return this.searchConsultaPrecoDVR(startDate, endDate, pdvFilter, codLoja);
     }
 
     // DESCONTO, FINALIZADORA ou PRODUTO
