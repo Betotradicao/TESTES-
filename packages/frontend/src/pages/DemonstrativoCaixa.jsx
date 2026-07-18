@@ -138,6 +138,94 @@ function getTotalCellValue(colId, totais, type) {
   }
 }
 
+// Demonstrativo montado pelas amarrações da Conciliação (modo Direto Manual)
+function DemonstrativoManual({ data, loading }) {
+  if (loading) return <div className="flex justify-center py-20"><RadarLoading /></div>;
+  if (!data) return <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400"><p className="text-lg font-medium">Carregando o extrato...</p></div>;
+
+  const grupos = data.grupos || [];
+  const t = data.totais || {};
+  const naoClass = data.naoClassificado || { total: 0, qtd: 0 };
+  // % sobre o total de Entradas (Receitas) — análise vertical
+  const pct = (v) => (t.totalReceitas ? (v / t.totalReceitas * 100) : null);
+
+  return (
+    <div className="space-y-4">
+      {/* Cards resumo */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="text-sm text-green-700 font-medium">Receitas</div>
+          <div className="text-xl font-bold text-green-800 mt-1">R$ {formatCurrency(t.totalReceitas)}</div>
+        </div>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="text-sm text-orange-700 font-medium">Despesas</div>
+          <div className="text-xl font-bold text-orange-800 mt-1">R$ {formatCurrency(t.totalDespesas)}</div>
+        </div>
+        <div className={`${(t.saldo || 0) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-3`}>
+          <div className={`text-sm font-medium ${(t.saldo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Saldo</div>
+          <div className={`text-xl font-bold mt-1 ${(t.saldo || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>R$ {formatCurrency(t.saldo)}</div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="text-sm text-gray-600 font-medium">Não Classificado</div>
+          <div className="text-xl font-bold text-gray-700 mt-1">R$ {formatCurrency(naoClass.total)}</div>
+          <div className="text-xs text-gray-400">{naoClass.qtd} lançamento(s)</div>
+        </div>
+      </div>
+
+      {/* Tabela agrupada */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <table className="w-full text-sm">
+          <colgroup>
+            <col style={{ width: 460 }} />
+            <col style={{ width: 150 }} />
+            <col style={{ width: 100 }} />
+            <col />
+          </colgroup>
+          <thead>
+            <tr className="bg-gray-700 text-white">
+              <th className="text-left py-2 px-3 font-semibold">Movimento (Manual)</th>
+              <th className="text-right py-2 px-3 font-semibold">Valor</th>
+              <th className="text-right py-2 px-3 font-semibold">% Entradas</th>
+              <th className="bg-gray-700"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {grupos.length === 0 && naoClass.total === 0 && (
+              <tr><td colSpan={4} className="text-center py-8 text-gray-400">Nenhuma amarração no período. Amarre linhas na Conciliação (Direto Manual).</td></tr>
+            )}
+            {grupos.map((g, gi) => (
+              <React.Fragment key={gi}>
+                <tr className={g.is_receita ? 'bg-green-100 text-green-900' : 'bg-orange-100 text-orange-900'}>
+                  <td className="py-1.5 px-3 font-bold">{g.nome}</td>
+                  <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(g.total)}</td>
+                  <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(g.total))}</td>
+                  <td></td>
+                </tr>
+                {(g.contas || []).map((c, ci) => (
+                  <tr key={ci} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-1.5 px-3 pl-8 text-gray-700">• {c.nome} <span className="text-xs text-gray-400">({c.qtd})</span></td>
+                    <td className={`py-1.5 px-3 text-right font-semibold ${g.is_receita ? 'text-green-700' : 'text-red-700'}`}>R$ {formatCurrency(c.valor)}</td>
+                    <td className="py-1.5 px-3 text-right text-gray-500">{formatPercent(pct(c.valor))}</td>
+                    <td></td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+            {naoClass.total > 0 && (
+              <tr className="bg-red-100 text-red-900">
+                <td className="py-1.5 px-3 font-bold">⚠️ NÃO CLASSIFICADO <span className="text-xs">({naoClass.qtd})</span></td>
+                <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(naoClass.total)}</td>
+                <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(naoClass.total))}</td>
+                <td></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DemonstrativoCaixa() {
   const { user, logout } = useAuth();
   const { lojaSelecionada } = useLoja();
@@ -148,6 +236,11 @@ export default function DemonstrativoCaixa() {
   // Tabs removidas - sempre Geral
   const [regime, setRegime] = useState('caixa');
   const [incluirMovBanco, setIncluirMovBanco] = useState('sim');
+  // Modo: 'sistema' (ERP) | 'manual' (amarrações do extrato)
+  const [modo, setModo] = useState('sistema');
+  const [manualData, setManualData] = useState(null);
+  const [loadingManual, setLoadingManual] = useState(false);
+  const [manualBankId, setManualBankId] = useState('');
   const [considerarEntradaBancos, setConsiderarEntradaBancos] = useState(false);
   const [entradaBancosTotal, setEntradaBancosTotal] = useState(0);
   const [entradaBancosList, setEntradaBancosList] = useState([]);
@@ -219,6 +312,39 @@ export default function DemonstrativoCaixa() {
   };
 
   useEffect(() => { fetchData(); }, [dataInicio, dataFim, regime, lojaSelecionada, incluirMovBanco]);
+
+  // Modo Manual: monta o demonstrativo a partir das amarrações do extrato
+  const fetchManual = async () => {
+    setLoadingManual(true);
+    try {
+      let bankId = manualBankId;
+      if (!bankId) {
+        const accRes = await api.get('/bank-accounts');
+        const accs = (accRes.data?.data || []).filter(a => a.ativo);
+        const santander = accs.find(a => (a.conta || '').includes('130075973'))
+          || accs.find(a => `${a.nome || ''}${a.tipo_banco || ''}`.toLowerCase().includes('santander'))
+          || accs[0];
+        bankId = santander?.id || '';
+        setManualBankId(bankId);
+      }
+      const params = { dtaInicio: dataInicio, dtaFim: dataFim };
+      if (lojaSelecionada) params.codLoja = lojaSelecionada;
+      if (bankId) params.bankId = bankId;
+      const res = await api.get('/conciliacao/demonstrativo-manual', { params });
+      if (res.data?.success) setManualData(res.data);
+      else toast.error(res.data?.message || 'Falha ao montar demonstrativo manual');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao montar demonstrativo manual');
+    } finally {
+      setLoadingManual(false);
+    }
+  };
+
+  useEffect(() => {
+    if (modo === 'manual') fetchManual();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modo, dataInicio, dataFim, lojaSelecionada]);
 
   // Buscar entradas dos bancos quando flag ativada
   const fetchEntradaBancos = async () => {
@@ -591,6 +717,13 @@ export default function DemonstrativoCaixa() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <label className="text-sm font-bold text-orange-600">Modo:</label>
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                  <button onClick={() => setModo('sistema')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${modo === 'sistema' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Direto Sistema</button>
+                  <button onClick={() => setModo('manual')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${modo === 'manual' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Direto Manual</button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-600">Mov. Banco:</label>
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
                   <button onClick={() => setIncluirMovBanco('sim')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${incluirMovBanco === 'sim' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Com</button>
@@ -608,8 +741,8 @@ export default function DemonstrativoCaixa() {
             </div>
           </div>
 
-          {/* Tabela */}
-          {loading ? (
+          {/* Tabela (modo Sistema) */}
+          {modo === 'sistema' && (loading ? (
             <div className="flex justify-center py-20"><RadarLoading /></div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border overflow-x-auto print:shadow-none print:border-none">
@@ -890,10 +1023,10 @@ export default function DemonstrativoCaixa() {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
 
-          {/* Resumo em cards */}
-          {data && (() => {
+          {/* Resumo em cards (modo Sistema) */}
+          {modo === 'sistema' && data && (() => {
             const saldoQuitado = (totais.totalQuitadoReceitas || 0) - (totais.totalQuitadoDespesas || 0);
             return (<>
             {/* Cards Quitados */}
@@ -944,6 +1077,9 @@ export default function DemonstrativoCaixa() {
             </div>
             </>);
           })()}
+
+          {/* Demonstrativo (modo Manual) */}
+          {modo === 'manual' && <DemonstrativoManual data={manualData} loading={loadingManual} />}
         </div>
       </main>
 

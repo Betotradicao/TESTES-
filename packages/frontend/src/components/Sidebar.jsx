@@ -177,6 +177,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/extrato-banco24h': 'bancos',
       '/boletos-dda': 'bancos',
       '/conciliacao-bancaria': 'bancos',
+      '/cadastro-contas': 'bancos',
       // Gestão de Estoque
       '/estoque-saude': 'gestao-estoque-margem',
       '/pricing-ponderacao': 'gestao-estoque-margem',
@@ -266,6 +267,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/extrato-banco24h': 'gestao-radar:financas',
       '/boletos-dda': 'gestao-radar:financas',
       '/conciliacao-bancaria': 'gestao-radar:financas',
+      '/cadastro-contas': 'gestao-radar:financas',
       '/vision-pdv': 'vision-360',
       '/vision-operacoes-risco': 'vision-360',
       '/vision-palavra-chave-2': 'vision-360',
@@ -675,7 +677,8 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
                 { id: 'extrato-santander', submenuId: 'extrato-santander', title: 'EXTRATO BANCÁRIO', path: '/extrato-santander' },
                 { id: 'extrato-banco24h', submenuId: 'extrato-banco24h', title: 'BANCO 24HORAS', path: '/extrato-banco24h' },
                 { id: 'boletos-dda', submenuId: 'boletos-dda', title: 'BOLETOS DDA', path: '/boletos-dda' },
-                { id: 'conciliacao-bancaria', submenuId: 'conciliacao-bancaria', title: 'CONCILIAÇÃO BANCÁRIA', path: '/conciliacao-bancaria' }
+                { id: 'conciliacao-bancaria', submenuId: 'conciliacao-bancaria', title: 'CONCILIAÇÃO BANCÁRIA', path: '/conciliacao-bancaria' },
+                { id: 'cadastro-contas', submenuId: 'cadastro-contas', title: 'CADASTRO DE CONTAS', path: '/cadastro-contas' }
               ]
             }
           ]

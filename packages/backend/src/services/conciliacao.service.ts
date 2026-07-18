@@ -9,6 +9,9 @@ import { SantanderService } from './santander.service';
 import { AppDataSource } from '../config/database';
 import { BankTransfer } from '../entities/BankTransfer';
 import { BankAccount } from '../entities/BankAccount';
+import { ConciliacaoAmarracao } from '../entities/ConciliacaoAmarracao';
+import { ConciliacaoMovimento } from '../entities/ConciliacaoMovimento';
+import { PlanoConta } from '../entities/PlanoConta';
 
 interface ConciliacaoFilters {
   codLoja?: string;
@@ -133,6 +136,14 @@ async function resolveMapping() {
 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Chave estável de um movimento do extrato: data|valor|texto|tipoOperacao */
+function movKeyOf(mb: any): string {
+  const d = toDateStr(mb.DTA_ENTRADA instanceof Date ? new Date(mb.DTA_ENTRADA.getFullYear(), mb.DTA_ENTRADA.getMonth(), mb.DTA_ENTRADA.getDate()) : new Date(mb.DTA_ENTRADA));
+  const v = Math.abs(parseFloat(mb.VAL_DOCTO) || 0).toFixed(2);
+  const t = (mb.FAVORECIDO || '').trim();
+  return `${d}|${v}|${t}|${mb.TIPO_OPERACAO}`;
 }
 
 function truncDate(d: any): Date {
@@ -724,5 +735,257 @@ export class ConciliacaoService {
     const repo = AppDataSource.getRepository(BankTransfer);
     const result = await repo.delete(transferId);
     return (result.affected || 0) > 0;
+  }
+
+  // ============ MODO "DIRETO MANUAL" ============
+
+  /** Lista amarrações da loja com o nome da conta e do grupo resolvidos */
+  static async getAmarracoes(codLoja: number): Promise<Record<string, any>> {
+    const amRepo = AppDataSource.getRepository(ConciliacaoAmarracao);
+    const pcRepo = AppDataSource.getRepository(PlanoConta);
+    const [amarracoes, contas] = await Promise.all([
+      amRepo.find({ where: { cod_loja: codLoja } }),
+      pcRepo.find({ where: { cod_loja: codLoja } }),
+    ]);
+    const contaById = new Map<number, PlanoConta>();
+    for (const c of contas) contaById.set(c.id, c);
+
+    // Retorna um mapa texto_exato -> info da conta (o front casa por texto exato)
+    const map: Record<string, any> = {};
+    for (const a of amarracoes) {
+      const conta = contaById.get(a.plano_conta_id);
+      const grupo = conta?.parent_id ? contaById.get(conta.parent_id) : null;
+      map[a.texto_exato] = {
+        plano_conta_id: a.plano_conta_id,
+        conta_nome: conta?.nome || '(conta removida)',
+        grupo_nome: grupo?.nome || null,
+        is_receita: conta?.is_receita ?? false,
+      };
+    }
+    return map;
+  }
+
+  /** Cria/atualiza amarração (texto exato -> conta). Idempotente por (loja, texto). */
+  static async salvarAmarracao(codLoja: number, textoExato: string, planoContaId: number): Promise<ConciliacaoAmarracao> {
+    const repo = AppDataSource.getRepository(ConciliacaoAmarracao);
+    const texto = (textoExato || '').trim();
+    if (!texto) throw new Error('texto_exato é obrigatório');
+    if (!planoContaId) throw new Error('plano_conta_id é obrigatório');
+
+    let row = await repo.findOne({ where: { cod_loja: codLoja, texto_exato: texto } });
+    if (row) {
+      row.plano_conta_id = planoContaId;
+    } else {
+      row = repo.create({ cod_loja: codLoja, texto_exato: texto, plano_conta_id: planoContaId });
+    }
+    return repo.save(row);
+  }
+
+  /** Remove a amarração de um texto exato */
+  static async removerAmarracao(codLoja: number, textoExato: string): Promise<boolean> {
+    const repo = AppDataSource.getRepository(ConciliacaoAmarracao);
+    const res = await repo.delete({ cod_loja: codLoja, texto_exato: (textoExato || '').trim() });
+    return (res.affected || 0) > 0;
+  }
+
+  /** Classificações por movimento específico (única/transferência): mov_key -> info */
+  static async getMovimentos(codLoja: number): Promise<Record<string, any>> {
+    const movRepo = AppDataSource.getRepository(ConciliacaoMovimento);
+    const pcRepo = AppDataSource.getRepository(PlanoConta);
+    const [movs, contas] = await Promise.all([
+      movRepo.find({ where: { cod_loja: codLoja } }),
+      pcRepo.find({ where: { cod_loja: codLoja } }),
+    ]);
+    const contaById = new Map<number, PlanoConta>();
+    for (const c of contas) contaById.set(c.id, c);
+    const map: Record<string, any> = {};
+    for (const m of movs) {
+      if (m.tipo === 'transferencia') {
+        map[m.mov_key] = { origem: 'transferencia', transfer_id: m.transfer_id };
+      } else {
+        const conta = m.plano_conta_id ? contaById.get(m.plano_conta_id) : null;
+        const grupo = conta?.parent_id ? contaById.get(conta.parent_id) : null;
+        map[m.mov_key] = {
+          origem: 'unica',
+          plano_conta_id: m.plano_conta_id,
+          conta_nome: conta?.nome || '(conta removida)',
+          grupo_nome: grupo?.nome || null,
+          is_receita: conta?.is_receita ?? false,
+        };
+      }
+    }
+    return map;
+  }
+
+  /** Classificação ÚNICA de um movimento (pontual, não propaga) */
+  static async salvarMovimentoUnica(codLoja: number, movKey: string, planoContaId: number): Promise<ConciliacaoMovimento> {
+    const repo = AppDataSource.getRepository(ConciliacaoMovimento);
+    if (!movKey) throw new Error('mov_key é obrigatório');
+    if (!planoContaId) throw new Error('plano_conta_id é obrigatório');
+    let row = await repo.findOne({ where: { cod_loja: codLoja, mov_key: movKey } });
+    if (row) { row.tipo = 'unica'; row.plano_conta_id = planoContaId; row.transfer_id = null; }
+    else row = repo.create({ cod_loja: codLoja, mov_key: movKey, tipo: 'unica', plano_conta_id: planoContaId });
+    return repo.save(row);
+  }
+
+  /** Marca um movimento como TRANSFERÊNCIA entre contas (cria BankTransfer, fora do DRE) */
+  static async salvarMovimentoTransferencia(codLoja: number, movKey: string, transferData: {
+    sourceAccountId: string; targetAccountId: string; amount: number; date: string; description?: string;
+  }): Promise<any> {
+    const transfer = await ConciliacaoService.registrarTransferencia(transferData);
+    const repo = AppDataSource.getRepository(ConciliacaoMovimento);
+    let row = await repo.findOne({ where: { cod_loja: codLoja, mov_key: movKey } });
+    if (row) { row.tipo = 'transferencia'; row.transfer_id = transfer.id; row.plano_conta_id = null; }
+    else row = repo.create({ cod_loja: codLoja, mov_key: movKey, tipo: 'transferencia', transfer_id: transfer.id });
+    await repo.save(row);
+    return { movimento: row, transfer };
+  }
+
+  /** Remove a classificação por movimento (e a transferência vinculada, se houver) */
+  static async removerMovimento(codLoja: number, movKey: string): Promise<boolean> {
+    const repo = AppDataSource.getRepository(ConciliacaoMovimento);
+    const row = await repo.findOne({ where: { cod_loja: codLoja, mov_key: movKey } });
+    if (!row) return false;
+    if (row.tipo === 'transferencia' && row.transfer_id) {
+      try { await ConciliacaoService.removerTransferencia(row.transfer_id); } catch { /* ignore */ }
+    }
+    await repo.delete(row.id);
+    return true;
+  }
+
+  /**
+   * Modo Manual: busca o extrato do banco (Santander API) e anexa a classificação de cada
+   * linha (movimento único/transferência tem prioridade; senão a amarração por texto). NÃO usa Oracle.
+   */
+  static async getDadosManual(filters: ConciliacaoFilters): Promise<{ rows: any[]; resumo: any }> {
+    // Período
+    let dtaInicio: string;
+    let dtaFim: string;
+    if (filters.dtaInicio && filters.dtaFim) {
+      dtaInicio = filters.dtaInicio;
+      dtaFim = filters.dtaFim;
+    } else {
+      const [year, month] = (filters.mesAno || '').split('-').map(Number);
+      if (!year || !month) throw new Error('dtaInicio/dtaFim ou mesAno é obrigatório');
+      dtaInicio = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      dtaFim = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    }
+    const codLoja = Number(filters.codLoja) || 1;
+
+    // Extrato do banco (mesma fonte do modo Sistema)
+    let movBcoRows: any[] = [];
+    if (filters.bankId) {
+      const monthRanges = splitIntoMonths(dtaInicio, dtaFim);
+      let allBankItems: any[] = [];
+      for (const range of monthRanges) {
+        try {
+          const items = await fetchBankPages(filters.bankId, range.start, range.end);
+          allBankItems = allBankItems.concat(items);
+        } catch (err: any) {
+          console.error(`[Conciliacao-Manual] Erro no mês ${range.start}: ${err.message}`);
+        }
+      }
+      movBcoRows = allBankItems.map((item, idx) => {
+        const dateObj = parseBrazilDate(item.transactionDate);
+        return {
+          COD_CHAVE: `api_${idx}`,
+          DTA_ENTRADA: dateObj,
+          FAVORECIDO: [item.transactionName, item.historicComplement].filter(Boolean).join(' - '),
+          VAL_DOCTO: parseFloat(item.amount) || 0,
+          TIPO_OPERACAO: item.creditDebitType === 'CREDITO' ? 0 : 1,
+        };
+      });
+    }
+
+    // Automática (texto) + por movimento (única/transferência). O movimento vence.
+    const amarracoes = await ConciliacaoService.getAmarracoes(codLoja);
+    const movimentos = await ConciliacaoService.getMovimentos(codLoja);
+
+    let rowIdx = 0;
+    const rows = movBcoRows.map((mb) => {
+      const texto = mb.FAVORECIDO || '';
+      const mk = movKeyOf(mb);
+      let classificacao: any = null;
+      if (movimentos[mk]) classificacao = movimentos[mk];
+      else if (amarracoes[texto]) classificacao = { origem: 'automatica', ...amarracoes[texto] };
+      return { rowId: `m${rowIdx++}`, banco: mb, texto_exato: texto, mov_key: mk, classificacao };
+    });
+
+    // Resumo
+    const totalBanco = rows.length;
+    const classificados = rows.filter(r => r.classificacao).length;
+    const naoClassificados = totalBanco - classificados;
+    const valEntradas = rows.filter(r => r.banco.TIPO_OPERACAO === 0)
+      .reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+    const valSaidas = rows.filter(r => r.banco.TIPO_OPERACAO === 1)
+      .reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+
+    return {
+      rows,
+      resumo: { totalBanco, classificados, naoClassificados, valEntradas, valSaidas },
+    };
+  }
+
+  /**
+   * Demonstrativo "Direto Manual": monta o relatório a partir do EXTRATO do banco
+   * agrupado pelas amarrações (grupo -> conta), somando os valores.
+   */
+  static async getDemonstrativoManual(filters: ConciliacaoFilters): Promise<any> {
+    const { rows } = await ConciliacaoService.getDadosManual(filters);
+
+    // Agrupa por grupo -> conta usando a info da amarração
+    const gruposMap = new Map<string, any>();
+    let naoClassTotal = 0;
+    let naoClassQtd = 0;
+
+    for (const r of rows) {
+      const val = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
+      const am = r.classificacao;
+      if (!am) {
+        naoClassTotal += val;
+        naoClassQtd++;
+        continue;
+      }
+      if (am.origem === 'transferencia') continue; // transferência não entra no DRE
+      const gKey = `${am.is_receita ? 'R' : 'D'}|${am.grupo_nome || '(sem grupo)'}`;
+      let grupo = gruposMap.get(gKey);
+      if (!grupo) {
+        grupo = { nome: am.grupo_nome || '(sem grupo)', is_receita: !!am.is_receita, total: 0, contasMap: new Map() };
+        gruposMap.set(gKey, grupo);
+      }
+      grupo.total += val;
+      let conta = grupo.contasMap.get(am.plano_conta_id);
+      if (!conta) {
+        conta = { id: am.plano_conta_id, nome: am.conta_nome, valor: 0, qtd: 0 };
+        grupo.contasMap.set(am.plano_conta_id, conta);
+      }
+      conta.valor += val;
+      conta.qtd++;
+    }
+
+    const grupos = Array.from(gruposMap.values())
+      .map(g => ({
+        nome: g.nome,
+        is_receita: g.is_receita,
+        total: g.total,
+        contas: Array.from(g.contasMap.values()).sort((a: any, b: any) => b.valor - a.valor),
+      }))
+      // Receitas primeiro, depois despesas; dentro, por valor desc
+      .sort((a, b) => (a.is_receita === b.is_receita ? b.total - a.total : (a.is_receita ? -1 : 1)));
+
+    const totalReceitas = grupos.filter(g => g.is_receita).reduce((s, g) => s + g.total, 0);
+    const totalDespesas = grupos.filter(g => !g.is_receita).reduce((s, g) => s + g.total, 0);
+
+    return {
+      grupos,
+      naoClassificado: { total: naoClassTotal, qtd: naoClassQtd },
+      totais: {
+        totalReceitas,
+        totalDespesas,
+        saldo: totalReceitas - totalDespesas,
+        totalNaoClassificado: naoClassTotal,
+      },
+    };
   }
 }

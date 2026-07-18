@@ -184,6 +184,17 @@ export default function ConciliacaoBancaria() {
 
   const searchIdRef = useRef(0);
 
+  // Modo: 'sistema' (cruza com Oracle) | 'manual' (amarra no plano de contas)
+  const [modo, setModo] = useState('sistema');
+  const [manualRows, setManualRows] = useState([]);
+  const [loadingManual, setLoadingManual] = useState(false);
+  const [planoContasTree, setPlanoContasTree] = useState([]);
+  const [manualTransferModal, setManualTransferModal] = useState(null);
+  const [manualSelected, setManualSelected] = useState(() => new Set()); // mov_keys selecionados
+  const toggleManualSel = useCallback((movKey) => setManualSelected(prev => {
+    const n = new Set(prev); n.has(movKey) ? n.delete(movKey) : n.add(movKey); return n;
+  }), []);
+
   // Load bancos on mount (Oracle + bank_accounts)
   useEffect(() => {
     const loadBancos = async () => {
@@ -324,6 +335,110 @@ export default function ConciliacaoBancaria() {
     }
   };
 
+  // Modo Manual: busca extrato do banco + amarrações + plano de contas
+  const fetchManual = async () => {
+    setLoadingManual(true);
+    try {
+      const params = new URLSearchParams();
+      if (lojaSelecionada) params.append('codLoja', lojaSelecionada);
+      if (selectedBankAccountId) params.append('bankId', selectedBankAccountId);
+      params.append('dtaInicio', dtaInicio);
+      params.append('dtaFim', dtaFim);
+      const [dadosRes, planoRes] = await Promise.all([
+        api.get(`/conciliacao/dados-manual?${params.toString()}`),
+        api.get(`/plano-contas${lojaSelecionada ? `?codLoja=${lojaSelecionada}` : ''}`),
+      ]);
+      if (dadosRes.data?.success) setManualRows(dadosRes.data.rows || []);
+      setPlanoContasTree(planoRes.data?.data || []);
+      if (!(dadosRes.data?.rows || []).length) toast('Nenhum lançamento no banco pro período', { icon: 'ℹ️' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao buscar dados (modo manual)');
+    } finally {
+      setLoadingManual(false);
+    }
+  };
+
+  const acharContaInfo = useCallback((contaId) => {
+    for (const g of planoContasTree) {
+      const c = (g.contas || []).find(x => String(x.id) === String(contaId));
+      if (c) return { plano_conta_id: c.id, conta_nome: c.nome, grupo_nome: g.nome, is_receita: g.is_receita };
+    }
+    return null;
+  }, [planoContasTree]);
+
+  // Alvos da ação: se há seleção, aplica em lote; senão só na linha clicada
+  const alvosDaAcao = (row) => (manualSelected.size > 0 ? manualRows.filter(r => manualSelected.has(r.mov_key)) : [row]);
+
+  // AUTOMÁTICA: texto exato -> conta (aplica a todas as linhas com o mesmo texto)
+  const handleAuto = useCallback(async (row, contaId) => {
+    const info = acharContaInfo(contaId);
+    const cls = info ? { origem: 'automatica', ...info } : null;
+    const targets = alvosDaAcao(row);
+    const textos = [...new Set(targets.map(t => t.texto_exato))];
+    const textoSet = new Set(textos);
+    setManualRows(prev => prev.map(r => {
+      if (!textoSet.has(r.texto_exato)) return r;
+      if (r.classificacao && r.classificacao.origem !== 'automatica') return r;
+      return { ...r, classificacao: cls };
+    }));
+    setManualSelected(new Set());
+    try {
+      await Promise.all(textos.map(txt => api.post('/conciliacao/amarracoes', { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), texto_exato: txt, plano_conta_id: Number(contaId) })));
+    } catch { toast.error('Erro ao salvar (automática)'); }
+  }, [acharContaInfo, lojaSelecionada, manualSelected, manualRows]);
+
+  // ÚNICA: por movimento (lote = cada selecionado)
+  const handleUnica = useCallback(async (row, contaId) => {
+    const info = acharContaInfo(contaId);
+    const cls = info ? { origem: 'unica', ...info } : null;
+    const targets = alvosDaAcao(row);
+    const keys = new Set(targets.map(t => t.mov_key));
+    setManualRows(prev => prev.map(r => keys.has(r.mov_key) ? { ...r, classificacao: cls } : r));
+    setManualSelected(new Set());
+    try {
+      await Promise.all(targets.map(t => api.post('/conciliacao/movimento/unica', { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), mov_key: t.mov_key, plano_conta_id: Number(contaId) })));
+    } catch { toast.error('Erro ao salvar (única)'); }
+  }, [acharContaInfo, lojaSelecionada, manualSelected, manualRows]);
+
+  // TRANSFERÊNCIA: entre contas, fora do DRE (lote = mesmo destino pra todos)
+  const handleTransferManual = useCallback(async (row, targetAccountId) => {
+    const targets = alvosDaAcao(row);
+    const keys = new Set(targets.map(t => t.mov_key));
+    setManualRows(prev => prev.map(r => keys.has(r.mov_key) ? { ...r, classificacao: { origem: 'transferencia' } } : r));
+    setManualSelected(new Set());
+    setManualTransferModal(null);
+    try {
+      await Promise.all(targets.map(t => {
+        const val = Math.abs(parseFloat(t.banco.VAL_DOCTO) || 0);
+        const isSaida = t.banco.TIPO_OPERACAO === 1;
+        return api.post('/conciliacao/movimento/transferencia', {
+          ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}),
+          mov_key: t.mov_key,
+          sourceAccountId: isSaida ? selectedBankAccountId : targetAccountId,
+          targetAccountId: isSaida ? targetAccountId : selectedBankAccountId,
+          amount: val, date: t.banco.DTA_ENTRADA, description: t.banco.FAVORECIDO || 'Transferência entre contas',
+        });
+      }));
+      toast.success('Transferência registrada!');
+    } catch { toast.error('Erro ao registrar transferência'); }
+  }, [lojaSelecionada, selectedBankAccountId, manualSelected, manualRows]);
+
+  const handleLimpar = useCallback(async (row) => {
+    const origem = row.classificacao?.origem;
+    if (origem === 'automatica') {
+      setManualRows(prev => prev.map(r => (r.texto_exato === row.texto_exato && r.classificacao?.origem === 'automatica') ? { ...r, classificacao: null } : r));
+      try {
+        await api.delete('/conciliacao/amarracoes', { data: { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), texto_exato: row.texto_exato } });
+      } catch { toast.error('Erro ao limpar'); }
+    } else {
+      setManualRows(prev => prev.map(r => r.mov_key === row.mov_key ? { ...r, classificacao: null } : r));
+      try {
+        await api.delete('/conciliacao/movimento', { data: { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), mov_key: row.mov_key } });
+      } catch { toast.error('Erro ao limpar'); }
+    }
+  }, [lojaSelecionada]);
+
   // Sem auto-search - busca somente ao clicar Buscar
 
   // Sort state
@@ -437,6 +552,17 @@ export default function ConciliacaoBancaria() {
     }
     return r;
   }, [tipoFiltered, cardFilter, viewFilter, sortCol, sortDir]);
+
+  // Modo Manual: aplica o filtro Tipo (Entradas/Saídas) e o Exibir (Classificado/Não)
+  const manualRowsFiltered = useMemo(() => {
+    let r = manualRows;
+    if (tipoFiltro === 'entrada') r = r.filter(row => row.banco?.TIPO_OPERACAO === 0);
+    else if (tipoFiltro === 'saida') r = r.filter(row => row.banco?.TIPO_OPERACAO === 1);
+    // Reaproveita o "Exibir": Sem Sistema = não classificado | Sem Banco = classificado
+    if (viewFilter === 'sem_sistema') r = r.filter(row => !row.classificacao);
+    else if (viewFilter === 'sem_banco') r = r.filter(row => !!row.classificacao);
+    return r;
+  }, [manualRows, tipoFiltro, viewFilter]);
 
   // Handle selecting a candidate from the modal
   const handleSelectCandidate = useCallback((rowId, selectedCandidate) => {
@@ -872,12 +998,32 @@ export default function ConciliacaoBancaria() {
                 </div>
               </div>
 
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-orange-600 mb-1">Modo</label>
+                <div className="flex rounded-lg overflow-hidden border border-orange-400">
+                  {[
+                    { val: 'sistema', label: 'Direto Sistema' },
+                    { val: 'manual', label: 'Direto Manual' },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setModo(opt.val)}
+                      className={`px-3 py-1.5 text-xs font-bold transition-colors ${
+                        modo === opt.val ? 'bg-orange-600 text-white' : 'bg-white text-orange-600 hover:bg-orange-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
-                onClick={fetchDados}
-                disabled={loading || !codBanco}
+                onClick={modo === 'sistema' ? fetchDados : fetchManual}
+                disabled={(loading || loadingManual) || (modo === 'sistema' && !codBanco)}
                 className="px-5 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
-                {loading ? 'Buscando...' : 'Buscar'}
+                {(loading || loadingManual) ? 'Buscando...' : 'Buscar'}
               </button>
 
             </div>
@@ -919,7 +1065,7 @@ export default function ConciliacaoBancaria() {
             </div>
           </div>
 
-          {rows.length > 0 && (
+          {modo === 'sistema' && rows.length > 0 && (
             <>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="bg-orange-50 border-2 border-orange-300 rounded-lg px-4 py-3">
@@ -997,8 +1143,8 @@ export default function ConciliacaoBancaria() {
             </>
           )}
 
-          {/* Table */}
-          {loading ? (
+          {/* Table (modo Sistema) */}
+          {modo === 'sistema' && (loading ? (
             <div className="flex justify-center py-20">
               <RadarLoading />
             </div>
@@ -1108,6 +1254,26 @@ export default function ConciliacaoBancaria() {
                 </div>
               )}
             </div>
+          ))}
+
+          {/* Table (modo Manual) */}
+          {modo === 'manual' && (
+            <ManualConciliacao
+              rows={manualRowsFiltered}
+              loading={loadingManual}
+              planoContas={planoContasTree}
+              selected={manualSelected}
+              onToggleSel={toggleManualSel}
+              onToggleAll={(keys, marcar) => setManualSelected(prev => {
+                const n = new Set(prev);
+                keys.forEach(k => marcar ? n.add(k) : n.delete(k));
+                return n;
+              })}
+              onUnica={handleUnica}
+              onAuto={handleAuto}
+              onTransfer={(row) => setManualTransferModal({ row })}
+              onLimpar={handleLimpar}
+            />
           )}
         </div>
       </main>
@@ -1121,7 +1287,7 @@ export default function ConciliacaoBancaria() {
         />
       )}
 
-      {/* Modal de transferência */}
+      {/* Modal de transferência (modo Sistema) */}
       {transferModal && (
         <TransferModal
           modal={transferModal}
@@ -1131,6 +1297,218 @@ export default function ConciliacaoBancaria() {
           onClose={() => setTransferModal(null)}
         />
       )}
+
+      {/* Modal de transferência (modo Manual) */}
+      {manualTransferModal && (
+        <TransferModal
+          modal={{ rowId: manualTransferModal.row.rowId, banco: manualTransferModal.row.banco }}
+          bankAccounts={bankAccounts}
+          currentAccountId={selectedBankAccountId}
+          onConfirm={(rowId, targetAccountId) => handleTransferManual(manualTransferModal.row, targetAccountId)}
+          onClose={() => setManualTransferModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ============ MODO "DIRETO MANUAL" ============ */
+function SummaryCardMini({ title, value, color }) {
+  const colors = {
+    gray: 'border-gray-300 text-gray-700',
+    green: 'border-green-400 text-green-700',
+    red: 'border-red-400 text-red-700',
+  };
+  return (
+    <div className={`bg-white border-2 rounded-lg px-4 py-3 text-center ${colors[color] || colors.gray}`}>
+      <div className="text-2xl font-black">{value}</div>
+      <div className="text-xs font-bold uppercase tracking-wider">{title}</div>
+    </div>
+  );
+}
+
+function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, onToggleAll, onUnica, onAuto, onTransfer, onLimpar }) {
+  if (loading) {
+    return <div className="flex justify-center py-20"><RadarLoading /></div>;
+  }
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400">
+        <p className="text-lg font-medium">Selecione o período e clique em Buscar</p>
+        <p className="text-sm mt-1">No modo Manual você classifica cada linha do banco: Única, Transferência ou Automática.</p>
+      </div>
+    );
+  }
+
+  const total = rows.length;
+  const classificados = rows.filter(r => r.classificacao).length;
+  const naoClass = total - classificados;
+  // Ordenação por coluna (clique no cabeçalho) + busca por palavra-chave
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
+  const [busca, setBusca] = useState('');
+  const sortBy = (col) => {
+    if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+  const arrow = (col) => (sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  const sortedRows = useMemo(() => {
+    if (!sortCol) return rows;
+    const val = (r) => {
+      switch (sortCol) {
+        case 'data': return r.banco?.DTA_ENTRADA ? new Date(r.banco.DTA_ENTRADA).getTime() : 0;
+        case 'favorecido': return (r.banco?.FAVORECIDO || '').toUpperCase();
+        case 'valor': return Math.abs(parseFloat(r.banco?.VAL_DOCTO) || 0);
+        case 'tipo': return r.banco?.TIPO_OPERACAO ?? 0;
+        default: return 0;
+      }
+    };
+    return [...rows].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'pt-BR', { numeric: true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, sortCol, sortDir]);
+  const visibleRows = useMemo(() => {
+    const q = busca.trim().toUpperCase();
+    if (!q) return sortedRows;
+    return sortedRows.filter(r =>
+      (r.banco?.FAVORECIDO || '').toUpperCase().includes(q) ||
+      (r.classificacao?.conta_nome || '').toUpperCase().includes(q)
+    );
+  }, [sortedRows, busca]);
+
+  const selCount = visibleRows.filter(r => selected?.has(r.mov_key)).length;
+  const allKeys = visibleRows.map(r => r.mov_key);
+  const allChecked = selCount > 0 && selCount === visibleRows.length;
+
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <SummaryCardMini title="Total Banco" value={total} color="gray" />
+        <SummaryCardMini title="Classificados" value={classificados} color="green" />
+        <SummaryCardMini title="Não Classificado" value={naoClass} color="red" />
+      </div>
+
+      {selCount > 0 && (
+        <div className="mb-2 px-3 py-2 bg-orange-100 border border-orange-300 rounded-lg text-sm font-bold text-orange-800">
+          {selCount} linha(s) selecionada(s) · clique em ✓ Única, ⇄ Transf. ou ⚡ Auto em qualquer linha e escolha a conta — aplica em todas.
+        </div>
+      )}
+
+      <div className="mb-2 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <input
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="🔎 Buscar por palavra-chave (favorecido, conta)…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+          />
+          {busca && <button onClick={() => setBusca('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm">✕</button>}
+        </div>
+        <span className="text-xs text-gray-500">{visibleRows.length} de {total} linha(s)</span>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="flex">
+          <div className="flex-1 bg-orange-600 text-white py-2 px-3 text-xs font-bold uppercase tracking-wider border-r-2 border-gray-300 text-center">Banco (Movimentação)</div>
+          <div className="w-[360px] bg-orange-600 text-white py-2 px-3 text-xs font-bold uppercase tracking-wider text-center">Classificação (Manual)</div>
+        </div>
+        <div className="flex bg-gray-100 text-gray-600 text-xs font-bold uppercase border-b border-gray-200">
+          <div className="w-[32px] py-2 px-1 text-center">
+            <input type="checkbox" checked={allChecked} onChange={e => onToggleAll(allKeys, e.target.checked)} className="w-4 h-4 accent-orange-600 cursor-pointer" title="Selecionar todos" />
+          </div>
+          <div onClick={() => sortBy('data')} className="w-[85px] py-2 px-2 text-center cursor-pointer hover:bg-orange-100 select-none">Data{arrow('data')}</div>
+          <div onClick={() => sortBy('favorecido')} className="flex-1 py-2 px-2 cursor-pointer hover:bg-orange-100 select-none">Favorecido{arrow('favorecido')}</div>
+          <div onClick={() => sortBy('valor')} className="w-[110px] py-2 px-2 text-right cursor-pointer hover:bg-orange-100 select-none">Valor{arrow('valor')}</div>
+          <div onClick={() => sortBy('tipo')} className="w-[60px] py-2 px-2 text-center border-r-2 border-gray-300 cursor-pointer hover:bg-orange-100 select-none">Tipo{arrow('tipo')}</div>
+          <div className="w-[360px] py-2 px-2">Ação / Conta</div>
+        </div>
+        <div>
+          {visibleRows.map((row, idx) => (
+            <ManualRow
+              key={row.rowId}
+              row={row}
+              idx={idx}
+              planoContas={planoContas}
+              checked={!!selected?.has(row.mov_key)}
+              onToggleSel={onToggleSel}
+              onUnica={onUnica}
+              onAuto={onAuto}
+              onTransfer={onTransfer}
+              onLimpar={onLimpar}
+            />
+          ))}
+          {visibleRows.length === 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm">Nenhuma linha para "{busca}"</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualRow({ row, idx, planoContas, checked, onToggleSel, onUnica, onAuto, onTransfer, onLimpar }) {
+  const [picking, setPicking] = useState(null); // null | 'unica' | 'auto'
+  const banco = row.banco;
+  const val = Math.abs(parseFloat(banco.VAL_DOCTO) || 0);
+  const isCred = banco.TIPO_OPERACAO === 0;
+  const cls = row.classificacao;
+  // Por linha: saída -> só despesa | entrada -> só receita
+  const contas = (planoContas || []).filter(g => isCred ? g.is_receita : !g.is_receita);
+  const bg = checked ? 'bg-orange-50' : cls ? 'bg-green-50/70' : (idx % 2 === 0 ? 'bg-red-50/30' : 'bg-white');
+
+  const chip = cls && ({
+    unica: { label: 'Única', color: 'bg-green-100 text-green-700 border-green-300' },
+    automatica: { label: 'Auto', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+    transferencia: { label: 'Transferência', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  }[cls.origem] || { label: cls.origem, color: 'bg-gray-100 text-gray-700 border-gray-300' });
+
+  const pick = (contaId) => {
+    if (contaId) { picking === 'unica' ? onUnica(row, contaId) : onAuto(row, contaId); }
+    setPicking(null);
+  };
+
+  return (
+    <div className={`flex items-center ${bg} border-b border-gray-100 hover:brightness-95`}>
+      <div className="w-[32px] py-1.5 px-1 text-center flex-shrink-0">
+        <input type="checkbox" checked={checked} onChange={() => onToggleSel(row.mov_key)} className="w-4 h-4 accent-orange-600 cursor-pointer" />
+      </div>
+      <div className="w-[85px] py-1.5 px-2 text-center text-xs whitespace-nowrap">{formatDate(banco.DTA_ENTRADA)}</div>
+      <div className="flex-1 py-1.5 px-2 text-xs break-words leading-tight" title={banco.FAVORECIDO}>{banco.FAVORECIDO || <span className="text-gray-300 italic">--</span>}</div>
+      <div className={`w-[110px] py-1.5 px-2 text-right text-xs font-bold whitespace-nowrap ${isCred ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(val)}</div>
+      <div className="w-[60px] py-1.5 px-2 text-center border-r-2 border-gray-200">
+        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${isCred ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{isCred ? 'Entrada' : 'Saída'}</span>
+      </div>
+      <div className="w-[360px] py-1.5 px-2">
+        {cls ? (
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${chip.color}`}>{chip.label}</span>
+            <span className="text-xs text-gray-700 truncate flex-1" title={cls.conta_nome || 'Transferência entre contas'}>
+              {cls.origem === 'transferencia' ? 'Entre contas (fora do DRE)' : cls.conta_nome}
+            </span>
+            <button onClick={() => onLimpar(row)} className="text-xs text-gray-400 hover:text-red-600 font-bold" title="Limpar">✕</button>
+          </div>
+        ) : picking ? (
+          <div className="flex items-center gap-1">
+            <select autoFocus defaultValue="" onChange={e => pick(e.target.value)} className="flex-1 border border-orange-400 rounded px-2 py-1 text-xs">
+              <option value="">{picking === 'unica' ? 'Conta (só esta linha)…' : 'Conta (todas iguais)…'}</option>
+              {contas.map(g => (
+                <optgroup key={g.id} label={g.nome}>
+                  {(g.contas || []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </optgroup>
+              ))}
+            </select>
+            <button onClick={() => setPicking(null)} className="text-xs text-gray-400 hover:text-gray-700 font-bold">✕</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPicking('unica')} className="px-2 py-1 text-[11px] font-bold rounded bg-green-100 text-green-700 hover:bg-green-200" title="Conciliação única (só esta linha)">✓ Única</button>
+            <button onClick={() => onTransfer(row)} className="px-2 py-1 text-[11px] font-bold rounded bg-purple-100 text-purple-700 hover:bg-purple-200" title="Transferência entre contas (fora do DRE)">⇄ Transf.</button>
+            <button onClick={() => setPicking('auto')} className="px-2 py-1 text-[11px] font-bold rounded bg-blue-100 text-blue-700 hover:bg-blue-200" title="Automática (todas as linhas com este texto)">⚡ Auto</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -148,6 +148,7 @@ export const MENU_SUBMENUS = {
   EXTRATO_BANCO24H: 'extrato-banco24h',
   BOLETOS_DDA: 'boletos-dda',
   CONCILIACAO_BANCARIA: 'conciliacao-bancaria',
+  CADASTRO_CONTAS: 'cadastro-contas',
   ANALISE_OFERTA: 'analise-oferta',
   SIMULADOR_VENDA: 'simulador-venda',
   ENTRADAS_SAIDAS: 'entradas-saidas',
@@ -798,6 +799,11 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.CONCILIACAO_BANCARIA,
         title: 'Conciliação Bancária',
         path: '/conciliacao-bancaria'
+      },
+      {
+        id: MENU_SUBMENUS.CADASTRO_CONTAS,
+        title: 'Cadastro de Contas',
+        path: '/cadastro-contas'
       }
     ]
   },

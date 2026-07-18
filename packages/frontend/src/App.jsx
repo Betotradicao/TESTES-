@@ -107,6 +107,7 @@ import AnaliseOferta from './pages/AnaliseOferta';
 import SimuladorVenda from './pages/SimuladorVenda';
 import BoletoDDA from './pages/BoletoDDA';
 import ConciliacaoBancaria from './pages/ConciliacaoBancaria';
+import CadastroContas from './pages/CadastroContas';
 import MetasRanking from './pages/MetasRanking';
 import MetasParametrizar from './pages/MetasParametrizar';
 import VisionOperacoesRisco from './pages/VisionOperacoesRisco';
@@ -791,6 +792,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ConciliacaoBancaria />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cadastro-contas"
+              element={
+                <ProtectedRoute>
+                  <CadastroContas />
                 </ProtectedRoute>
               }
             />
