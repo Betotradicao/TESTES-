@@ -190,6 +190,7 @@ export default function ConciliacaoBancaria() {
   const [loadingManual, setLoadingManual] = useState(false);
   const [planoContasTree, setPlanoContasTree] = useState([]);
   const [manualTransferModal, setManualTransferModal] = useState(null);
+  const [faturaModal, setFaturaModal] = useState(null);
   const [manualSelected, setManualSelected] = useState(() => new Set()); // mov_keys selecionados
   const toggleManualSel = useCallback((movKey) => setManualSelected(prev => {
     const n = new Set(prev); n.has(movKey) ? n.delete(movKey) : n.add(movKey); return n;
@@ -359,6 +360,22 @@ export default function ConciliacaoBancaria() {
     }
   };
 
+  // Navegador de mês (Bloco C): move dtaInicio/dtaFim pro mês anterior/seguinte
+  const mudarMes = useCallback((delta) => {
+    const base = new Date(dtaInicio + 'T00:00:00');
+    const first = new Date(base.getFullYear(), base.getMonth() + delta, 1);
+    const last = new Date(base.getFullYear(), base.getMonth() + delta + 1, 0);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setDtaInicio(fmt(first));
+    setDtaFim(fmt(last));
+  }, [dtaInicio]);
+
+  // No modo Manual, trocar o período re-busca automaticamente
+  useEffect(() => {
+    if (modo === 'manual') fetchManual();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dtaInicio, dtaFim]);
+
   const acharContaInfo = useCallback((contaId) => {
     for (const g of planoContasTree) {
       const c = (g.contas || []).find(x => String(x.id) === String(contaId));
@@ -423,6 +440,25 @@ export default function ConciliacaoBancaria() {
       toast.success('Transferência registrada!');
     } catch { toast.error('Erro ao registrar transferência'); }
   }, [lojaSelecionada, selectedBankAccountId, manualSelected, manualRows]);
+
+  // FATURA/CARTÃO: vários lançamentos num movimento (só aquele movimento)
+  const handleFatura = useCallback(async (row, itens) => {
+    const itensInfo = itens.map(it => {
+      const info = acharContaInfo(it.plano_conta_id);
+      return { plano_conta_id: Number(it.plano_conta_id), valor: Number(it.valor), conta_nome: info?.conta_nome, grupo_nome: info?.grupo_nome, is_receita: info?.is_receita };
+    });
+    const total = itensInfo.reduce((s, i) => s + (i.valor || 0), 0);
+    setManualRows(prev => prev.map(r => r.mov_key === row.mov_key ? { ...r, classificacao: { origem: 'fatura', itens: itensInfo, total } } : r));
+    setFaturaModal(null);
+    try {
+      await api.post('/conciliacao/movimento/fatura', {
+        ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}),
+        mov_key: row.mov_key,
+        itens: itensInfo.map(i => ({ plano_conta_id: i.plano_conta_id, valor: i.valor })),
+      });
+      toast.success('Fatura conciliada!');
+    } catch { toast.error('Erro ao salvar fatura'); }
+  }, [acharContaInfo, lojaSelecionada]);
 
   const handleLimpar = useCallback(async (row) => {
     const origem = row.classificacao?.origem;
@@ -1258,6 +1294,10 @@ export default function ConciliacaoBancaria() {
 
           {/* Table (modo Manual) */}
           {modo === 'manual' && (
+            <>
+            {!loadingManual && manualRows.length > 0 && (
+              <ManualTopo allRows={manualRows} mesRef={dtaInicio} onMudarMes={mudarMes} />
+            )}
             <ManualConciliacao
               rows={manualRowsFiltered}
               loading={loadingManual}
@@ -1272,8 +1312,10 @@ export default function ConciliacaoBancaria() {
               onUnica={handleUnica}
               onAuto={handleAuto}
               onTransfer={(row) => setManualTransferModal({ row })}
+              onFatura={(row) => setFaturaModal({ row })}
               onLimpar={handleLimpar}
             />
+            </>
           )}
         </div>
       </main>
@@ -1308,6 +1350,16 @@ export default function ConciliacaoBancaria() {
           onClose={() => setManualTransferModal(null)}
         />
       )}
+
+      {/* Modal de Fatura/Cartão (modo Manual) */}
+      {faturaModal && (
+        <FaturaModal
+          row={faturaModal.row}
+          planoContas={planoContasTree}
+          onSave={(itens) => handleFatura(faturaModal.row, itens)}
+          onClose={() => setFaturaModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1327,7 +1379,211 @@ function SummaryCardMini({ title, value, color }) {
   );
 }
 
-function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, onToggleAll, onUnica, onAuto, onTransfer, onLimpar }) {
+// Seletor de conta com busca por palavra-chave (combobox)
+function ContaSelect({ contas, value, onChange, placeholder = 'Conta…', autoFocus }) {
+  const [open, setOpen] = useState(!!autoFocus);
+  const [q, setQ] = useState('');
+  const [dropUp, setDropUp] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  // Abre pra cima se não houver espaço embaixo (últimas linhas)
+  useEffect(() => {
+    if (open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropUp((window.innerHeight - rect.bottom) < 300);
+    }
+  }, [open]);
+  let selName = '';
+  for (const g of (contas || [])) { const c = (g.contas || []).find(x => String(x.id) === String(value)); if (c) { selName = c.nome; break; } }
+  const qq = q.trim().toUpperCase();
+  const filtered = (contas || []).map(g => ({
+    ...g,
+    contas: (g.contas || []).filter(c => !qq || c.nome.toUpperCase().includes(qq) || (g.nome || '').toUpperCase().includes(qq)),
+  })).filter(g => g.contas.length > 0);
+
+  return (
+    <div className="relative flex-1" ref={ref}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`w-full border rounded px-2 py-1 text-xs text-left truncate ${value ? 'border-green-400 bg-green-50 text-green-800 font-semibold' : 'border-gray-300 text-gray-600'}`}>
+        {selName || <span className="text-gray-400">{placeholder}</span>}
+      </button>
+      {open && (
+        <div className={`absolute z-40 ${dropUp ? 'bottom-full mb-1' : 'mt-1'} w-full min-w-[260px] bg-white border border-gray-300 rounded-lg shadow-xl max-h-72 overflow-auto`}>
+          <div className="sticky top-0 bg-white p-1.5 border-b">
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 buscar conta..." className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-orange-400" />
+          </div>
+          {value && <button onClick={() => { onChange(''); setOpen(false); setQ(''); }} className="w-full text-left px-3 py-1 text-xs text-gray-400 hover:bg-gray-50">— Limpar —</button>}
+          {filtered.length === 0 && <div className="px-3 py-2 text-xs text-gray-400">Nada encontrado</div>}
+          {filtered.map(g => (
+            <div key={g.id}>
+              <div className="px-2 py-1 text-[10px] font-bold text-gray-500 uppercase bg-gray-50">{g.nome}</div>
+              {g.contas.map(c => (
+                <button key={c.id} onClick={() => { onChange(String(c.id)); setOpen(false); setQ(''); }}
+                  className={`w-full text-left px-3 py-1 text-xs hover:bg-orange-50 ${String(c.id) === String(value) ? 'bg-orange-100 font-semibold' : ''}`}>{c.nome}</button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FaturaModal({ row, planoContas, onSave, onClose }) {
+  const banco = row.banco;
+  const alvo = Math.abs(parseFloat(banco.VAL_DOCTO) || 0);
+  const isCred = banco.TIPO_OPERACAO === 0;
+  const contas = (planoContas || []).filter(g => isCred ? g.is_receita : !g.is_receita);
+  const inicial = (row.classificacao?.origem === 'fatura' && row.classificacao.itens?.length)
+    ? row.classificacao.itens.map(it => ({ plano_conta_id: String(it.plano_conta_id), valor: String(it.valor).replace('.', ',') }))
+    : [{ plano_conta_id: '', valor: '' }];
+  const [itens, setItens] = useState(inicial);
+  const parseV = (v) => parseFloat(String(v).replace(',', '.')) || 0;
+  const setItem = (i, patch) => setItens(prev => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
+  const addItem = (valor = '') => setItens(prev => [...prev, { plano_conta_id: '', valor }]);
+  const delItem = (i) => setItens(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+  const soma = itens.reduce((s, it) => s + parseV(it.valor), 0);
+  const diff = Math.round((alvo - soma) * 100) / 100;
+  const bate = Math.abs(diff) < 0.01;
+  const validos = itens.filter(it => it.plano_conta_id && parseV(it.valor) > 0);
+
+  const salvar = () => {
+    if (!validos.length) return;
+    onSave(validos.map(it => ({ plano_conta_id: Number(it.plano_conta_id), valor: parseV(it.valor) })));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-5 py-3 rounded-t-xl">
+          <div className="font-bold">🧾 Fatura / Cartão — vários lançamentos</div>
+          <div className="text-indigo-100 text-xs mt-0.5 truncate">{formatDate(banco.DTA_ENTRADA)} · {banco.FAVORECIDO}</div>
+        </div>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3 text-sm">
+            <span className="text-gray-500">Valor do banco (alvo):</span>
+            <span className="font-black text-lg text-gray-800">{formatCurrency(alvo)}</span>
+          </div>
+          <div className="space-y-2">
+            {itens.map((it, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <ContaSelect contas={contas} value={it.plano_conta_id} onChange={(id) => setItem(i, { plano_conta_id: id })} placeholder="Conta…" />
+                <input value={it.valor} onChange={e => setItem(i, { valor: e.target.value })} placeholder="0,00" inputMode="decimal" className="w-[120px] border border-gray-300 rounded px-2 py-1.5 text-sm text-right" />
+                <button onClick={() => delItem(i)} className="text-gray-400 hover:text-red-600 font-bold px-1" title="Remover">✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <button onClick={() => addItem()} className="px-3 py-1.5 text-xs font-bold rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200">＋ Lançamento</button>
+            {!bate && diff > 0 && <button onClick={() => addItem(String(diff).replace('.', ','))} className="px-3 py-1.5 text-xs font-bold rounded bg-amber-100 text-amber-700 hover:bg-amber-200" title="Adiciona um lançamento com o valor que falta">＋ Resto ({formatCurrency(diff)})</button>}
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t pt-3">
+            <span className="text-sm text-gray-500">Soma dos lançamentos:</span>
+            <div className="text-right">
+              <div className="font-black text-lg text-gray-800">{formatCurrency(soma)}</div>
+              {bate
+                ? <div className="text-xs font-bold text-green-600">✓ Bate com o banco</div>
+                : diff > 0
+                  ? <div className="text-xs font-bold text-red-600">Faltam {formatCurrency(diff)}</div>
+                  : <div className="text-xs font-bold text-red-600">Sobra {formatCurrency(-diff)}</div>}
+            </div>
+          </div>
+        </div>
+        <div className="px-5 py-3 border-t flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <button onClick={salvar} disabled={!validos.length} className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50">Conciliar Fatura</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniCalendario({ ano, mes, corDoDia, titulo }) {
+  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const celulas = [];
+  for (let i = 0; i < primeiroDiaSemana; i++) celulas.push(null);
+  for (let d = 1; d <= diasNoMes; d++) celulas.push(d);
+  return (
+    <div className="bg-white rounded-lg border p-3">
+      <div className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">{titulo}</div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 mb-1">
+        {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((w, i) => <div key={i}>{w}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {celulas.map((d, i) => d === null
+          ? <div key={i} />
+          : <div key={i} className={`text-center text-xs py-1.5 rounded ${corDoDia(d)}`}>{d}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ManualTopo({ allRows, mesRef, onMudarMes }) {
+  const base = new Date((mesRef || '') + 'T00:00:00');
+  const ano = base.getFullYear();
+  const mes = base.getMonth() + 1;
+  const nomeMes = base.toLocaleDateString('pt-BR', { month: 'long' });
+
+  const stats = useMemo(() => {
+    let entradas = 0, saidas = 0, transacoes = 0;
+    const extrato = new Set();
+    const ent = {}, sai = {};
+    for (const r of (allRows || [])) {
+      const d = new Date(r.banco.DTA_ENTRADA);
+      if (d.getFullYear() !== ano || d.getMonth() + 1 !== mes) continue;
+      transacoes++;
+      const dia = d.getDate();
+      const val = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
+      extrato.add(dia);
+      const isCred = r.banco.TIPO_OPERACAO === 0;
+      const bucket = isCred ? ent : sai;
+      if (!bucket[dia]) bucket[dia] = { total: 0, classif: 0 };
+      bucket[dia].total++;
+      if (r.classificacao) bucket[dia].classif++;
+      if (isCred) entradas += val; else saidas += val;
+    }
+    return { entradas, saidas, transacoes, extrato, ent, sai };
+  }, [allRows, ano, mes]);
+
+  const corExtrato = (d) => stats.extrato.has(d) ? 'bg-green-100 text-green-800 font-semibold' : 'bg-gray-50 text-gray-300';
+  const corConc = (bucket) => (d) => {
+    const b = bucket[d];
+    if (!b) return 'bg-gray-50 text-gray-300';
+    if (b.classif >= b.total) return 'bg-green-100 text-green-800 font-semibold';
+    if (b.classif > 0) return 'bg-amber-100 text-amber-800 font-semibold';
+    return 'bg-red-50 text-red-400';
+  };
+  const saldo = stats.entradas - stats.saidas;
+
+  return (
+    <div className="space-y-3 mb-3">
+      <div className="flex items-center gap-2 bg-white border rounded-lg px-2 py-1 w-fit">
+        <button onClick={() => onMudarMes(-1)} className="px-2 py-0.5 text-orange-600 hover:bg-orange-50 rounded font-bold">◀</button>
+        <span className="text-sm font-bold text-gray-700 capitalize min-w-[130px] text-center">{nomeMes} {ano}</span>
+        <button onClick={() => onMudarMes(1)} className="px-2 py-0.5 text-orange-600 hover:bg-orange-50 rounded font-bold">▶</button>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3"><div className="text-xs text-green-700 font-medium">Entradas (mês)</div><div className="text-lg font-black text-green-800">{formatCurrency(stats.entradas)}</div></div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3"><div className="text-xs text-red-700 font-medium">Saídas (mês)</div><div className="text-lg font-black text-red-800">{formatCurrency(stats.saidas)}</div></div>
+        <div className={`${saldo >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-3`}><div className="text-xs font-medium text-gray-600">Saldo</div><div className={`text-lg font-black ${saldo >= 0 ? 'text-green-800' : 'text-red-800'}`}>{formatCurrency(saldo)}</div></div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3"><div className="text-xs text-gray-600 font-medium">Transações</div><div className="text-lg font-black text-gray-700">{stats.transacoes}</div></div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <MiniCalendario ano={ano} mes={mes} titulo="📅 Dias com extrato" corDoDia={corExtrato} />
+        <MiniCalendario ano={ano} mes={mes} titulo="⬇️ Entradas conciliadas" corDoDia={corConc(stats.ent)} />
+        <MiniCalendario ano={ano} mes={mes} titulo="⬆️ Saídas conciliadas" corDoDia={corConc(stats.sai)} />
+      </div>
+    </div>
+  );
+}
+
+function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, onToggleAll, onUnica, onAuto, onTransfer, onFatura, onLimpar }) {
   if (loading) {
     return <div className="flex justify-center py-20"><RadarLoading /></div>;
   }
@@ -1347,6 +1603,7 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [busca, setBusca] = useState('');
+  const [agruparDia, setAgruparDia] = useState(true);
   const sortBy = (col) => {
     if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortCol(col); setSortDir('asc'); }
@@ -1407,6 +1664,10 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
           {busca && <button onClick={() => setBusca('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm">✕</button>}
         </div>
         <span className="text-xs text-gray-500">{visibleRows.length} de {total} linha(s)</span>
+        <label className="text-xs flex items-center gap-1 cursor-pointer text-gray-600 ml-auto" title="Desligue (ou ordene por uma coluna) para lista livre">
+          <input type="checkbox" checked={agruparDia} onChange={e => setAgruparDia(e.target.checked)} className="w-4 h-4 accent-orange-600" />
+          📆 Agrupar por dia
+        </label>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border">
@@ -1425,22 +1686,66 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
           <div className="w-[360px] py-2 px-2">Ação / Conta</div>
         </div>
         <div>
-          {visibleRows.map((row, idx) => (
-            <ManualRow
-              key={row.rowId}
-              row={row}
-              idx={idx}
-              planoContas={planoContas}
-              checked={!!selected?.has(row.mov_key)}
-              onToggleSel={onToggleSel}
-              onUnica={onUnica}
-              onAuto={onAuto}
-              onTransfer={onTransfer}
-              onLimpar={onLimpar}
-            />
-          ))}
+          {(agruparDia && !sortCol) ? (() => {
+            // Bloco B: agrupa por dia (mantém a ordem de visibleRows)
+            const grupos = [];
+            const idxByDia = {};
+            for (const row of visibleRows) {
+              const dia = formatDate(row.banco.DTA_ENTRADA);
+              if (idxByDia[dia] === undefined) { idxByDia[dia] = grupos.length; grupos.push({ dia, rows: [] }); }
+              grupos[idxByDia[dia]].rows.push(row);
+            }
+            let gi = 0;
+            return grupos.map(g => {
+              const ent = g.rows.filter(r => r.banco.TIPO_OPERACAO === 0).reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+              const sai = g.rows.filter(r => r.banco.TIPO_OPERACAO === 1).reduce((s, r) => s + Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0), 0);
+              const saldo = ent - sai;
+              return (
+                <div key={g.dia}>
+                  <div className="flex items-center justify-between bg-gray-100 border-y border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600">
+                    <span>📅 {g.dia}</span>
+                    <span>
+                      Entradas {formatCurrency(ent)} · Saídas {formatCurrency(sai)} ·{' '}
+                      <span className={saldo >= 0 ? 'text-green-700' : 'text-red-700'}>Saldo do dia: {formatCurrency(saldo)}</span>
+                    </span>
+                  </div>
+                  {g.rows.map(row => (
+                    <ManualRow
+                      key={row.rowId}
+                      row={row}
+                      idx={gi++}
+                      planoContas={planoContas}
+                      checked={!!selected?.has(row.mov_key)}
+                      onToggleSel={onToggleSel}
+                      onUnica={onUnica}
+                      onAuto={onAuto}
+                      onTransfer={onTransfer}
+                      onFatura={onFatura}
+                      onLimpar={onLimpar}
+                    />
+                  ))}
+                </div>
+              );
+            });
+          })() : (
+            visibleRows.map((row, idx) => (
+              <ManualRow
+                key={row.rowId}
+                row={row}
+                idx={idx}
+                planoContas={planoContas}
+                checked={!!selected?.has(row.mov_key)}
+                onToggleSel={onToggleSel}
+                onUnica={onUnica}
+                onAuto={onAuto}
+                onTransfer={onTransfer}
+                onFatura={onFatura}
+                onLimpar={onLimpar}
+              />
+            ))
+          )}
           {visibleRows.length === 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">Nenhuma linha para "{busca}"</div>
+            <div className="text-center py-8 text-gray-400 text-sm">Nenhuma linha{busca ? ` para "${busca}"` : ''}</div>
           )}
         </div>
       </div>
@@ -1448,7 +1753,7 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
   );
 }
 
-function ManualRow({ row, idx, planoContas, checked, onToggleSel, onUnica, onAuto, onTransfer, onLimpar }) {
+function ManualRow({ row, idx, planoContas, checked, onToggleSel, onUnica, onAuto, onTransfer, onFatura, onLimpar }) {
   const [picking, setPicking] = useState(null); // null | 'unica' | 'auto'
   const banco = row.banco;
   const val = Math.abs(parseFloat(banco.VAL_DOCTO) || 0);
@@ -1462,6 +1767,7 @@ function ManualRow({ row, idx, planoContas, checked, onToggleSel, onUnica, onAut
     unica: { label: 'Única', color: 'bg-green-100 text-green-700 border-green-300' },
     automatica: { label: 'Auto', color: 'bg-blue-100 text-blue-700 border-blue-300' },
     transferencia: { label: 'Transferência', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+    fatura: { label: 'Fatura', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
   }[cls.origem] || { label: cls.origem, color: 'bg-gray-100 text-gray-700 border-gray-300' });
 
   const pick = (contaId) => {
@@ -1484,28 +1790,24 @@ function ManualRow({ row, idx, planoContas, checked, onToggleSel, onUnica, onAut
         {cls ? (
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${chip.color}`}>{chip.label}</span>
-            <span className="text-xs text-gray-700 truncate flex-1" title={cls.conta_nome || 'Transferência entre contas'}>
-              {cls.origem === 'transferencia' ? 'Entre contas (fora do DRE)' : cls.conta_nome}
+            <span className="text-xs text-gray-700 truncate flex-1" title={cls.conta_nome || ''}>
+              {cls.origem === 'transferencia' ? 'Entre contas (fora do DRE)'
+                : cls.origem === 'fatura' ? `${cls.itens?.length || 0} lançamento(s) · ${formatCurrency(cls.total || 0)}`
+                : cls.conta_nome}
             </span>
             <button onClick={() => onLimpar(row)} className="text-xs text-gray-400 hover:text-red-600 font-bold" title="Limpar">✕</button>
           </div>
         ) : picking ? (
           <div className="flex items-center gap-1">
-            <select autoFocus defaultValue="" onChange={e => pick(e.target.value)} className="flex-1 border border-orange-400 rounded px-2 py-1 text-xs">
-              <option value="">{picking === 'unica' ? 'Conta (só esta linha)…' : 'Conta (todas iguais)…'}</option>
-              {contas.map(g => (
-                <optgroup key={g.id} label={g.nome}>
-                  {(g.contas || []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </optgroup>
-              ))}
-            </select>
+            <ContaSelect contas={contas} value="" autoFocus placeholder={picking === 'unica' ? 'Conta (só esta linha)…' : 'Conta (todas iguais)…'} onChange={(id) => pick(id)} />
             <button onClick={() => setPicking(null)} className="text-xs text-gray-400 hover:text-gray-700 font-bold">✕</button>
           </div>
         ) : (
           <div className="flex items-center gap-1">
-            <button onClick={() => setPicking('unica')} className="px-2 py-1 text-[11px] font-bold rounded bg-green-100 text-green-700 hover:bg-green-200" title="Conciliação única (só esta linha)">✓ Única</button>
-            <button onClick={() => onTransfer(row)} className="px-2 py-1 text-[11px] font-bold rounded bg-purple-100 text-purple-700 hover:bg-purple-200" title="Transferência entre contas (fora do DRE)">⇄ Transf.</button>
-            <button onClick={() => setPicking('auto')} className="px-2 py-1 text-[11px] font-bold rounded bg-blue-100 text-blue-700 hover:bg-blue-200" title="Automática (todas as linhas com este texto)">⚡ Auto</button>
+            <button onClick={() => setPicking('unica')} className="px-1.5 py-1 text-[11px] font-bold rounded bg-green-100 text-green-700 hover:bg-green-200" title="Conciliação única (só esta linha)">✓ Única</button>
+            <button onClick={() => onTransfer(row)} className="px-1.5 py-1 text-[11px] font-bold rounded bg-purple-100 text-purple-700 hover:bg-purple-200" title="Transferência entre contas (fora do DRE)">⇄ Transf.</button>
+            <button onClick={() => setPicking('auto')} className="px-1.5 py-1 text-[11px] font-bold rounded bg-blue-100 text-blue-700 hover:bg-blue-200" title="Automática (todas as linhas com este texto)">⚡ Auto</button>
+            <button onClick={() => onFatura(row)} className="px-1.5 py-1 text-[11px] font-bold rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200" title="Fatura/Cartão (vários lançamentos que somam o valor)">🧾 Fatura</button>
           </div>
         )}
       </div>

@@ -802,6 +802,19 @@ export class ConciliacaoService {
     for (const m of movs) {
       if (m.tipo === 'transferencia') {
         map[m.mov_key] = { origem: 'transferencia', transfer_id: m.transfer_id };
+      } else if (m.tipo === 'fatura') {
+        const itens = (m.itens || []).map(it => {
+          const conta = contaById.get(it.plano_conta_id);
+          const grupo = conta?.parent_id ? contaById.get(conta.parent_id) : null;
+          return {
+            plano_conta_id: it.plano_conta_id,
+            valor: Number(it.valor) || 0,
+            conta_nome: conta?.nome || '(conta removida)',
+            grupo_nome: grupo?.nome || null,
+            is_receita: conta?.is_receita ?? false,
+          };
+        });
+        map[m.mov_key] = { origem: 'fatura', itens, total: itens.reduce((s, i) => s + i.valor, 0) };
       } else {
         const conta = m.plano_conta_id ? contaById.get(m.plano_conta_id) : null;
         const grupo = conta?.parent_id ? contaById.get(conta.parent_id) : null;
@@ -825,6 +838,20 @@ export class ConciliacaoService {
     let row = await repo.findOne({ where: { cod_loja: codLoja, mov_key: movKey } });
     if (row) { row.tipo = 'unica'; row.plano_conta_id = planoContaId; row.transfer_id = null; }
     else row = repo.create({ cod_loja: codLoja, mov_key: movKey, tipo: 'unica', plano_conta_id: planoContaId });
+    return repo.save(row);
+  }
+
+  /** FATURA: um movimento com vários lançamentos (conta + valor) que somam o valor do banco */
+  static async salvarMovimentoFatura(codLoja: number, movKey: string, itens: { plano_conta_id: number; valor: number }[]): Promise<ConciliacaoMovimento> {
+    const repo = AppDataSource.getRepository(ConciliacaoMovimento);
+    if (!movKey) throw new Error('mov_key é obrigatório');
+    const clean = (itens || [])
+      .filter(i => i.plano_conta_id && Number(i.valor) > 0)
+      .map(i => ({ plano_conta_id: Number(i.plano_conta_id), valor: Number(i.valor) }));
+    if (!clean.length) throw new Error('Informe ao menos um lançamento válido');
+    let row = await repo.findOne({ where: { cod_loja: codLoja, mov_key: movKey } });
+    if (row) { row.tipo = 'fatura'; row.itens = clean; row.plano_conta_id = null; row.transfer_id = null; }
+    else row = repo.create({ cod_loja: codLoja, mov_key: movKey, tipo: 'fatura', itens: clean });
     return repo.save(row);
   }
 
@@ -948,20 +975,31 @@ export class ConciliacaoService {
         continue;
       }
       if (am.origem === 'transferencia') continue; // transferência não entra no DRE
-      const gKey = `${am.is_receita ? 'R' : 'D'}|${am.grupo_nome || '(sem grupo)'}`;
-      let grupo = gruposMap.get(gKey);
-      if (!grupo) {
-        grupo = { nome: am.grupo_nome || '(sem grupo)', is_receita: !!am.is_receita, total: 0, contasMap: new Map() };
-        gruposMap.set(gKey, grupo);
+
+      // Fatura: divide o movimento em vários itens (conta + valor). Demais: 1 conta com o valor cheio.
+      const entries = am.origem === 'fatura'
+        ? (am.itens || []).map((it: any) => ({
+            plano_conta_id: it.plano_conta_id, conta_nome: it.conta_nome,
+            grupo_nome: it.grupo_nome, is_receita: it.is_receita, v: Number(it.valor) || 0,
+          }))
+        : [{ plano_conta_id: am.plano_conta_id, conta_nome: am.conta_nome, grupo_nome: am.grupo_nome, is_receita: am.is_receita, v: val }];
+
+      for (const e of entries) {
+        const gKey = `${e.is_receita ? 'R' : 'D'}|${e.grupo_nome || '(sem grupo)'}`;
+        let grupo = gruposMap.get(gKey);
+        if (!grupo) {
+          grupo = { nome: e.grupo_nome || '(sem grupo)', is_receita: !!e.is_receita, total: 0, contasMap: new Map() };
+          gruposMap.set(gKey, grupo);
+        }
+        grupo.total += e.v;
+        let conta = grupo.contasMap.get(e.plano_conta_id);
+        if (!conta) {
+          conta = { id: e.plano_conta_id, nome: e.conta_nome, valor: 0, qtd: 0 };
+          grupo.contasMap.set(e.plano_conta_id, conta);
+        }
+        conta.valor += e.v;
+        conta.qtd++;
       }
-      grupo.total += val;
-      let conta = grupo.contasMap.get(am.plano_conta_id);
-      if (!conta) {
-        conta = { id: am.plano_conta_id, nome: am.conta_nome, valor: 0, qtd: 0 };
-        grupo.contasMap.set(am.plano_conta_id, conta);
-      }
-      conta.valor += val;
-      conta.qtd++;
     }
 
     const grupos = Array.from(gruposMap.values())

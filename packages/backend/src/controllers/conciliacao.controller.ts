@@ -225,6 +225,22 @@ export class ConciliacaoController {
     }
   }
 
+  /** POST /api/conciliacao/movimento/fatura — vários lançamentos num movimento (cartão) */
+  static async movimentoFatura(req: Request, res: Response) {
+    try {
+      const codLoja = Number(req.body?.cod_loja ?? req.query.codLoja) || 1;
+      const { mov_key, itens } = req.body || {};
+      if (!mov_key || !Array.isArray(itens)) {
+        return res.status(400).json({ success: false, message: 'mov_key e itens (array) são obrigatórios' });
+      }
+      const row = await ConciliacaoService.salvarMovimentoFatura(codLoja, mov_key, itens);
+      res.json({ success: true, data: row });
+    } catch (error: any) {
+      console.error('Erro movimentoFatura:', error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   /** DELETE /api/conciliacao/movimento — remove classificação por movimento */
   static async removerMovimento(req: Request, res: Response) {
     try {

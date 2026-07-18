@@ -26,6 +26,10 @@ export class ConciliacaoMovimento {
   @Column({ type: 'uuid', nullable: true })
   transfer_id!: string | null;
 
+  // Para tipo 'fatura': lista de lançamentos [{ plano_conta_id, valor }]
+  @Column({ type: 'jsonb', nullable: true })
+  itens!: { plano_conta_id: number; valor: number }[] | null;
+
   @CreateDateColumn()
   created_at!: Date;
 }

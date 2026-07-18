@@ -21,6 +21,7 @@ router.delete('/amarracoes', ConciliacaoController.removerAmarracao);
 // Ações por movimento (Bloco A): única / transferência
 router.post('/movimento/unica', ConciliacaoController.movimentoUnica);
 router.post('/movimento/transferencia', ConciliacaoController.movimentoTransferencia);
+router.post('/movimento/fatura', ConciliacaoController.movimentoFatura);
 router.delete('/movimento', ConciliacaoController.removerMovimento);
 
 export default router;
