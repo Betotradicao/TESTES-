@@ -300,27 +300,41 @@ app.post('/api/disparo-whatsapp/setup-webhook', async (req: any, res: any) => {
     // Tentar diferentes endpoints da Evolution API
     let response;
     const headers = { apikey: token, 'Content-Type': 'application/json' };
-    const payload = {
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: ['MESSAGES_UPDATE', 'MESSAGES_UPSERT', 'MESSAGE_RECEIPT_UPDATE']
-    };
+    const events = ['MESSAGES_UPDATE', 'MESSAGES_UPSERT', 'MESSAGE_RECEIPT_UPDATE'];
+    const setUrl = `${url}/webhook/set/${encodeURIComponent(instancia)}`;
 
-    // Tentar v1
+    // Evolution v2: POST /webhook/set/{instancia} com o objeto aninhado em "webhook"
+    // (o PUT antigo devolvia 404 "Cannot PUT /webhook/set/..." — a rota existe, mas é POST.
+    //  Foi por isso que o chatbot do Tradição ficou mudo: webhook nunca era registrado.)
     try {
-      response = await axios.put(`${url}/webhook/set/${encodeURIComponent(instancia)}`, payload, { headers, timeout: 10000 });
-      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'PUT v1' });
-    } catch (e1: any) {
-      console.log('Webhook v1 PUT falhou:', e1.response?.status, e1.response?.data);
+      const payloadV2 = {
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events
+        }
+      };
+      response = await axios.post(setUrl, payloadV2, { headers, timeout: 10000 });
+      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'POST v2 (webhook aninhado)' });
+    } catch (e0: any) {
+      console.log('Webhook v2 POST (aninhado) falhou:', e0.response?.status, JSON.stringify(e0.response?.data));
     }
 
-    // Tentar v2
+    // Evolution v1: POST /webhook/set/{instancia} com o corpo achatado
     try {
-      response = await axios.post(`${url}/webhook/instance/${encodeURIComponent(instancia)}`, { webhook: payload }, { headers, timeout: 10000 });
-      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'POST v2' });
-    } catch (e2: any) {
-      console.log('Webhook v2 POST falhou:', e2.response?.status, e2.response?.data);
+      const payloadV1 = {
+        enabled: true,
+        url: webhookUrl,
+        webhook_by_events: false,
+        webhook_base64: false,
+        events
+      };
+      response = await axios.post(setUrl, payloadV1, { headers, timeout: 10000 });
+      return res.json({ success: true, data: response.data, webhook_url: webhookUrl, method: 'POST v1 (achatado)' });
+    } catch (e1: any) {
+      console.log('Webhook v1 POST (achatado) falhou:', e1.response?.status, JSON.stringify(e1.response?.data));
     }
 
     // Tentar buscar webhook atual
