@@ -300,7 +300,10 @@ app.post('/api/disparo-whatsapp/setup-webhook', async (req: any, res: any) => {
     // Tentar diferentes endpoints da Evolution API
     let response;
     const headers = { apikey: token, 'Content-Type': 'application/json' };
-    const events = ['MESSAGES_UPDATE', 'MESSAGES_UPSERT', 'MESSAGE_RECEIPT_UPDATE'];
+    // Só eventos que existem no enum da Evolution v2. MESSAGE_RECEIPT_UPDATE NÃO existe
+    // e fazia a chamada inteira voltar 400 (webhook nunca era criado).
+    // MESSAGES_UPSERT = mensagem nova (chatbot) · MESSAGES_UPDATE = status de entrega (disparo).
+    const events = ['MESSAGES_UPSERT', 'MESSAGES_UPDATE'];
     const setUrl = `${url}/webhook/set/${encodeURIComponent(instancia)}`;
 
     // Evolution v2: POST /webhook/set/{instancia} com o objeto aninhado em "webhook"
