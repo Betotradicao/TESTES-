@@ -516,6 +516,19 @@ export class MktChatbotService {
     // Renderiza em loop ate aguardar resposta ou encerrar
     let safety = 0;
     while (proximoBloco && safety++ < 10) {
+      // Depois de responder uma opcao o fluxo volta pro menu sozinho. Se o menu ja foi
+      // pra esse contato ha pouco, NAO reenvia — so deixa a sessao apontada pra ele.
+      // Assim o cliente responde 1, le a resposta, digita 2 e cai na opcao certa, sem
+      // levar o menu inteiro a cada resposta ("botoes ficam livres, menu nao reaparece").
+      // Reavalia a cada volta porque `ultimo_menu_at` muda dentro do proprio laco.
+      if (proximoBloco.is_inicial && this.menuEmCooldown(fluxo, contato)) {
+        sessao.bloco_atual_id = proximoBloco.id;
+        sessao.ultima_atividade_at = new Date();
+        await sessaoRepo.save(sessao);
+        console.log(`[Chatbot] ${tel}: menu em cooldown (${fluxo.intervalo_menu_horas}h) — opcoes seguem valendo, nao reenviando`);
+        break;
+      }
+
       // Marca quando o menu vai pro contato — e o relogio do cooldown
       if (proximoBloco.is_inicial) {
         contato.ultimo_menu_at = new Date();
