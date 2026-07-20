@@ -1,6 +1,14 @@
-# Chatbot WhatsApp mudo — webhook nunca era registrado na Evolution
+# Chatbot WhatsApp — 3 bugs: mudo (webhook) + menu repetindo
 
-**Data:** 2026-07-20 · **Cliente:** Tradição · **Commits:** `afb144b` + `05a67ae`
+**Data:** 2026-07-20 · **Cliente:** Tradição · **Commits:** `afb144b` + `05a67ae` + `907a901`
+
+> Dois problemas distintos na mesma sessão: **(A)** o bot não respondia nada (webhook nunca
+> registrado — 2 bugs empilhados) e, depois de resolvido, **(B)** o menu reaparecia a cada
+> resposta. Vá direto na parte B se o bot já responde.
+
+---
+
+# PARTE A — Bot mudo: webhook nunca era registrado
 
 ## 🐛 Sintoma
 Fluxo do chatbot marcado como **ativo**, instância `MARKETING` preenchida, mas **nenhum menu
@@ -62,5 +70,46 @@ Confirmar: rodar de novo e ver o **mesmo `id`** retornando.
   `tradicao.prevencaonoradar.com.br`. Pra outro cliente, **passar `webhook_url` no body**,
   senão registra o webhook apontando pro Tradição.
 
+---
+
+# PARTE B — Menu reaparecia a cada resposta (cooldown ignorado)
+
+**Commit:** `907a901`
+
+## 🐛 Sintoma
+Cliente digitava `1` → recebia a resposta da opção 1 **e o menu inteiro junto**. A cada
+resposta o menu voltava, mesmo com `intervalo_menu_horas = 4` configurado e salvo.
+
+## ⚠️ Cuidado: a config estava CERTA
+```sql
+SELECT id, ativo, intervalo_menu_horas FROM mkt_chatbot_fluxos;  -- => 4
+```
+Não perca tempo procurando erro de salvamento na tela. O valor gravava certo — **o código
+é que não consultava esse valor no caminho crítico**.
+
+## 🎯 Causa-raiz
+Depois de responder uma opção, o fluxo **volta pro bloco inicial (menu) automaticamente**
+(`resolverProximoBloco(bloco, '')` no laço de renderização). Mas o cooldown só era testado
+em **dois** pontos:
+1. conversa nova (sem sessão)
+2. resposta que não casou com nenhuma opção
+
+O **retorno automático ao menu não passava por nenhum dos dois** → menu reenviado sempre.
+
+## ✅ Correção
+No laço de renderização, se o próximo bloco é o menu **e** ele já foi há menos de
+`intervalo_menu_horas`, não renderiza: só aponta `sessao.bloco_atual_id` pro menu e sai.
+
+> 💡 **A sacada:** apontar a sessão pro menu **sem enviá-lo** mantém as opções válidas.
+> O cliente digita `2` logo depois e cai na opção certa — *"botões ficam livres, menu não
+> reaparece"*. Mesmo princípio já usado ao criar a sessão (`bloco_atual_id = inicial`
+> mesmo calado).
+
+⚠️ **Reavaliar o cooldown a cada volta do laço** (chamar a função, não usar a const do
+início): `contato.ultimo_menu_at` muda dentro do próprio laço quando o menu é enviado.
+Sem isso, o menu poderia sair duas vezes na mesma execução.
+
+`intervalo_menu_horas = 0` mantém o comportamento antigo (menu sempre).
+
 ## 🏷️ Tags
-#bug #chatbot #whatsapp #evolution #webhook #tradicao
+#bug #chatbot #whatsapp #evolution #webhook #menu #tradicao
