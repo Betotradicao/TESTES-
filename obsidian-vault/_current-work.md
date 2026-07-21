@@ -19,7 +19,25 @@ Rotas: `GET /api/whatsapp/comunidades`, `POST /api/whatsapp/sorteio`.
 **Frontend:** `pages/Sorteador.jsx` + rota `/sorteador` em `App.jsx` + `Sidebar.jsx`
 (3 pontos: lista de módulos L15, mapa path→seção L260, `subItems`) + `menuConstants.js`.
 
-⏭️ Roberto testar a tela. Decisões ainda em aberto:
+**Retornos do Roberto já aplicados (v2/v3):**
+- Tela abria **sem menu lateral** — não existe Layout global no projeto; **cada página
+  renderiza o próprio `<Sidebar/>`**. Faltava fazer isso.
+- Cards de grupo viraram **`<select>`**; palco só aparece depois de escolher.
+- **Roleta:** dígitos giram e travam da esquerda pra direita; o **último vira `*`** até
+  clicar no olhinho. Fogos + confete em canvas puro.
+- **Som via Web Audio API, sem arquivo** (mp3 de plateia = ~200kb no bundle + risco de CSP):
+  rufar de tambores (ruído grave + tremolo 34Hz, crescendo) enquanto gira; palmas + "EEEEE"
+  (bandpass varrendo 700→1500Hz) no final. Botão de mudo no localStorage.
+- 🐛 **O resumo entregava o dígito que a roleta escondia** — o `*` vira enfeite se o número
+  inteiro aparece logo abaixo. Hoje o mesmo olhinho controla roleta, pódio, resumo E o link
+  `wa.me` (que carrega o número completo na URL).
+- **Nome do ganhador:** a Evolution **não manda nome** na lista de participantes. Cruza
+  `disparo_contatos.nome` (vence) + `mkt_chatbot_contatos.nome_whatsapp`, casando pelos
+  **últimos 8 dígitos** (o 9 na frente do celular entra e sai, string inteira perde match).
+  🐛 A base importada tem muito **nome-lixo numérico** ("111111", "914") — filtro exige
+  ≥2 letras, senão cai no pushName. Nome só aparece **depois** de revelar o dígito.
+
+⏭️ Decisões ainda em aberto:
 - Avisar o ganhador automático no WhatsApp? (hoje só mostra na tela + link "abrir conversa")
 - Guardar histórico dos sorteios em tabela? (hoje não persiste nada)
 
