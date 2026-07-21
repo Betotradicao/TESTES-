@@ -994,11 +994,18 @@ export class ConciliacaoService {
         grupo.total += e.v;
         let conta = grupo.contasMap.get(e.plano_conta_id);
         if (!conta) {
-          conta = { id: e.plano_conta_id, nome: e.conta_nome, valor: 0, qtd: 0 };
+          conta = { id: e.plano_conta_id, nome: e.conta_nome, valor: 0, qtd: 0, lancamentos: [] };
           grupo.contasMap.set(e.plano_conta_id, conta);
         }
         conta.valor += e.v;
         conta.qtd++;
+        // Guarda o lancamento cru pro (+) da tela abrir e mostrar de onde veio
+        // o total. Sem isso o usuario ve "R$ 19.554,46" e nao tem como conferir.
+        conta.lancamentos.push({
+          data: r.banco.DTA_ENTRADA,
+          descricao: r.texto_exato || r.banco.FAVORECIDO || '',
+          valor: e.v,
+        });
       }
     }
 
@@ -1007,7 +1014,15 @@ export class ConciliacaoService {
         nome: g.nome,
         is_receita: g.is_receita,
         total: g.total,
-        contas: Array.from(g.contasMap.values()).sort((a: any, b: any) => b.valor - a.valor),
+        contas: Array.from(g.contasMap.values())
+          .map((c: any) => ({
+            ...c,
+            // Mais recente primeiro — é o que se quer ver ao abrir o (+)
+            lancamentos: c.lancamentos.sort(
+              (x: any, y: any) => new Date(y.data).getTime() - new Date(x.data).getTime(),
+            ),
+          }))
+          .sort((a: any, b: any) => b.valor - a.valor),
       }))
       // Receitas primeiro, depois despesas; dentro, por valor desc
       .sort((a, b) => (a.is_receita === b.is_receita ? b.total - a.total : (a.is_receita ? -1 : 1)));

@@ -139,7 +139,47 @@ function getTotalCellValue(colId, totais, type) {
 }
 
 // Demonstrativo montado pelas amarrações da Conciliação (modo Direto Manual)
+/** Cabeçalho clicável: 1º clique A→Z, 2º Z→A, 3º volta pra ordem original. */
+function ThOrdenavel({ label, col, sortCol, sortDir, onSort, align = 'left' }) {
+  const ativo = sortCol === col;
+  return (
+    <th
+      onClick={() => onSort(col)}
+      title="Clique para ordenar"
+      className={`text-${align} py-2 px-3 font-semibold cursor-pointer select-none hover:bg-gray-600 transition`}
+    >
+      {label}{' '}
+      <span className={ativo ? 'text-orange-300' : 'text-gray-400'}>
+        {ativo ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+      </span>
+    </th>
+  );
+}
+
 function DemonstrativoManual({ data, loading }) {
+  // Hooks antes de qualquer return — senão a ordem quebra entre renders.
+  const [sortCol, setSortCol] = useState(null);   // null = ordem do backend
+  const [sortDir, setSortDir] = useState('asc');
+  const [abertos, setAbertos] = useState({});     // quais contas estão com o (+) aberto
+
+  const handleSort = (col) => {
+    if (sortCol !== col) { setSortCol(col); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortCol(null);   // 3º clique volta pro padrão (receitas por valor desc)
+  };
+
+  const ordenar = (lista, campoNome, campoValor) => {
+    if (!sortCol) return lista;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      if (sortCol === 'nome') {
+        return dir * String(a[campoNome] || '').localeCompare(String(b[campoNome] || ''), 'pt-BR');
+      }
+      // 'valor' e 'pct' ordenam igual — a % é o valor dividido pelo mesmo total
+      return dir * ((a[campoValor] || 0) - (b[campoValor] || 0));
+    });
+  };
+
   if (loading) return <div className="flex justify-center py-20"><RadarLoading /></div>;
   if (!data) return <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400"><p className="text-lg font-medium">Carregando o extrato...</p></div>;
 
@@ -183,9 +223,9 @@ function DemonstrativoManual({ data, loading }) {
           </colgroup>
           <thead>
             <tr className="bg-gray-700 text-white">
-              <th className="text-left py-2 px-3 font-semibold">Movimento (Manual)</th>
-              <th className="text-right py-2 px-3 font-semibold">Valor</th>
-              <th className="text-right py-2 px-3 font-semibold">% Entradas</th>
+              <ThOrdenavel label="Movimento (Manual)" col="nome" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+              <ThOrdenavel label="Valor" col="valor" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="right" />
+              <ThOrdenavel label="% Entradas" col="pct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="right" />
               <th className="bg-gray-700"></th>
             </tr>
           </thead>
@@ -193,22 +233,78 @@ function DemonstrativoManual({ data, loading }) {
             {grupos.length === 0 && naoClass.total === 0 && (
               <tr><td colSpan={4} className="text-center py-8 text-gray-400">Nenhuma amarração no período. Amarre linhas na Conciliação (Direto Manual).</td></tr>
             )}
-            {grupos.map((g, gi) => (
-              <React.Fragment key={gi}>
+            {/* Receita/Despesa continua sendo a divisão principal mesmo ordenando:
+                misturar as duas quebraria a leitura do demonstrativo. */}
+            {ordenar(grupos, 'nome', 'total').map((g, gi) => (
+              <React.Fragment key={g.nome + gi}>
                 <tr className={g.is_receita ? 'bg-green-100 text-green-900' : 'bg-orange-100 text-orange-900'}>
                   <td className="py-1.5 px-3 font-bold">{g.nome}</td>
                   <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(g.total)}</td>
                   <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(g.total))}</td>
                   <td></td>
                 </tr>
-                {(g.contas || []).map((c, ci) => (
-                  <tr key={ci} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-1.5 px-3 pl-8 text-gray-700">• {c.nome} <span className="text-xs text-gray-400">({c.qtd})</span></td>
-                    <td className={`py-1.5 px-3 text-right font-semibold ${g.is_receita ? 'text-green-700' : 'text-red-700'}`}>R$ {formatCurrency(c.valor)}</td>
-                    <td className="py-1.5 px-3 text-right text-gray-500">{formatPercent(pct(c.valor))}</td>
-                    <td></td>
-                  </tr>
-                ))}
+
+                {ordenar(g.contas || [], 'nome', 'valor').map((c, ci) => {
+                  const chave = `${g.nome}|${c.id ?? ci}`;
+                  const aberto = !!abertos[chave];
+                  const lancamentos = c.lancamentos || [];
+
+                  return (
+                    <React.Fragment key={chave}>
+                      <tr
+                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setAbertos((a) => ({ ...a, [chave]: !a[chave] }))}
+                      >
+                        <td className="py-1.5 px-3 pl-6 text-gray-700">
+                          <span className={`inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded border text-[11px] font-bold leading-none ${
+                            aberto
+                              ? 'bg-orange-500 border-orange-500 text-white'
+                              : 'bg-white border-gray-300 text-gray-500'
+                          }`}>
+                            {aberto ? '−' : '+'}
+                          </span>
+                          {c.nome} <span className="text-xs text-gray-400">({c.qtd})</span>
+                        </td>
+                        <td className={`py-1.5 px-3 text-right font-semibold ${g.is_receita ? 'text-green-700' : 'text-red-700'}`}>R$ {formatCurrency(c.valor)}</td>
+                        <td className="py-1.5 px-3 text-right text-gray-500">{formatPercent(pct(c.valor))}</td>
+                        <td></td>
+                      </tr>
+
+                      {aberto && (
+                        <tr>
+                          <td colSpan={4} className="bg-gray-50 px-3 py-2 pl-12 border-b border-gray-200">
+                            {lancamentos.length === 0 ? (
+                              <div className="text-xs text-gray-400 py-1">Nenhum lançamento detalhado.</div>
+                            ) : (
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-gray-500 border-b border-gray-200">
+                                    <th className="text-left py-1 font-medium w-24">Data</th>
+                                    <th className="text-left py-1 font-medium">Descrição</th>
+                                    <th className="text-right py-1 font-medium w-32">Valor</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {lancamentos.map((l, li) => (
+                                    <tr key={li} className="border-b border-gray-100 last:border-0">
+                                      <td className="py-1 text-gray-600 whitespace-nowrap">
+                                        {l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '—'}
+                                      </td>
+                                      <td className="py-1 text-gray-700">{l.descricao || '—'}</td>
+                                      <td className={`py-1 text-right font-semibold ${g.is_receita ? 'text-green-700' : 'text-red-700'}`}>
+                                        R$ {formatCurrency(l.valor)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </React.Fragment>
             ))}
             {naoClass.total > 0 && (
