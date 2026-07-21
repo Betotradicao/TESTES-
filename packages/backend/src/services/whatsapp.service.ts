@@ -1,4 +1,5 @@
 import { Bip } from '../entities/Bip';
+import { AppDataSource } from '../config/database';
 import { ConfigurationService } from './configuration.service';
 import { BipPDFService } from './bip-pdf.service';
 import * as fs from 'fs';
@@ -473,6 +474,47 @@ export class WhatsAppService {
   }
 
   /**
+   * Procura o nome dos telefones nas bases que a gente ja tem:
+   * `disparo_contatos` (nome cadastrado) e `mkt_chatbot_contatos`
+   * (nome que a pessoa usa no WhatsApp). A Evolution NAO manda nome na lista
+   * de participantes de grupo — so id/telefone/admin.
+   *
+   * Casa pelos ULTIMOS 8 DIGITOS de proposito: a mesma pessoa aparece ora com
+   * o 9 na frente do celular ora sem, ora com DDI — comparar string inteira
+   * perde match. 8 digitos e o que nao muda.
+   */
+  private static async resolverNomes(telefones: string[]): Promise<Record<string, string>> {
+    const mapa: Record<string, string> = {};
+    if (!telefones.length || !AppDataSource.isInitialized) return mapa;
+
+    const chaves = telefones.map((t) => t.slice(-8));
+
+    const buscar = async (sql: string) => {
+      try {
+        return (await AppDataSource.query(sql, [chaves])) as any[];
+      } catch {
+        return []; // tabela pode nao existir no cliente — nome e opcional
+      }
+    };
+
+    const [contatos, doChatbot] = await Promise.all([
+      buscar(`SELECT telefone, nome FROM disparo_contatos
+              WHERE RIGHT(regexp_replace(telefone, '\\D', '', 'g'), 8) = ANY($1)`),
+      buscar(`SELECT telefone, nome_whatsapp AS nome FROM mkt_chatbot_contatos
+              WHERE RIGHT(regexp_replace(telefone, '\\D', '', 'g'), 8) = ANY($1)`),
+    ]);
+
+    // disparo_contatos por ultimo: nome cadastrado vence o pushName do WhatsApp
+    for (const linha of [...doChatbot, ...contatos]) {
+      const nome = String(linha?.nome || '').trim();
+      if (!nome) continue;
+      const chave = String(linha.telefone).replace(/\D/g, '').slice(-8);
+      mapa[chave] = nome;
+    }
+    return mapa;
+  }
+
+  /**
    * Sorteia N ganhadores entre os membros do grupo de Avisos de uma comunidade.
    *
    * Quem nao tem telefone visivel NAO entra (nao teria como ser avisado). O
@@ -518,11 +560,20 @@ export class WhatsAppService {
     }
 
     const qtd = Math.min(Math.max(1, quantidade), urna.length);
+    const sorteados = urna.slice(0, qtd);
+
+    const nomes = await this.resolverNomes(sorteados);
 
     return {
       comunidade: grupo.subject,
       tipo: grupo.isCommunityAnnounce ? 'comunidade' : 'grupo',
-      ganhadores: urna.slice(0, qtd),
+      ganhadores: sorteados,
+      // telefone -> nome (só vem quem foi encontrado nas nossas bases)
+      nomes: sorteados.reduce((acc: Record<string, string>, tel) => {
+        const nome = nomes[tel.slice(-8)];
+        if (nome) acc[tel] = nome;
+        return acc;
+      }, {}),
       totalMembros: membros.length,
       participaram: elegiveis.length,
       // Quem o WhatsApp escondeu (problema de verdade)

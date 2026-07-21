@@ -13,6 +13,128 @@ import api from '../services/api';
  * bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid.
  */
 
+/* ───────────────────────── SOM ─────────────────────────
+ * Tudo sintetizado no Web Audio API — nenhum arquivo de áudio. Um .mp3 de
+ * plateia tem ~200kb, entra no bundle e ainda esbarra em CSP/hospedagem.
+ * Ruído + filtro + envelope resolve e pesa zero.
+ */
+let audioCtx = null;
+const getAudioCtx = () => {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!audioCtx) audioCtx = new AC();
+  // Navegador só libera áudio depois de um gesto do usuário — o clique no
+  // botão Sortear é esse gesto.
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+};
+
+const bufferDeRuido = (ctx, segundos) => {
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * segundos), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+};
+
+/** Rufar de tambores: ruído grave + tremolo rápido, com crescendo. */
+function tocarRufar(ctx) {
+  const agora = ctx.currentTime;
+
+  const src = ctx.createBufferSource();
+  src.buffer = bufferDeRuido(ctx, 2);
+  src.loop = true;
+
+  const corpo = ctx.createBiquadFilter();
+  corpo.type = 'lowpass';
+  corpo.frequency.value = 260;
+  corpo.Q.value = 1.4;
+
+  // O "rrrrrr" é o tremolo: ganho oscilando ~34x por segundo.
+  const tremolo = ctx.createGain();
+  tremolo.gain.value = 0.5;
+  const lfo = ctx.createOscillator();
+  lfo.type = 'sawtooth';
+  lfo.frequency.value = 34;
+  const lfoAmp = ctx.createGain();
+  lfoAmp.gain.value = 0.5;
+  lfo.connect(lfoAmp);
+  lfoAmp.connect(tremolo.gain);
+
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, agora);
+  master.gain.exponentialRampToValueAtTime(0.3, agora + 2.2); // tensão subindo
+
+  src.connect(corpo).connect(tremolo).connect(master).connect(ctx.destination);
+  src.start();
+  lfo.start();
+
+  return () => {
+    try {
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      src.stop(t + 0.3);
+      lfo.stop(t + 0.3);
+    } catch { /* já parado */ }
+  };
+}
+
+/** Plateia: "EEEEE" (ruído em banda média) + palmas (estalos com decay). */
+function tocarComemoracao(ctx) {
+  const agora = ctx.currentTime;
+  const dur = 4.5;
+  const sr = ctx.sampleRate;
+
+  // --- palmas ---
+  const palmas = ctx.createBuffer(1, Math.floor(sr * dur), sr);
+  const p = palmas.getChannelData(0);
+  const decay = sr * 0.004;
+  for (let c = 0; c < 1100; c++) {
+    // expoente < 1 concentra as palmas no início (a explosão da plateia)
+    const inicio = Math.floor(Math.pow(Math.random(), 0.55) * dur * sr);
+    const amp = 0.35 + Math.random() * 0.65;
+    const tam = Math.floor(sr * 0.025);
+    for (let i = 0; i < tam && inicio + i < p.length; i++) {
+      p[inicio + i] += (Math.random() * 2 - 1) * amp * Math.exp(-i / decay);
+    }
+  }
+  for (let i = 0; i < p.length; i++) p[i] = Math.max(-1, Math.min(1, p[i] * 0.5));
+
+  const srcPalmas = ctx.createBufferSource();
+  srcPalmas.buffer = palmas;
+  const filtroPalmas = ctx.createBiquadFilter();
+  filtroPalmas.type = 'highpass';
+  filtroPalmas.frequency.value = 900;
+  const ganhoPalmas = ctx.createGain();
+  ganhoPalmas.gain.setValueAtTime(0.0001, agora);
+  ganhoPalmas.gain.exponentialRampToValueAtTime(0.5, agora + 0.12);
+  ganhoPalmas.gain.setValueAtTime(0.5, agora + dur - 1.4);
+  ganhoPalmas.gain.exponentialRampToValueAtTime(0.0001, agora + dur);
+
+  // --- gritaria "EEEEE" ---
+  const srcGrito = ctx.createBufferSource();
+  srcGrito.buffer = bufferDeRuido(ctx, dur);
+  const formante = ctx.createBiquadFilter();
+  formante.type = 'bandpass';
+  formante.frequency.setValueAtTime(700, agora);
+  formante.frequency.linearRampToValueAtTime(1500, agora + 0.9); // o "iiii" subindo
+  formante.frequency.linearRampToValueAtTime(1100, agora + dur);
+  formante.Q.value = 1.6;
+  const ganhoGrito = ctx.createGain();
+  ganhoGrito.gain.setValueAtTime(0.0001, agora);
+  ganhoGrito.gain.exponentialRampToValueAtTime(0.28, agora + 0.5);
+  ganhoGrito.gain.setValueAtTime(0.28, agora + dur - 1.8);
+  ganhoGrito.gain.exponentialRampToValueAtTime(0.0001, agora + dur);
+
+  srcPalmas.connect(filtroPalmas).connect(ganhoPalmas).connect(ctx.destination);
+  srcGrito.connect(formante).connect(ganhoGrito).connect(ctx.destination);
+  srcPalmas.start();
+  srcGrito.start();
+  srcPalmas.stop(agora + dur);
+  srcGrito.stop(agora + dur);
+}
+
 const CORES_FOGOS = [
   '#f97316', '#fb923c', '#fbbf24', '#facc15', '#22c55e',
   '#38bdf8', '#a855f7', '#ec4899', '#ef4444',
@@ -45,6 +167,7 @@ function useFogos(ativo) {
         const ang = (Math.PI * 2 * i) / 46;
         const vel = 2 + Math.random() * 4;
         particulas.push({
+          tipo: 'faisca',
           x, y,
           vx: Math.cos(ang) * vel,
           vy: Math.sin(ang) * vel,
@@ -54,6 +177,27 @@ function useFogos(ativo) {
         });
       }
     };
+
+    // Confete cai de cima, gira e balanca — vida longa (nao some feito faisca).
+    const soltarConfetes = (quantos) => {
+      for (let i = 0; i < quantos; i++) {
+        particulas.push({
+          tipo: 'confete',
+          x: Math.random() * canvas.width,
+          y: -20 - Math.random() * canvas.height * 0.5,
+          vx: (Math.random() - 0.5) * 1.6,
+          vy: 1.5 + Math.random() * 2.5,
+          vida: 1,
+          cor: CORES_FOGOS[Math.floor(Math.random() * CORES_FOGOS.length)],
+          larg: 5 + Math.random() * 6,
+          alt: 9 + Math.random() * 7,
+          ang: Math.random() * Math.PI,
+          giro: (Math.random() - 0.5) * 0.22,
+          balanco: Math.random() * Math.PI * 2,
+        });
+      }
+    };
+    soltarConfetes(140);
 
     const intervalo = setInterval(() => {
       if (disparos++ > 7) return clearInterval(intervalo);
@@ -65,8 +209,26 @@ function useFogos(ativo) {
 
     const animar = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particulas = particulas.filter((p) => p.vida > 0.02);
+      particulas = particulas.filter(
+        (p) => (p.tipo === 'confete' ? p.y < canvas.height + 30 : p.vida > 0.02),
+      );
+
       for (const p of particulas) {
+        if (p.tipo === 'confete') {
+          p.balanco += 0.09;
+          p.x += p.vx + Math.sin(p.balanco) * 1.1;   // folha caindo, nao pedra
+          p.y += p.vy;
+          p.ang += p.giro;
+          ctx.save();
+          ctx.globalAlpha = 0.9;
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.ang);
+          ctx.fillStyle = p.cor;
+          ctx.fillRect(-p.larg / 2, -p.alt / 2, p.larg, p.alt);
+          ctx.restore();
+          continue;
+        }
+
         p.x += p.vx;
         p.y += p.vy;
         p.vy += 0.055;      // gravidade
@@ -190,8 +352,41 @@ export default function Sorteador() {
   const [revelarUltimo, setRevelarUltimo] = useState(false);
   const [terminou, setTerminou] = useState(false);
 
+  const [mudo, setMudo] = useState(
+    () => localStorage.getItem('sorteador_mudo') === '1',
+  );
+
   const timers = useRef([]);
+  const pararRufar = useRef(null);
   const canvasFogos = useFogos(terminou);
+
+  // Rufar de tambores enquanto a roleta gira
+  useEffect(() => {
+    if (girando && !mudo) {
+      const ctx = getAudioCtx();
+      if (ctx) pararRufar.current = tocarRufar(ctx);
+    }
+    return () => {
+      if (pararRufar.current) {
+        pararRufar.current();
+        pararRufar.current = null;
+      }
+    };
+  }, [girando, mudo]);
+
+  // Plateia quando o último dígito trava
+  useEffect(() => {
+    if (!terminou || mudo) return;
+    const ctx = getAudioCtx();
+    if (ctx) tocarComemoracao(ctx);
+  }, [terminou, mudo]);
+
+  const alternarMudo = () => {
+    setMudo((m) => {
+      localStorage.setItem('sorteador_mudo', m ? '0' : '1');
+      return !m;
+    });
+  };
 
   const selecionado = grupos.find((g) => g.id === grupoId) || null;
 
@@ -358,13 +553,22 @@ export default function Sorteador() {
                   />
                   Não sortear administradores
                 </label>
-                <button
-                  onClick={carregarGrupos}
-                  title="Atualizar lista de grupos"
-                  className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg"
-                >
-                  🔄
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={alternarMudo}
+                    title={mudo ? 'Ativar som do sorteio' : 'Silenciar sorteio'}
+                    className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg"
+                  >
+                    {mudo ? '🔇' : '🔊'}
+                  </button>
+                  <button
+                    onClick={carregarGrupos}
+                    title="Atualizar lista de grupos"
+                    className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg"
+                  >
+                    🔄
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -426,6 +630,14 @@ export default function Sorteador() {
                         revelarUltimo={revelarUltimo}
                       />
                     </div>
+
+                    {/* Nome só depois de revelar: aparecer antes entregaria
+                        quem ganhou e mataria o suspense do último dígito. */}
+                    {revelarUltimo && resultado.nomes?.[ganhadorAtual] && (
+                      <p className="text-white text-2xl sm:text-3xl font-black mb-5 drop-shadow">
+                        🎉 {resultado.nomes[ganhadorAtual]}
+                      </p>
+                    )}
 
                     {!girando && travados > 0 && (
                       <button
@@ -500,9 +712,16 @@ export default function Sorteador() {
                     className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3"
                   >
                     <span className="text-orange-600 font-bold">{i + 1}º</span>
-                    <span className="font-mono font-semibold text-gray-900">
-                      {formatarTelefoneMascarado(tel, revelarUltimo)}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="font-mono font-semibold text-gray-900">
+                        {formatarTelefoneMascarado(tel, revelarUltimo)}
+                      </div>
+                      {revelarUltimo && resultado.nomes?.[tel] && (
+                        <div className="text-sm text-gray-600 truncate">
+                          {resultado.nomes[tel]}
+                        </div>
+                      )}
+                    </div>
                     {revelarUltimo ? (
                       <a
                         href={`https://wa.me/${tel}`}
