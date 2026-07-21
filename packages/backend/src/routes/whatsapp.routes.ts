@@ -127,8 +127,14 @@ router.get('/fetch-groups', async (req, res) => {
  */
 router.get('/comunidades', async (req, res) => {
   try {
-    const grupos = await WhatsAppService.listarGruposSorteaveis();
-    res.json({ success: true, data: grupos });
+    const [grupos, numeroInstancia] = await Promise.all([
+      WhatsAppService.listarGruposSorteaveis(),
+      WhatsAppService.getNumeroInstancia().catch(() => ''),
+    ]);
+    // O numero vai junto porque a lista e "grupos onde o WhatsApp DO SISTEMA e
+    // admin" — que nao e o WhatsApp pessoal do usuario. Sem mostrar isso, some
+    // grupo da lista e parece bug.
+    res.json({ success: true, data: grupos, numeroInstancia });
   } catch (error: any) {
     console.error('Erro ao listar comunidades:', error);
     res.status(500).json({ success: false, error: error.message || 'Erro ao listar comunidades' });

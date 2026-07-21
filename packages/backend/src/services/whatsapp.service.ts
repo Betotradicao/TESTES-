@@ -491,8 +491,14 @@ export class WhatsAppService {
     if (!grupo) throw new Error('Grupo ou comunidade não encontrada');
 
     const membros = (grupo.participants || []) as any[];
-    const elegiveis = membros
-      .filter((p) => (excluirAdmins ? !p?.admin : true))
+
+    // Os dois motivos de ficar de fora sao CONTADOS SEPARADO de proposito.
+    // Juntar "e admin" com "nao tem numero" num contador so faz o resultado
+    // mentir: num grupo de 4 onde 3 sao admin, sairia "3 sem numero" — e o
+    // Roberto acharia que o WhatsApp escondeu, quando na verdade foi o filtro.
+    const admins = membros.filter((p) => p?.admin);
+    const considerados = excluirAdmins ? membros.filter((p) => !p?.admin) : membros;
+    const elegiveis = considerados
       .map((p) => this.telefoneDe(p))
       .filter((t): t is string => !!t);
 
@@ -519,7 +525,10 @@ export class WhatsAppService {
       ganhadores: urna.slice(0, qtd),
       totalMembros: membros.length,
       participaram: elegiveis.length,
-      semNumero: membros.length - elegiveis.length,
+      // Quem o WhatsApp escondeu (problema de verdade)
+      semNumero: considerados.length - elegiveis.length,
+      // Quem VOCE tirou pelo filtro (decisao sua, nao limitacao)
+      adminsExcluidos: excluirAdmins ? admins.length : 0,
       sorteadoEm: new Date().toISOString(),
     };
   }

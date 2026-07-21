@@ -12,6 +12,7 @@ import RadarLoading from '../components/RadarLoading';
  */
 export default function Sorteador() {
   const [grupos, setGrupos] = useState([]);
+  const [numeroInstancia, setNumeroInstancia] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
@@ -30,6 +31,7 @@ export default function Sorteador() {
     try {
       const { data } = await api.get('/whatsapp/comunidades');
       setGrupos(data?.data || []);
+      setNumeroInstancia(data?.numeroInstancia || '');
     } catch (e) {
       setErro(e?.response?.data?.error || 'Não foi possível carregar os grupos.');
     } finally {
@@ -71,6 +73,13 @@ export default function Sorteador() {
         <p className="text-orange-100 text-sm">
           Sorteie ganhadores entre os membros dos seus grupos e comunidades do WhatsApp
         </p>
+        {numeroInstancia && (
+          <p className="text-orange-100/80 text-xs mt-2">
+            Mostrando os grupos onde o WhatsApp do sistema
+            (<strong>{formatarTelefone(numeroInstancia)}</strong>) é administrador.
+            Grupo que não aparece aqui é grupo onde esse número não é admin.
+          </p>
+        )}
       </div>
 
       {erro && (
@@ -217,9 +226,16 @@ export default function Sorteador() {
               <div className="mt-4 pt-4 border-t text-xs text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
                 <span>Concorreram: <strong>{resultado.participaram}</strong></span>
                 <span>Total de membros: <strong>{resultado.totalMembros}</strong></span>
+                {resultado.adminsExcluidos > 0 && (
+                  <span>
+                    Administradores fora (você escolheu):{' '}
+                    <strong>{resultado.adminsExcluidos}</strong>
+                  </span>
+                )}
                 {resultado.semNumero > 0 && (
                   <span className="text-amber-700">
-                    Ficaram de fora (sem número): <strong>{resultado.semNumero}</strong>
+                    Sem número visível (WhatsApp ocultou):{' '}
+                    <strong>{resultado.semNumero}</strong>
                   </span>
                 )}
               </div>
