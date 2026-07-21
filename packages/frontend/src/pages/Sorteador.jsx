@@ -105,6 +105,16 @@ const formatarTelefone = (tel) => {
 };
 
 /**
+ * Mesmo telefone, com o ultimo digito virando "*".
+ * Precisa valer no resumo e no podio tambem: esconder so na roleta nao adianta
+ * nada se o numero inteiro aparece logo abaixo — o "*" vira enfeite.
+ */
+const formatarTelefoneMascarado = (tel, revelar) => {
+  const txt = formatarTelefone(tel);
+  return revelar ? txt : txt.slice(0, -1) + '*';
+};
+
+/**
  * Roleta: cada dígito gira e trava da esquerda pra direita.
  * O ÚLTIMO fica escondido como "*" até o usuário clicar no olhinho — é o
  * suspense que o Roberto pediu.
@@ -452,7 +462,7 @@ export default function Sorteador() {
                               key={t}
                               className="bg-white/20 backdrop-blur text-white font-mono text-sm px-3 py-1.5 rounded-full"
                             >
-                              {i + 1}º {formatarTelefone(t)}
+                              {i + 1}º {formatarTelefoneMascarado(t, revelarUltimo)}
                             </span>
                           ))}
                         </div>
@@ -491,16 +501,23 @@ export default function Sorteador() {
                   >
                     <span className="text-orange-600 font-bold">{i + 1}º</span>
                     <span className="font-mono font-semibold text-gray-900">
-                      {formatarTelefone(tel)}
+                      {formatarTelefoneMascarado(tel, revelarUltimo)}
                     </span>
-                    <a
-                      href={`https://wa.me/${tel}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ml-auto text-sm text-green-700 hover:underline"
-                    >
-                      Abrir conversa →
-                    </a>
+                    {revelarUltimo ? (
+                      <a
+                        href={`https://wa.me/${tel}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-auto text-sm text-green-700 hover:underline"
+                      >
+                        Abrir conversa →
+                      </a>
+                    ) : (
+                      // O link carrega o numero completo na URL — some junto com o "*"
+                      <span className="ml-auto text-xs text-gray-400">
+                        revele o último dígito para abrir
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
