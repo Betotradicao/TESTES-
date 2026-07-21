@@ -631,9 +631,10 @@ export default function Sorteador() {
                       />
                     </div>
 
-                    {/* Nome só depois de revelar: aparecer antes entregaria
-                        quem ganhou e mataria o suspense do último dígito. */}
-                    {revelarUltimo && resultado.nomes?.[ganhadorAtual] && (
+                    {/* Nome sai assim que a roleta trava, INDEPENDENTE do olhinho:
+                        quem ganhou é a comemoração. O dígito escondido serve pra
+                        não expor o telefone da pessoa numa tela que todo mundo vê. */}
+                    {!girando && travados > 0 && resultado.nomes?.[ganhadorAtual] && (
                       <p className="text-white text-2xl sm:text-3xl font-black mb-5 drop-shadow">
                         🎉 {resultado.nomes[ganhadorAtual]}
                       </p>
@@ -674,7 +675,9 @@ export default function Sorteador() {
                               key={t}
                               className="bg-white/20 backdrop-blur text-white font-mono text-sm px-3 py-1.5 rounded-full"
                             >
-                              {i + 1}º {formatarTelefoneMascarado(t, revelarUltimo)}
+                              {i + 1}º {resultado.nomes?.[t]
+                                ? `${resultado.nomes[t]} · ${formatarTelefoneMascarado(t, revelarUltimo)}`
+                                : formatarTelefoneMascarado(t, revelarUltimo)}
                             </span>
                           ))}
                         </div>
@@ -716,7 +719,7 @@ export default function Sorteador() {
                       <div className="font-mono font-semibold text-gray-900">
                         {formatarTelefoneMascarado(tel, revelarUltimo)}
                       </div>
-                      {revelarUltimo && resultado.nomes?.[tel] && (
+                      {resultado.nomes?.[tel] && (
                         <div className="text-sm text-gray-600 truncate">
                           {resultado.nomes[tel]}
                         </div>
