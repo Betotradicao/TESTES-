@@ -19,6 +19,13 @@ Registrar: `POST /api/disparo-whatsapp/setup-webhook`.
 Causa-raiz completa e armadilhas (token criptografado, enum de eventos, 1 webhook por
 instância): [[../bugs-resolvidos/2026-07-20-chatbot-mudo-webhook-evolution]]
 
+## 🤐 Regra de silêncio (20/07) — o bot só responde a NÚMERO
+Menu vai uma vez (respeitando `intervalo_menu_horas`). Depois disso, texto que não casa
+com opção = **silêncio total**. Não existe mais "❓ Não entendi" nem repetição do bloco.
+Pra os números seguirem valendo, a sessão é **reancorada no menu** (calada) sempre que
+para num bloco-folha — ver `reancorarNoMenu` no `mkt-chatbot.service.ts` e
+[[../bugs-resolvidos/2026-07-20-chatbot-mudo-webhook-evolution]] (PARTE C).
+
 ## 🔁 Menu reaparecendo a cada resposta?
 `intervalo_menu_horas` no fluxo controla de quanto em quanto tempo o menu pode ir pro MESMO
 contato (0 = sempre). O fluxo volta pro menu sozinho após responder uma opção — o laço de

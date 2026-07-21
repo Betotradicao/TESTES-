@@ -111,5 +111,38 @@ Sem isso, o menu poderia sair duas vezes na mesma execução.
 
 `intervalo_menu_horas = 0` mantém o comportamento antigo (menu sempre).
 
+---
+
+# PARTE C — Bot respondia a QUALQUER frase, repetindo a última opção
+
+## 🐛 Sintoma
+Cliente escolhia a opção 4 (ATENDENTE), lia a resposta e depois escrevia qualquer coisa
+solta ("Oferta", "Olá") → levava **"❓ Não entendi sua resposta"** + o **bloco 4 inteiro
+de novo**, toda vez. Parecia que o cooldown do menu não funcionava — mas não era o menu
+que voltava, era a **última opção escolhida**.
+
+## 🎯 Causa-raiz (dois defeitos empilhados)
+1. **Não casou = repetia o bloco + "Não entendi".** Comportamento herdado. Cliente real
+   escreve solto o tempo todo → cada frase virava 2 mensagens nossas.
+2. **A sessão ficava presa no bloco-folha da opção escolhida.** `renderizarBloco` sai do
+   laço em `aguardaResposta`/`encerrar`, então `bloco_atual_id` parava na opção 4 — que
+   não tem conexão de saída nenhuma. Daí em diante **nada** casava.
+
+> 🔑 Corrigir só o (1) deixaria o bot **mudo pra sempre**: parado na folha, nem "2"
+> casaria. Os dois têm que andar juntos.
+
+## ✅ Regra do Roberto (20/07) — a que vale hoje
+> Menu vai **uma vez** (respeitando `intervalo_menu_horas`). Depois disso o bot **só
+> responde a número de opção válido**. Qualquer outro texto = **silêncio total**.
+
+## ✅ Correção
+- Não casou → `return` calado. Sem "Não entendi", sem repetir bloco.
+- Novo `reancorarNoMenu(sessao, fluxo)` no fim do laço: se a sessão parou num bloco
+  **sem conexão de saída**, reaponta `bloco_atual_id` pro inicial **sem reenviar o menu**.
+  Bloco com saída própria (submenu de verdade) fica onde está.
+- Sessão nova com menu em cooldown: tenta casar o texto contra o menu **antes** de calar
+  (o bloco `atendente` finaliza a sessão, e sem isso o próximo número era descartado e o
+  cliente tinha que digitar duas vezes).
+
 ## 🏷️ Tags
 #bug #chatbot #whatsapp #evolution #webhook #menu #tradicao

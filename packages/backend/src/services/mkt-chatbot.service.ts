@@ -464,23 +464,31 @@ export class MktChatbotService {
       } as MktChatbotMensagem);
 
       if (menuEmCooldown) {
-        console.log(`[Chatbot] ${tel}: menu em cooldown (${fluxo.intervalo_menu_horas}h), nao reenviando`);
-        return;
-      }
+        // Menu ja foi ha pouco. A sessao pode ter fechado no meio (bloco
+        // 'atendente' finaliza a sessao), entao o numero que o cliente digitou
+        // agora ainda vale pro menu que ele tem na tela — tenta casar antes de
+        // calar, senao ele digita "2", leva silencio e precisa digitar de novo.
+        const escolhido = await this.resolverProximoBloco(inicial, textoRecebido);
+        if (!escolhido) {
+          console.log(`[Chatbot] ${tel}: menu em cooldown (${fluxo.intervalo_menu_horas}h) e "${textoRecebido}" nao e opcao — silencio`);
+          return;
+        }
+        proximoBloco = escolhido;
+      } else {
+        // Saudacao 1a vez ou recorrente
+        const saudacao = eraNovo ? fluxo.mensagem_primeira_vez : fluxo.mensagem_recorrente;
+        if (saudacao) {
+          await this.enviarTexto(instance, tel, saudacao);
+          await AppDataSource.getRepository(MktChatbotMensagem).save({
+            sessao_id: sessao.id,
+            direcao: 'enviada',
+            conteudo: saudacao,
+          } as MktChatbotMensagem);
+          await this.delay(1);
+        }
 
-      // Saudacao 1a vez ou recorrente
-      const saudacao = eraNovo ? fluxo.mensagem_primeira_vez : fluxo.mensagem_recorrente;
-      if (saudacao) {
-        await this.enviarTexto(instance, tel, saudacao);
-        await AppDataSource.getRepository(MktChatbotMensagem).save({
-          sessao_id: sessao.id,
-          direcao: 'enviada',
-          conteudo: saudacao,
-        } as MktChatbotMensagem);
-        await this.delay(1);
+        proximoBloco = inicial;
       }
-
-      proximoBloco = inicial;
     } else {
       // Sessao ativa — interpreta resposta
       await AppDataSource.getRepository(MktChatbotMensagem).save({
@@ -499,16 +507,17 @@ export class MktChatbotService {
       } else {
         proximoBloco = await this.resolverProximoBloco(blocoAtual, textoRecebido);
         if (!proximoBloco) {
-          // Nao casou com nenhuma opcao. Repetir o bloco e o certo (o cliente
-          // errou a opcao), mas se o bloco for o MENU e ele acabou de receber o
-          // menu, repetir vira spam — cala a boca ate o cooldown passar.
-          if (blocoAtual.is_inicial && menuEmCooldown) {
-            console.log(`[Chatbot] ${tel}: resposta invalida no menu, mas menu em cooldown — ignorando`);
-            return;
-          }
-          await this.delay(1);
-          await this.enviarTexto(instance, tel, '❓ Não entendi sua resposta. Por favor, escolha uma das opções abaixo:');
-          proximoBloco = blocoAtual;
+          // Nao casou com nenhuma opcao => SILENCIO TOTAL.
+          // Nada de "nao entendi" e nada de repetir o bloco: o cliente escreve
+          // solto ("Oferta", "Ola", "obrigado") o tempo todo e cada frase virava
+          // duas mensagens nossas. Depois que o menu ja foi, o bot so responde a
+          // numero de opcao valido.
+          // A sessao continua apontada pro mesmo bloco, entao o numero certo
+          // digitado depois cai na opcao certa.
+          console.log(`[Chatbot] ${tel}: "${textoRecebido}" nao casou com opcao — silencio`);
+          sessao.ultima_atividade_at = new Date();
+          await sessaoRepo.save(sessao);
+          return;
         }
       }
     }
@@ -539,6 +548,41 @@ export class MktChatbotService {
       // Bloco automatico — avanca
       proximoBloco = await this.resolverProximoBloco(proximoBloco, '');
     }
+
+    await this.reancorarNoMenu(sessao, fluxo);
+  }
+
+  /**
+   * Se a sessao parou num bloco-folha (sem conexao de saida), reaponta ela pro
+   * bloco inicial — SEM reenviar o menu.
+   *
+   * Sem isso a sessao fica presa na opcao que o cliente escolheu: como agora
+   * "nao casou = silencio", ele digitaria "2" e o bot ficaria mudo pra sempre,
+   * porque o bloco da opcao 4 nao tem opcao 2 nenhuma. Reancorando calado, os
+   * numeros do menu voltam a valer sem o menu reaparecer.
+   *
+   * Bloco com saida propria (submenu de verdade) fica onde esta.
+   */
+  private static async reancorarNoMenu(
+    sessao: MktChatbotSessao,
+    fluxo: MktChatbotFluxo,
+  ): Promise<void> {
+    if (sessao.status !== 'ativa' || !sessao.bloco_atual_id) return;
+
+    const blocoRepo = AppDataSource.getRepository(MktChatbotBloco);
+    const atual = await blocoRepo.findOne({ where: { id: sessao.bloco_atual_id } });
+    if (!atual || atual.is_inicial) return;
+
+    const saidas = await AppDataSource.getRepository(MktChatbotConexao).count({
+      where: { origem_id: atual.id },
+    });
+    if (saidas > 0) return;
+
+    const inicial = await blocoRepo.findOne({ where: { fluxo_id: fluxo.id, is_inicial: true } });
+    if (!inicial) return;
+
+    sessao.bloco_atual_id = inicial.id;
+    await AppDataSource.getRepository(MktChatbotSessao).save(sessao);
   }
 
   /**

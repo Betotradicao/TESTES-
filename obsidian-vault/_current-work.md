@@ -1,5 +1,23 @@
 # 🚧 Trabalho em Andamento
 
+## 🤐 Chatbot — silêncio pra texto que não é opção (20/07) — ⏳ AGUARDANDO TESTE DO ROBERTO
+
+**Reclamação:** qualquer frase solta ("Oferta", "Olá") levava "❓ Não entendi" + o bloco da
+**última opção escolhida** repetido.
+
+**FEITO no local (D:), NÃO commitado** — `mkt-chatbot.service.ts`, `tsc --noEmit` limpo:
+1. Não casou com opção → `return` calado (removido o "Não entendi" + repetição do bloco).
+2. Novo `reancorarNoMenu()` no fim do laço — sessão presa em bloco-folha volta a apontar
+   pro menu **sem reenviá-lo**, senão o silêncio deixaria o bot mudo pra sempre.
+3. Sessão nova em cooldown tenta casar o número antes de calar (bloco `atendente` fecha a
+   sessão; sem isso o próximo número era descartado).
+
+⏭️ Roberto testar no **5512988996258**: "oi" → menu · "4" → resposta · "Oferta" → nada ·
+"2" → resposta da 2. Se OK: commit + push TESTE + deploy Tradição.
+Causa-raiz em [[bugs-resolvidos/2026-07-20-chatbot-mudo-webhook-evolution]] (PARTE C).
+
+---
+
 ## 🆕 Vision Palavra-Chave — filtros por Operador e por Faixa de Valor (18/07) — ⏳ TESTAR NO LOCAL
 
 Roberto pediu 2 filtros novos no Vision Palavra-Chave (sem precisar de palavra-chave):
@@ -20,8 +38,16 @@ Roberto pediu 2 filtros novos no Vision Palavra-Chave (sem precisar de palavra-c
   Corrigido contador "0 de 93" do cabeçalho (resquício do filtro antigo por nome).
 - `tsc --noEmit` limpo. Detalhes em [[modulos/vision-palavra-chave]].
 
-⏭️ **PRÓXIMO:** Roberto testar em `http://10.6.1.171:3004` (Vision Palavra-Chave). Filtros+ordenação+
-data/hora já **commitados** na TESTE (`3fdd208`). **Não deployado.**
+✅ **DEPLOYADO NO TRADIÇÃO (18/07)** — `git pull` subiu `75d6788..35420fe`. Foi tudo junto:
+Vision (filtros/ordenação/consulta-DVR) **+ Conciliação Manual** (que estava só na TESTE, nunca
+em prod). Backend `healthy`, frontend servindo o bundle novo. Migrations da Conciliação = no-op
+(tabelas já existiam no banco de prod). Roberto autorizou subir tudo.
+
+> ⚠️ **Frontend fica `unhealthy` no `docker ps` mas ESTÁ SERVINDO.** Healthcheck sonda
+> `wget localhost:3004`; nesse container (nginx/1.31.3 Alpine) `localhost` resolve `::1` e o
+> `listen 3004;` do default.conf é só IPv4 → healthcheck recusa, mas o tráfego público (via eth0)
+> é atendido 200 normalmente. Cosmético. Fix real = adicionar `listen [::]:3004;` no default.conf
+> do frontend (não feito, fora do escopo do deploy).
 
 ## 🚨 Investigação "consulta de preço" (18/07) — PROVADO: não existe no Oracle
 
