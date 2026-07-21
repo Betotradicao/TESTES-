@@ -259,23 +259,41 @@ export class DisparoWhatsAppService {
       const event = data.event;
       const msgData = data.data;
 
-      if (!msgData?.key?.id) return;
+      // ⚠️ Na Evolution v2 o payload MUDA por evento:
+      //   messages.upsert -> { data: { key: { id } } }        (aninhado)
+      //   messages.update -> { data: { keyId, status } }      (ACHATADO)
+      // O codigo antigo so lia `key.id` e devolvia calado no update, entao
+      // NENHUM recibo de entrega/leitura era gravado — as colunas Entregue e
+      // Lida ficavam eternamente vazias, sem erro nenhum no log.
+      const evolutionMsgId = msgData?.key?.id || msgData?.keyId || msgData?.messageId;
+      if (!evolutionMsgId) {
+        console.warn(`⚠️ [WEBHOOK DISPARO] ${event}: sem id de mensagem no payload`);
+        return;
+      }
 
-      const evolutionMsgId = msgData.key.id;
       const msgRepo = AppDataSource.getRepository(DisparoMensagem);
       const contatoRepo = AppDataSource.getRepository(DisparoContato);
       const campanhaRepo = AppDataSource.getRepository(DisparoCampanha);
 
       const msg = await msgRepo.findOne({ where: { evolution_msg_id: evolutionMsgId } });
-      if (!msg) return;
+      if (!msg) {
+        // Nao e erro: recibo de mensagem que nao saiu do disparo (chatbot,
+        // conversa manual). Logado pra nao voltar a ser um sumico silencioso.
+        console.log(`ℹ️ [WEBHOOK DISPARO] ${event} de msg fora do disparo (${evolutionMsgId})`);
+        return;
+      }
 
       const now = new Date();
 
       if (event === 'messages.update' || event === 'message-receipt.update') {
         const status = msgData.status || msgData.receipt?.status;
+        console.log(`📬 [WEBHOOK DISPARO] msg ${msg.id}: status=${status}`);
 
         if (status === 'DELIVERY_ACK' || status === 'delivered' || status === 3) {
-          if (msg.status !== 'read') {
+          // O WhatsApp reenvia o mesmo recibo varias vezes. Sem checar
+          // 'delivered' aqui, cada repeticao somava +1 em entregues e a
+          // campanha acabava com mais entregas do que mensagens enviadas.
+          if (msg.status !== 'read' && msg.status !== 'delivered') {
             msg.status = 'delivered';
             msg.delivered_at = now;
             await msgRepo.save(msg);
@@ -289,21 +307,25 @@ export class DisparoWhatsAppService {
           }
         }
 
-        if (status === 'READ' || status === 'read' || status === 4) {
-          msg.status = 'read';
-          msg.read_at = now;
-          if (!msg.delivered_at) msg.delivered_at = now;
-          await msgRepo.save(msg);
+        // PLAYED e o "ouviu o audio" — conta como leitura.
+        if (status === 'READ' || status === 'read' || status === 'PLAYED' || status === 4) {
+          // Mesma protecao do delivered: recibo repetido nao pode somar de novo.
+          if (msg.status !== 'read') {
+            msg.status = 'read';
+            msg.read_at = now;
+            if (!msg.delivered_at) msg.delivered_at = now;
+            await msgRepo.save(msg);
 
-          // Atualizar contato
-          await contatoRepo.increment({ id: msg.contato_id }, 'total_lidos', 1);
-          await contatoRepo.update(msg.contato_id, {
-            last_interaction_at: now,
-            score: () => 'LEAST(score + 5, 100)'
-          });
+            // Atualizar contato
+            await contatoRepo.increment({ id: msg.contato_id }, 'total_lidos', 1);
+            await contatoRepo.update(msg.contato_id, {
+              last_interaction_at: now,
+              score: () => 'LEAST(score + 5, 100)'
+            });
 
-          // Atualizar campanha
-          await campanhaRepo.increment({ id: msg.campanha_id }, 'lidos', 1);
+            // Atualizar campanha
+            await campanhaRepo.increment({ id: msg.campanha_id }, 'lidos', 1);
+          }
         }
       }
     } catch (err) {
