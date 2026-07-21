@@ -134,6 +134,8 @@ export class ConciliacaoController {
       const filters = {
         codLoja: req.query.codLoja as string,
         bankId: req.query.bankId as string,
+        // CSV de contas — o demonstrativo consolida todas de uma vez
+        bankIds: req.query.bankIds as string,
         dtaInicio: req.query.dtaInicio as string,
         dtaFim: req.query.dtaFim as string,
         mesAno: req.query.mesAno as string,

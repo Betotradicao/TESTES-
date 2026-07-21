@@ -18,6 +18,7 @@ interface ConciliacaoFilters {
   codBanco?: string;
   codBancoSistema?: string; // Banco para filtrar no sistema (TAB_FLUXO), pode ser diferente do banco API
   bankId?: string; // ID do bank_accounts (PostgreSQL) para API Santander
+  bankIds?: string; // CSV de ids — Demonstrativo Manual consolida varias contas
   desCc?: string; // Conta corrente (DES_CC) para filtrar no sistema
   mesAno?: string; // YYYY-MM (legacy)
   dtaInicio?: string; // YYYY-MM-DD
@@ -901,16 +902,28 @@ export class ConciliacaoService {
     const codLoja = Number(filters.codLoja) || 1;
 
     // Extrato do banco (mesma fonte do modo Sistema)
+    // Aceita uma conta (bankId) ou varias (bankIds CSV). O Demonstrativo Manual
+    // usava UMA conta fixa no front, entao o extrato das outras (ADM COMERCIAL,
+    // Tricard) simplesmente nao aparecia no demonstrativo.
+    const contas = (filters.bankIds || filters.bankId || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     let movBcoRows: any[] = [];
-    if (filters.bankId) {
+    if (contas.length) {
       const monthRanges = splitIntoMonths(dtaInicio, dtaFim);
       let allBankItems: any[] = [];
-      for (const range of monthRanges) {
-        try {
-          const items = await fetchBankPages(filters.bankId, range.start, range.end);
-          allBankItems = allBankItems.concat(items);
-        } catch (err: any) {
-          console.error(`[Conciliacao-Manual] Erro no mês ${range.start}: ${err.message}`);
+      for (const contaId of contas) {
+        for (const range of monthRanges) {
+          try {
+            const items = await fetchBankPages(contaId, range.start, range.end);
+            allBankItems = allBankItems.concat(
+              items.map((it: any) => ({ ...it, __bankId: contaId })),
+            );
+          } catch (err: any) {
+            console.error(`[Conciliacao-Manual] Erro conta ${contaId} mês ${range.start}: ${err.message}`);
+          }
         }
       }
       movBcoRows = allBankItems.map((item, idx) => {
@@ -921,6 +934,7 @@ export class ConciliacaoService {
           FAVORECIDO: [item.transactionName, item.historicComplement].filter(Boolean).join(' - '),
           VAL_DOCTO: parseFloat(item.amount) || 0,
           TIPO_OPERACAO: item.creditDebitType === 'CREDITO' ? 0 : 1,
+          BANK_ID: item.__bankId,
         };
       });
     }

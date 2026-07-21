@@ -139,44 +139,66 @@ function getTotalCellValue(colId, totais, type) {
 }
 
 // Demonstrativo montado pelas amarrações da Conciliação (modo Direto Manual)
-/** Cabeçalho clicável: 1º clique A→Z, 2º Z→A, 3º volta pra ordem original. */
-function ThOrdenavel({ label, col, sortCol, sortDir, onSort, align = 'left' }) {
-  const ativo = sortCol === col;
+/** Setinha de ordenação que mora DENTRO da linha do grupo (verde/laranja). */
+function SetaOrdem({ ativo, dir }) {
   return (
-    <th
-      onClick={() => onSort(col)}
-      title="Clique para ordenar"
-      className={`text-${align} py-2 px-3 font-semibold cursor-pointer select-none hover:bg-gray-600 transition`}
-    >
-      {label}{' '}
-      <span className={ativo ? 'text-orange-300' : 'text-gray-400'}>
-        {ativo ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
-      </span>
-    </th>
+    <span className={`ml-1 text-xs ${ativo ? 'opacity-100' : 'opacity-40'}`}>
+      {ativo ? (dir === 'asc' ? '▲' : '▼') : '⇅'}
+    </span>
   );
 }
 
 function DemonstrativoManual({ data, loading }) {
   // Hooks antes de qualquer return — senão a ordem quebra entre renders.
-  const [sortCol, setSortCol] = useState(null);   // null = ordem do backend
-  const [sortDir, setSortDir] = useState('asc');
+  // Ordenação é POR GRUPO: cada faixa verde/laranja ordena só as contas dela.
+  const [ordemPorGrupo, setOrdemPorGrupo] = useState({});
   const [abertos, setAbertos] = useState({});     // quais contas estão com o (+) aberto
+  const [ordemLanc, setOrdemLanc] = useState({}); // ordenação dentro de cada (+)
 
-  const handleSort = (col) => {
-    if (sortCol !== col) { setSortCol(col); setSortDir('asc'); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); return; }
-    setSortCol(null);   // 3º clique volta pro padrão (receitas por valor desc)
+  const handleSortLanc = (chave, col) => {
+    setOrdemLanc((prev) => {
+      const atual = prev[chave];
+      if (!atual || atual.col !== col) return { ...prev, [chave]: { col, dir: 'asc' } };
+      if (atual.dir === 'asc') return { ...prev, [chave]: { col, dir: 'desc' } };
+      const { [chave]: _, ...resto } = prev;
+      return resto;   // 3º clique volta pro padrão (data desc)
+    });
   };
 
-  const ordenar = (lista, campoNome, campoValor) => {
-    if (!sortCol) return lista;
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...lista].sort((a, b) => {
-      if (sortCol === 'nome') {
-        return dir * String(a[campoNome] || '').localeCompare(String(b[campoNome] || ''), 'pt-BR');
+  const ordenarLancamentos = (lancamentos, chave) => {
+    const ordem = ordemLanc[chave];
+    if (!ordem) return lancamentos;
+    const mult = ordem.dir === 'asc' ? 1 : -1;
+    return [...lancamentos].sort((a, b) => {
+      if (ordem.col === 'data') {
+        return mult * (new Date(a.data || 0).getTime() - new Date(b.data || 0).getTime());
+      }
+      if (ordem.col === 'valor') return mult * ((a.valor || 0) - (b.valor || 0));
+      return mult * String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR');
+    });
+  };
+
+  // 1º clique A→Z, 2º Z→A, 3º volta pra ordem original (valor desc)
+  const handleSort = (grupoNome, col) => {
+    setOrdemPorGrupo((prev) => {
+      const atual = prev[grupoNome];
+      if (!atual || atual.col !== col) return { ...prev, [grupoNome]: { col, dir: 'asc' } };
+      if (atual.dir === 'asc') return { ...prev, [grupoNome]: { col, dir: 'desc' } };
+      const { [grupoNome]: _, ...resto } = prev;
+      return resto;
+    });
+  };
+
+  const ordenarContas = (contas, grupoNome) => {
+    const ordem = ordemPorGrupo[grupoNome];
+    if (!ordem) return contas;
+    const mult = ordem.dir === 'asc' ? 1 : -1;
+    return [...contas].sort((a, b) => {
+      if (ordem.col === 'nome') {
+        return mult * String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
       }
       // 'valor' e 'pct' ordenam igual — a % é o valor dividido pelo mesmo total
-      return dir * ((a[campoValor] || 0) - (b[campoValor] || 0));
+      return mult * ((a.valor || 0) - (b.valor || 0));
     });
   };
 
@@ -223,9 +245,9 @@ function DemonstrativoManual({ data, loading }) {
           </colgroup>
           <thead>
             <tr className="bg-gray-700 text-white">
-              <ThOrdenavel label="Movimento (Manual)" col="nome" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-              <ThOrdenavel label="Valor" col="valor" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="right" />
-              <ThOrdenavel label="% Entradas" col="pct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="right" />
+              <th className="text-left py-2 px-3 font-semibold">Movimento (Manual)</th>
+              <th className="text-right py-2 px-3 font-semibold">Valor</th>
+              <th className="text-right py-2 px-3 font-semibold">% Entradas</th>
               <th className="bg-gray-700"></th>
             </tr>
           </thead>
@@ -233,18 +255,43 @@ function DemonstrativoManual({ data, loading }) {
             {grupos.length === 0 && naoClass.total === 0 && (
               <tr><td colSpan={4} className="text-center py-8 text-gray-400">Nenhuma amarração no período. Amarre linhas na Conciliação (Direto Manual).</td></tr>
             )}
-            {/* Receita/Despesa continua sendo a divisão principal mesmo ordenando:
-                misturar as duas quebraria a leitura do demonstrativo. */}
-            {ordenar(grupos, 'nome', 'total').map((g, gi) => (
+            {grupos.map((g, gi) => {
+              const ordem = ordemPorGrupo[g.nome];
+              const hover = g.is_receita ? 'hover:bg-green-200' : 'hover:bg-orange-200';
+
+              return (
               <React.Fragment key={g.nome + gi}>
+                {/* A própria faixa do grupo é o controle: clicar em cada célula
+                    ordena as contas DAQUELE grupo por aquela coluna. */}
                 <tr className={g.is_receita ? 'bg-green-100 text-green-900' : 'bg-orange-100 text-orange-900'}>
-                  <td className="py-1.5 px-3 font-bold">{g.nome}</td>
-                  <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(g.total)}</td>
-                  <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(g.total))}</td>
+                  <td
+                    onClick={() => handleSort(g.nome, 'nome')}
+                    title="Ordenar as contas deste grupo por nome"
+                    className={`py-1.5 px-3 font-bold cursor-pointer select-none ${hover}`}
+                  >
+                    {g.nome}
+                    <SetaOrdem ativo={ordem?.col === 'nome'} dir={ordem?.dir} />
+                  </td>
+                  <td
+                    onClick={() => handleSort(g.nome, 'valor')}
+                    title="Ordenar as contas deste grupo por valor"
+                    className={`py-1.5 px-3 text-right font-bold cursor-pointer select-none ${hover}`}
+                  >
+                    R$ {formatCurrency(g.total)}
+                    <SetaOrdem ativo={ordem?.col === 'valor'} dir={ordem?.dir} />
+                  </td>
+                  <td
+                    onClick={() => handleSort(g.nome, 'pct')}
+                    title="Ordenar as contas deste grupo por %"
+                    className={`py-1.5 px-3 text-right font-bold cursor-pointer select-none ${hover}`}
+                  >
+                    {formatPercent(pct(g.total))}
+                    <SetaOrdem ativo={ordem?.col === 'pct'} dir={ordem?.dir} />
+                  </td>
                   <td></td>
                 </tr>
 
-                {ordenar(g.contas || [], 'nome', 'valor').map((c, ci) => {
+                {ordenarContas(g.contas || [], g.nome).map((c, ci) => {
                   const chave = `${g.nome}|${c.id ?? ci}`;
                   const aberto = !!abertos[chave];
                   const lancamentos = c.lancamentos || [];
@@ -279,13 +326,31 @@ function DemonstrativoManual({ data, loading }) {
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-gray-500 border-b border-gray-200">
-                                    <th className="text-left py-1 font-medium w-24">Data</th>
-                                    <th className="text-left py-1 font-medium">Descrição</th>
-                                    <th className="text-right py-1 font-medium w-32">Valor</th>
+                                    <th
+                                      onClick={() => handleSortLanc(chave, 'data')}
+                                      className="text-left py-1 font-medium w-24 cursor-pointer select-none hover:text-orange-600"
+                                    >
+                                      Data
+                                      <SetaOrdem ativo={ordemLanc[chave]?.col === 'data'} dir={ordemLanc[chave]?.dir} />
+                                    </th>
+                                    <th
+                                      onClick={() => handleSortLanc(chave, 'descricao')}
+                                      className="text-left py-1 font-medium cursor-pointer select-none hover:text-orange-600"
+                                    >
+                                      Descrição
+                                      <SetaOrdem ativo={ordemLanc[chave]?.col === 'descricao'} dir={ordemLanc[chave]?.dir} />
+                                    </th>
+                                    <th
+                                      onClick={() => handleSortLanc(chave, 'valor')}
+                                      className="text-right py-1 font-medium w-32 cursor-pointer select-none hover:text-orange-600"
+                                    >
+                                      Valor
+                                      <SetaOrdem ativo={ordemLanc[chave]?.col === 'valor'} dir={ordemLanc[chave]?.dir} />
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {lancamentos.map((l, li) => (
+                                  {ordenarLancamentos(lancamentos, chave).map((l, li) => (
                                     <tr key={li} className="border-b border-gray-100 last:border-0">
                                       <td className="py-1 text-gray-600 whitespace-nowrap">
                                         {l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '—'}
@@ -306,7 +371,8 @@ function DemonstrativoManual({ data, loading }) {
                   );
                 })}
               </React.Fragment>
-            ))}
+              );
+            })}
             {naoClass.total > 0 && (
               <tr className="bg-red-100 text-red-900">
                 <td className="py-1.5 px-3 font-bold">⚠️ NÃO CLASSIFICADO <span className="text-xs">({naoClass.qtd})</span></td>
@@ -336,7 +402,8 @@ export default function DemonstrativoCaixa() {
   const [modo, setModo] = useState('sistema');
   const [manualData, setManualData] = useState(null);
   const [loadingManual, setLoadingManual] = useState(false);
-  const [manualBankId, setManualBankId] = useState('');
+  const [manualBankId, setManualBankId] = useState('');   // '' = todas as contas
+  const [contasManual, setContasManual] = useState([]);
   const [considerarEntradaBancos, setConsiderarEntradaBancos] = useState(false);
   const [entradaBancosTotal, setEntradaBancosTotal] = useState(0);
   const [entradaBancosList, setEntradaBancosList] = useState([]);
@@ -413,19 +480,22 @@ export default function DemonstrativoCaixa() {
   const fetchManual = async () => {
     setLoadingManual(true);
     try {
-      let bankId = manualBankId;
-      if (!bankId) {
+      // Antes daqui ficava a conta 130075973 CHUMBADA: o extrato das outras
+      // (ADM COMERCIAL, Tricard) nunca subia pro demonstrativo e não havia
+      // como perceber — a tela não mostrava de que conta era o dado.
+      let contas = contasManual;
+      if (!contas.length) {
         const accRes = await api.get('/bank-accounts');
-        const accs = (accRes.data?.data || []).filter(a => a.ativo);
-        const santander = accs.find(a => (a.conta || '').includes('130075973'))
-          || accs.find(a => `${a.nome || ''}${a.tipo_banco || ''}`.toLowerCase().includes('santander'))
-          || accs[0];
-        bankId = santander?.id || '';
-        setManualBankId(bankId);
+        contas = (accRes.data?.data || []).filter(a => a.ativo);
+        setContasManual(contas);
       }
+
+      // '' = todas as contas (padrão)
+      const ids = manualBankId ? [manualBankId] : contas.map(a => a.id);
+
       const params = { dtaInicio: dataInicio, dtaFim: dataFim };
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
-      if (bankId) params.bankId = bankId;
+      if (ids.length) params.bankIds = ids.join(',');
       const res = await api.get('/conciliacao/demonstrativo-manual', { params });
       if (res.data?.success) setManualData(res.data);
       else toast.error(res.data?.message || 'Falha ao montar demonstrativo manual');
@@ -440,7 +510,7 @@ export default function DemonstrativoCaixa() {
   useEffect(() => {
     if (modo === 'manual') fetchManual();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modo, dataInicio, dataFim, lojaSelecionada]);
+  }, [modo, dataInicio, dataFim, lojaSelecionada, manualBankId]);
 
   // Buscar entradas dos bancos quando flag ativada
   const fetchEntradaBancos = async () => {
@@ -819,6 +889,27 @@ export default function DemonstrativoCaixa() {
                   <button onClick={() => setModo('manual')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${modo === 'manual' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>Direto Manual</button>
                 </div>
               </div>
+
+              {/* Só no Manual: qual(is) conta(s) alimentam o demonstrativo.
+                  Antes era uma conta fixa no código e o usuário não tinha
+                  como saber que faltava dinheiro de outra conta ali. */}
+              {modo === 'manual' && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-600">Conta:</label>
+                  <select
+                    value={manualBankId}
+                    onChange={(e) => setManualBankId(e.target.value)}
+                    className="border rounded-lg px-2 py-1.5 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="">Todas as contas ({contasManual.length})</option>
+                    {contasManual.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nome}{a.conta ? ` | ${a.conta}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-600">Mov. Banco:</label>
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
