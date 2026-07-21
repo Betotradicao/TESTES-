@@ -62,6 +62,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ## 🐛 Bugs Resolvidos / Features Recentes
 
 ### Julho 2026
+- [[bugs-resolvidos/2026-07-21-disparo-recibo-entrega-payload-achatado-v2|📬 Disparo: Entregue/Lida sempre vazias — payload do messages.update é achatado na v2]]
 - [[bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid|🌟🚨 Comunidade do WhatsApp esconde o número dos membros (LID) — sorteio por comunidade é inviável]]
 - [[bugs-resolvidos/2026-07-20-chatbot-mudo-webhook-evolution|🤖 Chatbot: mudo (webhook) + menu repetindo + só responde a número]]
 - [[bugs-resolvidos/2026-07-15-dvr-tradicao-reinicia-ao-ler-gravacao|⚡ DVR Tradição reiniciava ao dar Play — era a TOMADA (e a pista falsa que me enganou)]]
