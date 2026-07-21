@@ -1,5 +1,28 @@
 # 🚧 Trabalho em Andamento
 
+## 🎲 Sorteador (menu Marketing no Radar) — 20/07 — ⏳ AGUARDANDO TESTE
+
+Roberto quer sortear **entre os membros da comunidade** (recusou sortear na base dos 6.789).
+Funciona hoje na Super Tradição (4 membros, 4 números visíveis).
+
+⚠️ **Limite que NÃO é do nosso código:** WhatsApp oculta o telefone de membro de comunidade.
+Medido: Roldão 1713 membros → 2 números. Por isso a tela mostra sempre
+`Sorteáveis / Total / Sem número` — se a comunidade crescer e o WhatsApp esconder, aparece.
+Causa-raiz: [[bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid]]
+
+**Backend:** `whatsapp.service.ts` — `getNumeroInstancia()`, `listarGruposSorteaveis()`
+(comunidades **+ grupos comuns** onde é admin; casa o nó da comunidade com o grupo de Avisos
+pelo `subject`), `sortearNaComunidade()` (Fisher-Yates com `crypto.randomInt`).
+Rotas: `GET /api/whatsapp/comunidades`, `POST /api/whatsapp/sorteio`.
+`fetch-groups` aceita `?participants=true` (`a11a797`).
+
+**Frontend:** `pages/Sorteador.jsx` + rota `/sorteador` em `App.jsx` + `Sidebar.jsx`
+(3 pontos: lista de módulos L15, mapa path→seção L260, `subItems`) + `menuConstants.js`.
+
+⏭️ Roberto testar a tela. Decisões ainda em aberto:
+- Avisar o ganhador automático no WhatsApp? (hoje só mostra na tela + link "abrir conversa")
+- Guardar histórico dos sorteios em tabela? (hoje não persiste nada)
+
 ## 🤐 Chatbot — silêncio pra texto que não é opção (20/07) — ⏳ AGUARDANDO TESTE DO ROBERTO
 
 **Reclamação:** qualquer frase solta ("Oferta", "Olá") levava "❓ Não entendi" + o bloco da

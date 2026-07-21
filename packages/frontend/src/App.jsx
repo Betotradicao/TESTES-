@@ -76,6 +76,7 @@ import GarimpadorEcommerce from './pages/GarimpadorEcommerce';
 import RotaCrescimento from './pages/RotaCrescimento';
 import MarketingWhatsapp from './pages/MarketingWhatsapp';
 import DisparoWhatsapp from './pages/DisparoWhatsapp';
+import Sorteador from './pages/Sorteador';
 import MarketingChatbot from './pages/MarketingChatbot';
 import RhDashboard from './pages/RhDashboard';
 import RhConfiguracoes from './pages/RhConfiguracoes';
@@ -642,6 +643,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DisparoWhatsapp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sorteador"
+              element={
+                <ProtectedRoute>
+                  <Sorteador />
                 </ProtectedRoute>
               }
             />

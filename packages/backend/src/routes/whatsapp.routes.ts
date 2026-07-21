@@ -122,6 +122,46 @@ router.get('/fetch-groups', async (req, res) => {
 });
 
 /**
+ * GET /api/whatsapp/comunidades
+ * Comunidades onde este WhatsApp e admin, com quantos membros dao pra sortear
+ */
+router.get('/comunidades', async (req, res) => {
+  try {
+    const grupos = await WhatsAppService.listarGruposSorteaveis();
+    res.json({ success: true, data: grupos });
+  } catch (error: any) {
+    console.error('Erro ao listar comunidades:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao listar comunidades' });
+  }
+});
+
+/**
+ * POST /api/whatsapp/sorteio
+ * Sorteia ganhadores entre os membros de uma comunidade
+ * body: { avisosId, quantidade?, excluirAdmins? }
+ */
+router.post('/sorteio', async (req, res) => {
+  try {
+    const { sorteioId, quantidade, excluirAdmins } = req.body || {};
+    if (!sorteioId) {
+      return res.status(400).json({ success: false, error: 'sorteioId é obrigatório' });
+    }
+
+    const resultado = await WhatsAppService.sortearNaComunidade(
+      sorteioId,
+      Number(quantidade) || 1,
+      excluirAdmins !== false,
+    );
+
+    console.log(`🎲 Sorteio em "${resultado.comunidade}": ${resultado.ganhadores.join(', ')} (${resultado.participaram} concorrendo)`);
+    res.json({ success: true, data: resultado });
+  } catch (error: any) {
+    console.error('Erro no sorteio:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao sortear' });
+  }
+});
+
+/**
  * POST /api/whatsapp/send-bips-now
  * Envia manualmente o relatório de bipagens pendentes (ignora se já foi notificado)
  */

@@ -387,6 +387,144 @@ export class WhatsAppService {
   }
 
   /**
+   * Numero do WhatsApp logado na instancia (o "eu"), sem sufixo.
+   * Precisa disso pra saber de quais grupos somos admin.
+   */
+  static async getNumeroInstancia(): Promise<string> {
+    const { apiToken, apiUrl, instance } = await this.validateEnvironment();
+
+    const resp = await fetch(`${apiUrl}/instance/fetchInstances`, {
+      headers: { 'Content-Type': 'application/json', 'apikey': apiToken },
+    });
+    if (!resp.ok) throw new Error(`Evolution API Error: ${resp.status}`);
+
+    const lista = await resp.json() as any[];
+    const inst = (Array.isArray(lista) ? lista : []).find(
+      (i: any) => i?.name === instance || i?.instance?.instanceName === instance,
+    );
+    const cru = inst?.ownerJid || inst?.owner || inst?.number || inst?.instance?.owner || '';
+    return String(cru).split('@')[0].replace(/\D/g, '');
+  }
+
+  /**
+   * So confia no campo `phoneNumber`. O `id` do participante vem como `@lid`
+   * (identificador anonimo) e ALGUNS lids comecam com "55" com cara de telefone
+   * (ex.: 55310605623350, 14 digitos) — filtrar por prefixo da falso positivo.
+   * Ver bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid.
+   */
+  private static telefoneDe(p: any): string | null {
+    const fone = String(p?.phoneNumber || '').split('@')[0].replace(/\D/g, '');
+    return fone.length >= 12 && fone.length <= 13 ? fone : null;
+  }
+
+  /**
+   * Grupos e comunidades onde a instancia e ADMIN — a lista que alimenta o Sorteador.
+   *
+   * Comunidade e devolvida ja casada com o grupo de Avisos: o no da comunidade
+   * so tem os admins, os membros de verdade moram no Avisos. O vinculo e feito
+   * pelo `subject` porque o fetchAllGroups da Evolution nao manda `linkedParent`.
+   *
+   * O `sorteaveis` (quem tem telefone visivel) quase sempre = total em grupo
+   * comum, mas despenca em comunidade grande. Por isso vai separado.
+   */
+  static async listarGruposSorteaveis(): Promise<any[]> {
+    const [grupos, eu] = await Promise.all([
+      this.fetchGroups(true),
+      this.getNumeroInstancia(),
+    ]);
+
+    const souAdmin = (g: any) =>
+      (g?.participants || []).some(
+        (p: any) => this.telefoneDe(p) === eu && p?.admin,
+      );
+
+    const avisosPorNome = new Map<string, any>();
+    for (const g of grupos) {
+      if (g?.isCommunityAnnounce) avisosPorNome.set(String(g.subject || ''), g);
+    }
+
+    const montar = (exibido: any, fonte: any, tipo: 'comunidade' | 'grupo') => {
+      const membros = (fonte?.participants || []) as any[];
+      const comFone = membros.filter((p) => this.telefoneDe(p));
+      return {
+        id: exibido.id,
+        // De onde o sorteio realmente puxa os numeros.
+        sorteioId: fonte?.id || null,
+        tipo,
+        nome: exibido.subject,
+        descricao: exibido.desc || '',
+        criadaEm: exibido.creation ? new Date(exibido.creation * 1000).toISOString() : null,
+        totalMembros: membros.length,
+        sorteaveis: comFone.length,
+        semNumero: membros.length - comFone.length,
+      };
+    };
+
+    const comunidades = grupos
+      .filter((g: any) => g?.isCommunity && souAdmin(g))
+      .map((no: any) => montar(no, avisosPorNome.get(String(no.subject || '')), 'comunidade'));
+
+    // Grupo comum: fora o de Avisos (ja representado pela comunidade dele).
+    const comuns = grupos
+      .filter((g: any) => !g?.isCommunity && !g?.isCommunityAnnounce && souAdmin(g))
+      .map((g: any) => montar(g, g, 'grupo'));
+
+    return [...comunidades, ...comuns].sort((a, b) => b.sorteaveis - a.sorteaveis);
+  }
+
+  /**
+   * Sorteia N ganhadores entre os membros do grupo de Avisos de uma comunidade.
+   *
+   * Quem nao tem telefone visivel NAO entra (nao teria como ser avisado). O
+   * retorno expoe `semNumero` de proposito: sem isso o sorteio parece cobrir
+   * todo mundo e pode estar cobrindo 2 de 1713.
+   */
+  static async sortearNaComunidade(
+    sorteioId: string,
+    quantidade = 1,
+    excluirAdmins = true,
+  ): Promise<any> {
+    const crypto = require('crypto');
+
+    const grupos = await this.fetchGroups(true);
+    const grupo = grupos.find((g: any) => g?.id === sorteioId);
+    if (!grupo) throw new Error('Grupo ou comunidade não encontrada');
+
+    const membros = (grupo.participants || []) as any[];
+    const elegiveis = membros
+      .filter((p) => (excluirAdmins ? !p?.admin : true))
+      .map((p) => this.telefoneDe(p))
+      .filter((t): t is string => !!t);
+
+    if (elegiveis.length === 0) {
+      throw new Error(
+        'Ninguém sorteável: nenhum membro tem número visível. ' +
+        'O WhatsApp oculta o telefone de membro de comunidade.',
+      );
+    }
+
+    // Fisher-Yates com crypto.randomInt (nao Math.random) — e sorteio de
+    // premio, entao o embaralhamento tem que ser defensavel.
+    const urna = [...elegiveis];
+    for (let i = urna.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [urna[i], urna[j]] = [urna[j], urna[i]];
+    }
+
+    const qtd = Math.min(Math.max(1, quantidade), urna.length);
+
+    return {
+      comunidade: grupo.subject,
+      tipo: grupo.isCommunityAnnounce ? 'comunidade' : 'grupo',
+      ganhadores: urna.slice(0, qtd),
+      totalMembros: membros.length,
+      participaram: elegiveis.length,
+      semNumero: membros.length - elegiveis.length,
+      sorteadoEm: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Envia relatório de perdas/quebras para grupo do WhatsApp
    */
   static async sendLossesReport(

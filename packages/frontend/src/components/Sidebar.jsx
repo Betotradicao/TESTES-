@@ -12,7 +12,7 @@ const CONFIGURACOES_REQUIRED_MODULES = [
   // Gestao no Radar
   'gestao-inteligente', 'estoque-margem', 'compras', 'pricing', 'ofertas',
   // Marketing no Radar
-  'disparo-whatsapp', 'marketing-chatbot',
+  'disparo-whatsapp', 'marketing-chatbot', 'sorteador',
   // Vision 360
   'vision-pdv', 'vision-facial', 'vision-bipagens',
   // Garimpador 360
@@ -258,6 +258,7 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
       '/garimpador-ecommerce': 'oferta-radar',
       '/marketing-whatsapp': 'marketing-radar',
       '/disparo-whatsapp': 'marketing-radar',
+      '/sorteador': 'marketing-radar',
       '/nota-fiscal-recebimento': 'gestao-radar:financas',
       '/notas-a-chegar': 'gestao-radar:financas',
       '/demonstrativo-caixa': 'gestao-radar:financas',
@@ -722,6 +723,18 @@ export default function Sidebar({ user, onLogout, isMobileMenuOpen, setIsMobileM
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          )
+        },
+        {
+          id: 'sorteador',
+          moduleId: 'sorteador',
+          title: 'SORTEADOR',
+          path: '/sorteador',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.5 8.5h.01M15.5 15.5h.01M15.5 8.5h.01M8.5 15.5h.01M12 12h.01"/>
             </svg>
           )
         }

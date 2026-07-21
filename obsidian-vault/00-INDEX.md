@@ -61,6 +61,16 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 
 ## 🐛 Bugs Resolvidos / Features Recentes
 
+### Julho 2026
+- [[bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid|🌟🚨 Comunidade do WhatsApp esconde o número dos membros (LID) — sorteio por comunidade é inviável]]
+- [[bugs-resolvidos/2026-07-20-chatbot-mudo-webhook-evolution|🤖 Chatbot: mudo (webhook) + menu repetindo + só responde a número]]
+- [[bugs-resolvidos/2026-07-15-dvr-tradicao-reinicia-ao-ler-gravacao|⚡ DVR Tradição reiniciava ao dar Play — era a TOMADA (e a pista falsa que me enganou)]]
+- [[bugs-resolvidos/2026-07-15-tunel-dvr-chave-nao-autorizada-matava-oracle|🌟🚨 Túnel DVR com chave inválida matava o Oracle a cada 60s — um túnel morto derruba TODOS]]
+- [[bugs-resolvidos/2026-07-10-sells-sync-deadlock|🌟 Sells Sync deadlock — cron de cruzamento parava e não voltava (watchdog + statement_timeout)]]
+- [[bugs-resolvidos/2026-07-10-minio-endpoint-boot-hang|⚠️ Backend trava no boot quando minio_endpoint aponta pro IP/domínio público (hairpin NAT)]]
+- [[bugs-resolvidos/2026-07-10-santander-certificado-renovacao|🔐 Renovação certificado Santander — senha PFX, 403=cert não registrado, conversão .pfx→.cer]]
+- [[bugs-resolvidos/2026-07-10-oracle-pool-njs064-stuck|🌟 Oracle pool preso em "closing" (NJS-064) — Gestão Inteligente parava (status check + reconnect)]]
+
 ### Maio 2026
 - [[bugs-resolvidos/2026-05-22-custo-nunes-formula-correta|🌟 Custo real Nunes — fórmula ctmedio+ctvenda em movprodd (99,85%)]]
 - [[bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave|Pre-clipes DVR no Vision Palavra-Chave (botao Play verde)]]

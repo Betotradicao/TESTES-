@@ -31,6 +31,7 @@ export const MENU_MODULES = {
   PREVENCAO_TRIBUTARIA: 'prevencao-tributaria',
   // Marketing no Radar
   DISPARO_WHATSAPP: 'disparo-whatsapp',
+  SORTEADOR: 'sorteador',
   // Consultor Digital
   ROTA_CRESCIMENTO: 'rota-crescimento',
   // Vision 360
@@ -159,6 +160,7 @@ export const MENU_SUBMENUS = {
 
   // Marketing no Radar
   DISPARO_WHATSAPP_PAINEL: 'disparo-whatsapp-painel',
+  SORTEADOR_PAINEL: 'sorteador-painel',
 
   // Pricing extras
   ANALISE_RELEVANCIA: 'analise-relevancia',
@@ -625,6 +627,19 @@ export const MENU_STRUCTURE = [
         id: MENU_SUBMENUS.DISPARO_WHATSAPP_PAINEL,
         title: 'Disparo WhatsApp',
         path: '/disparo-whatsapp'
+      }
+    ]
+  },
+  {
+    id: MENU_MODULES.SORTEADOR,
+    title: 'Sorteador',
+    icon: 'phone',
+    section: 'marketing',
+    submenus: [
+      {
+        id: MENU_SUBMENUS.SORTEADOR_PAINEL,
+        title: 'Sorteador',
+        path: '/sorteador'
       }
     ]
   },
