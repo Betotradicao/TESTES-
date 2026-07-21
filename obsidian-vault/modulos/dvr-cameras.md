@@ -105,8 +105,37 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Cliente | DVR IP Local | VPS HTTP | VPS RTSP | Codec | Status |
 |---|---|---|---|---|---|
-| [[../clientes/tradicao\|Tradição]] | 10.6.1.123 (Intelbras MIB 1116) | **28100** | **28101** | transcode H.265→H.264 | ✅ (vídeo validado 15/07) |
+| [[../clientes/tradicao\|Tradição]] | **10.6.1.148** (Intelbras **MHDX 5116**) | **28100** | **28101** | transcode H.265→H.264 | ⚠️ IP trocado 21/07 — ver abaixo |
 | [[../clientes/nunes\|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
+
+## 🔄 Trocar o IP do DVR: mudar na TELA NÃO adianta
+
+O campo "IP do DVR" das Configurações de Rede **não é usado pra conectar** quando há túnel.
+`deviceToConfig` (dvr-cftv.service.ts ~L181):
+```js
+const dvrIp = isDocker && isPrivateIp && rawHttpPort > 10000 ? '172.20.0.1' : configuredIp;
+```
+IP privado + porta >10000 → conecta em `172.20.0.1` (boca do túnel) e **descarta o IP digitado**.
+Ele serve só como bandeira "é privado, vá pelo túnel".
+
+**Quem sabe o IP real do DVR é a máquina Windows da loja:**
+```powershell
+# ver config atual
+Select-String -Path "C:\ProgramData\SSHTunnels-*DVR\tunnel-service.ps1" -Pattern "LOCAL_IP|LOCAL_PORT|REMOTE_PORT"
+# trocar o IP
+$f = (Get-ChildItem 'C:\ProgramData\SSHTunnels-*DVR\tunnel-service.ps1').FullName
+(Get-Content $f -Raw) -replace '10\.6\.1\.123','10.6.1.148' | Set-Content $f -Encoding UTF8
+Get-Service SSH-Tunnel-*DVR | Restart-Service
+```
+
+**Diagnóstico pela VPS** (distingue "túnel caiu" de "túnel vivo apontando errado"):
+```bash
+ss -ltn | grep -E '28100|28101'                     # escutando? => túnel SSH de pé
+curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:28100/   # 000 => destino errado
+```
+> ⚠️ Testar a porta RTSP com TCP puro **engana**: o `-R` aceita a conexão localmente
+> antes de tentar repassar, então "aceitou" não prova que o outro lado responde.
+> **Use o teste HTTP na 28100** como sinal de verdade.
 
 ## 🚫 Por que NÃO dá pra usar "porta direta no roteador" (IP público)
 
