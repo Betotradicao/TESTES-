@@ -761,6 +761,8 @@ export class ConciliacaoService {
         conta_nome: conta?.nome || '(conta removida)',
         grupo_nome: grupo?.nome || null,
         is_receita: conta?.is_receita ?? false,
+        // Herda do grupo: marcar o grupo "TRANSFERENCIA" tira as filhas junto
+        fora_dre: (conta?.fora_dre ?? false) || (grupo?.fora_dre ?? false),
       };
     }
     return map;
@@ -813,6 +815,7 @@ export class ConciliacaoService {
             conta_nome: conta?.nome || '(conta removida)',
             grupo_nome: grupo?.nome || null,
             is_receita: conta?.is_receita ?? false,
+            fora_dre: (conta?.fora_dre ?? false) || (grupo?.fora_dre ?? false),
           };
         });
         map[m.mov_key] = { origem: 'fatura', itens, total: itens.reduce((s, i) => s + i.valor, 0) };
@@ -979,6 +982,18 @@ export class ConciliacaoService {
     const gruposMap = new Map<string, any>();
     let naoClassTotal = 0;
     let naoClassQtd = 0;
+    const naoClassLancamentos: any[] = [];
+
+    // Nome da conta bancaria pra cada linha nao classificada: com varias contas
+    // consolidadas, "R$ 80.543,74 nao classificado" sem dizer de qual banco e
+    // impossivel de caçar.
+    const nomePorBanco = new Map<string, string>();
+    try {
+      const contasBanco = await AppDataSource.getRepository(BankAccount).find();
+      for (const c of contasBanco as any[]) {
+        nomePorBanco.set(String(c.id), c.nome || c.conta || '');
+      }
+    } catch { /* nome do banco e opcional */ }
 
     for (const r of rows) {
       const val = Math.abs(parseFloat(r.banco.VAL_DOCTO) || 0);
@@ -986,6 +1001,13 @@ export class ConciliacaoService {
       if (!am) {
         naoClassTotal += val;
         naoClassQtd++;
+        naoClassLancamentos.push({
+          data: r.banco.DTA_ENTRADA,
+          descricao: r.texto_exato || r.banco.FAVORECIDO || '',
+          valor: val,
+          tipo: r.banco.TIPO_OPERACAO === 0 ? 'entrada' : 'saida',
+          banco: nomePorBanco.get(String(r.banco.BANK_ID)) || '',
+        });
         continue;
       }
       if (am.origem === 'transferencia') continue; // transferência não entra no DRE
@@ -994,15 +1016,21 @@ export class ConciliacaoService {
       const entries = am.origem === 'fatura'
         ? (am.itens || []).map((it: any) => ({
             plano_conta_id: it.plano_conta_id, conta_nome: it.conta_nome,
-            grupo_nome: it.grupo_nome, is_receita: it.is_receita, v: Number(it.valor) || 0,
+            grupo_nome: it.grupo_nome, is_receita: it.is_receita,
+            fora_dre: !!it.fora_dre, v: Number(it.valor) || 0,
           }))
-        : [{ plano_conta_id: am.plano_conta_id, conta_nome: am.conta_nome, grupo_nome: am.grupo_nome, is_receita: am.is_receita, v: val }];
+        : [{ plano_conta_id: am.plano_conta_id, conta_nome: am.conta_nome, grupo_nome: am.grupo_nome, is_receita: am.is_receita, fora_dre: !!am.fora_dre, v: val }];
 
       for (const e of entries) {
         const gKey = `${e.is_receita ? 'R' : 'D'}|${e.grupo_nome || '(sem grupo)'}`;
         let grupo = gruposMap.get(gKey);
         if (!grupo) {
-          grupo = { nome: e.grupo_nome || '(sem grupo)', is_receita: !!e.is_receita, total: 0, contasMap: new Map() };
+          grupo = {
+            nome: e.grupo_nome || '(sem grupo)', is_receita: !!e.is_receita,
+            // Aparece na tela, mas nao soma em Receitas/Despesas/Saldo
+            fora_dre: !!e.fora_dre,
+            total: 0, contasMap: new Map(),
+          };
           gruposMap.set(gKey, grupo);
         }
         grupo.total += e.v;
@@ -1027,6 +1055,7 @@ export class ConciliacaoService {
       .map(g => ({
         nome: g.nome,
         is_receita: g.is_receita,
+        fora_dre: g.fora_dre,
         total: g.total,
         contas: Array.from(g.contasMap.values())
           .map((c: any) => ({
@@ -1041,17 +1070,27 @@ export class ConciliacaoService {
       // Receitas primeiro, depois despesas; dentro, por valor desc
       .sort((a, b) => (a.is_receita === b.is_receita ? b.total - a.total : (a.is_receita ? -1 : 1)));
 
-    const totalReceitas = grupos.filter(g => g.is_receita).reduce((s, g) => s + g.total, 0);
-    const totalDespesas = grupos.filter(g => !g.is_receita).reduce((s, g) => s + g.total, 0);
+    // fora_dre fica de fora dos totais (mas continua na lista) — transferencia
+    // entre contas proprias nao e receita nem despesa, so muda de banco.
+    const totalReceitas = grupos.filter(g => g.is_receita && !g.fora_dre).reduce((s, g) => s + g.total, 0);
+    const totalDespesas = grupos.filter(g => !g.is_receita && !g.fora_dre).reduce((s, g) => s + g.total, 0);
+    const totalForaDre = grupos.filter(g => g.fora_dre).reduce((s, g) => s + g.total, 0);
 
     return {
       grupos,
-      naoClassificado: { total: naoClassTotal, qtd: naoClassQtd },
+      naoClassificado: {
+        total: naoClassTotal,
+        qtd: naoClassQtd,
+        lancamentos: naoClassLancamentos.sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime(),
+        ),
+      },
       totais: {
         totalReceitas,
         totalDespesas,
         saldo: totalReceitas - totalDespesas,
         totalNaoClassificado: naoClassTotal,
+        totalForaDre,
       },
     };
   }

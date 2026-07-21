@@ -257,19 +257,30 @@ function DemonstrativoManual({ data, loading }) {
             )}
             {grupos.map((g, gi) => {
               const ordem = ordemPorGrupo[g.nome];
-              const hover = g.is_receita ? 'hover:bg-green-200' : 'hover:bg-orange-200';
+              const hover = g.fora_dre
+                ? 'hover:bg-gray-200'
+                : g.is_receita ? 'hover:bg-green-200' : 'hover:bg-orange-200';
 
               return (
               <React.Fragment key={g.nome + gi}>
                 {/* A própria faixa do grupo é o controle: clicar em cada célula
                     ordena as contas DAQUELE grupo por aquela coluna. */}
-                <tr className={g.is_receita ? 'bg-green-100 text-green-900' : 'bg-orange-100 text-orange-900'}>
+                <tr className={
+                  g.fora_dre
+                    ? 'bg-gray-100 text-gray-500'      // fora do cálculo: sai de cena
+                    : g.is_receita ? 'bg-green-100 text-green-900' : 'bg-orange-100 text-orange-900'
+                }>
                   <td
                     onClick={() => handleSort(g.nome, 'nome')}
                     title="Ordenar as contas deste grupo por nome"
                     className={`py-1.5 px-3 font-bold cursor-pointer select-none ${hover}`}
                   >
                     {g.nome}
+                    {g.fora_dre && (
+                      <span className="ml-2 text-[10px] font-normal bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                        fora do cálculo
+                      </span>
+                    )}
                     <SetaOrdem ativo={ordem?.col === 'nome'} dir={ordem?.dir} />
                   </td>
                   <td
@@ -374,12 +385,78 @@ function DemonstrativoManual({ data, loading }) {
               );
             })}
             {naoClass.total > 0 && (
-              <tr className="bg-red-100 text-red-900">
-                <td className="py-1.5 px-3 font-bold">⚠️ NÃO CLASSIFICADO <span className="text-xs">({naoClass.qtd})</span></td>
-                <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(naoClass.total)}</td>
-                <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(naoClass.total))}</td>
-                <td></td>
-              </tr>
+              <>
+                <tr
+                  className="bg-red-100 text-red-900 cursor-pointer hover:bg-red-200"
+                  onClick={() => setAbertos((a) => ({ ...a, __naoClass: !a.__naoClass }))}
+                  title="Clique para ver o que está sem classificação"
+                >
+                  <td className="py-1.5 px-3 font-bold">
+                    <span className={`inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded border text-[11px] font-bold leading-none ${
+                      abertos.__naoClass ? 'bg-red-600 border-red-600 text-white' : 'bg-white border-red-300 text-red-600'
+                    }`}>
+                      {abertos.__naoClass ? '−' : '+'}
+                    </span>
+                    ⚠️ NÃO CLASSIFICADO <span className="text-xs">({naoClass.qtd})</span>
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-bold">R$ {formatCurrency(naoClass.total)}</td>
+                  <td className="py-1.5 px-3 text-right font-bold">{formatPercent(pct(naoClass.total))}</td>
+                  <td></td>
+                </tr>
+
+                {abertos.__naoClass && (
+                  <tr>
+                    <td colSpan={4} className="bg-red-50 px-3 py-2 pl-12 border-b border-red-200">
+                      <div className="text-xs text-red-800 mb-2">
+                        Estes lançamentos não têm conta amarrada. Classifique-os na
+                        <strong> Conciliação (Direto Manual)</strong> — lembre de trocar
+                        a <strong>conta</strong> lá, porque a Conciliação mostra uma conta por vez.
+                      </div>
+                      <div className="max-h-96 overflow-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-red-50">
+                            <tr className="text-gray-600 border-b border-red-200">
+                              <th
+                                onClick={() => handleSortLanc('__naoClass', 'data')}
+                                className="text-left py-1 font-medium w-24 cursor-pointer select-none hover:text-orange-600"
+                              >
+                                Data<SetaOrdem ativo={ordemLanc.__naoClass?.col === 'data'} dir={ordemLanc.__naoClass?.dir} />
+                              </th>
+                              <th
+                                onClick={() => handleSortLanc('__naoClass', 'descricao')}
+                                className="text-left py-1 font-medium cursor-pointer select-none hover:text-orange-600"
+                              >
+                                Descrição<SetaOrdem ativo={ordemLanc.__naoClass?.col === 'descricao'} dir={ordemLanc.__naoClass?.dir} />
+                              </th>
+                              <th className="text-left py-1 font-medium w-44">Conta bancária</th>
+                              <th
+                                onClick={() => handleSortLanc('__naoClass', 'valor')}
+                                className="text-right py-1 font-medium w-32 cursor-pointer select-none hover:text-orange-600"
+                              >
+                                Valor<SetaOrdem ativo={ordemLanc.__naoClass?.col === 'valor'} dir={ordemLanc.__naoClass?.dir} />
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ordenarLancamentos(naoClass.lancamentos || [], '__naoClass').map((l, li) => (
+                              <tr key={li} className="border-b border-red-100 last:border-0">
+                                <td className="py-1 text-gray-600 whitespace-nowrap">
+                                  {l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '—'}
+                                </td>
+                                <td className="py-1 text-gray-700">{l.descricao || '—'}</td>
+                                <td className="py-1 text-gray-500">{l.banco || '—'}</td>
+                                <td className={`py-1 text-right font-semibold ${l.tipo === 'entrada' ? 'text-green-700' : 'text-red-700'}`}>
+                                  R$ {formatCurrency(l.valor)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>

@@ -32,6 +32,12 @@ export class PlanoConta {
   @Column({ type: 'boolean', default: true })
   ativo!: boolean;
 
+  // Aparece no demonstrativo mas NAO entra nos totais (Receitas/Despesas/Saldo).
+  // Caso classico: transferencia entre contas proprias — o dinheiro so muda de
+  // banco, nao e despesa nem receita.
+  @Column({ type: 'boolean', default: false })
+  fora_dre!: boolean;
+
   // Rastreiam a origem quando importado do ERP (evita duplicar no reimport)
   @Column({ type: 'int', nullable: true })
   cod_categoria_oracle!: number | null;
