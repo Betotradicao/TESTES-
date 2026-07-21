@@ -47,9 +47,9 @@ print where dst-port=10835 or dst-port=38100 or dst-port=38101
 # conferir que tem src-address=46.202.150.64 em cada uma
 ```
 
-## 🏪 Tradicao — (verificar marca do roteador)
+## 🏪 Tradicao — ⏸️ DECIDIDO NAO BLOQUEAR (2026-05-23)
 
-### Portas a filtrar
+### Portas que ficaram ABERTAS
 
 | Porta externa | Servico |
 |---|---|
@@ -57,7 +57,34 @@ print where dst-port=10835 or dst-port=38100 or dst-port=38101
 | 8123 | DVR HTTP |
 | 5554 | DVR RTSP |
 
-Mesma logica: cada regra de port-forward → restringir Src.Address pra `46.202.150.64`.
+### Motivo da decisao
+
+**Beto decidiu nao bloquear** porque o cliente nao sabe ao certo quem mais
+acessa essas portas externamente — pode ter:
+- Tecnico Intersolid acessando Oracle remoto pra suporte
+- App de DVR no celular pra ver cameras de casa
+- Integracoes de terceiros (marketing, NFe, backup)
+- Software desktop do dono acessando Oracle de outro lugar
+
+Risco de quebrar operacao > risco de ataque (por enquanto).
+
+### Pra reconsiderar no futuro
+
+Antes de bloquear, **listar TODOS os IPs que conectaram** nessas portas em
+30 dias de log do roteador. Aí da pra fazer whitelist em vez de bloqueio
+total: `46.202.150.64` + IPs conhecidos legitimos.
+
+Mitigacoes alternativas em vigor:
+- Senhas fortes no Oracle + DVR
+- Monitoramento de tentativas de login no banco
+
+Teste de exposicao pode ser re-rodado a qualquer momento (esta documentado
+em [[../bugs-resolvidos/2026-05-23-portas-tradicao-expostas-decisao]]).
+
+### Configuracao QUANDO for aplicar
+
+Mesma logica do Nunes acima: cada regra de port-forward → restringir
+Src.Address pra `46.202.150.64`. Mas hoje nao aplicar.
 
 ## ⚠️ Cuidados
 

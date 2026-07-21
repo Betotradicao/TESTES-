@@ -90,6 +90,9 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Problema | Causa provável | Solução |
 |---|---|---|
+| **Timeout com portas certas no roteador** | **CGNAT da operadora** | Sondar IP público de fora; se mudo em tudo → usar túnel (ver seção acima) |
+| **Timeout, túnel vivo e porta escutando** | **INPUT DROP: container barrado** | Regra iptables `/32` + bridge do cliente |
+| Config com IP público apontado | Desliga a lógica de túnel do `deviceToConfig` | Usar **IP privado** (10.6.1.123) + porta >10000 |
 | "Testar Conexão" falha | IP/porta errada | Usar `host.docker.internal` + porta do túnel |
 | Túnel OFFLINE | Chave SSH não está na VPS | Regerar `.BAT` e reinstalar na loja |
 | Vídeo preto | H.265 não convertido | Verificar deploy tem `libx264` |
@@ -102,10 +105,101 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Cliente | DVR IP Local | VPS HTTP | VPS RTSP | Codec | Status |
 |---|---|---|---|---|---|
-| [[../clientes/tradicao\|Tradição]] | 10.6.1.123 (Intelbras MIB 1116) | 18080 | **28101** | transcode H.265→H.264 | ✅ |
+| [[../clientes/tradicao\|Tradição]] | 10.6.1.123 (Intelbras MIB 1116) | **28100** | **28101** | transcode H.265→H.264 | ✅ (vídeo validado 15/07) |
 | [[../clientes/nunes\|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
 
+## 🚫 Por que NÃO dá pra usar "porta direta no roteador" (IP público)
+
+A tentação é pular o túnel e apontar o DVR pro IP público da loja + port-forward no
+Mikrotik. **No Tradição isso é impossível: a Vivo usa CGNAT** — o "IP público" da loja
+é o NAT compartilhado da operadora, não o roteador. Nenhum pacote de entrada chega.
+
+**Sintoma clássico:** timeout no "Testar Conexão" *com todas as portas certas no roteador*.
+**Teste decisivo:** sondar o IP público de fora (da VPS). Se **nada** responde — nem ping,
+nem Winbox 8291, nem 80/443 — o IP não é a sua ponta. Se fosse só forward errado, algo
+responderia.
+
+**Confirmação:** Winbox → IP → Addresses → WAN. `100.64.x.x`–`100.127.x.x` = CGNAT.
+Só sai disso com IP público dedicado (pago) na operadora.
+
+> Doc completo: [[../bugs-resolvidos/2026-07-15-dvr-cgnat-vivo-porta-direta-impossivel|CGNAT da Vivo — porta direta impossível]]
+
+## 🔥 iptables da VPS — container precisa de liberação explícita
+
+`INPUT policy` é **DROP** (hardening do XMRig). Túnel vivo + porta escutando **não basta**:
+o container não alcança `172.20.0.1:<porta>` sem regra. Ao configurar DVR de cliente novo:
+
+```bash
+# regra ESTREITA: só o container daquele cliente, só as portas dele
+iptables -I INPUT 1 -i <bridge_do_cliente> -s <ip_container>/32 -p tcp --dport <porta> -j ACCEPT
+netfilter-persistent save   # senão cai no reboot
+
+# descobrir bridge e IP do container:
+docker inspect prevencao-<cliente>-backend --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{.Gateway}}{{end}}'
+```
+
+Cada cliente tem **/16 exclusivo** (tradicao 172.20, maxvale 172.18, supervital 172.23,
+nunes 172.24, idealmix 172.22) — regra por `/32` + bridge não encosta em ninguém.
+
 > ⚠️ **REGRA DE OURO**: a porta `dvr_porta_rtsp` no banco TEM que bater com uma das portas que o `tunnels.json` da máquina cliente está fazendo `-R` na VPS. Conferir com `ss -ltn` na VPS antes de salvar config no front. **Doc completo de troubleshoot: `.claude/DVR-CFTV-TROUBLESHOOT.md`** (passos de diagnóstico, URLs RTSP por marca, checklist por cliente).
+
+## ⚡ Vídeo em ~9s: o `live-stream` existe e NÃO é usado
+
+| Caminho | Tempo até aparecer | Arrastar linha do tempo |
+|---|---|---|
+| `generate-clip` (o que o Vision usa) | **134s** (espera arquivo inteiro) | ✅ |
+| `live-stream` (**pronto, sem uso**) | **9,1s** (MP4 fragmentado) | ❌ |
+
+Rota, controller e service **já existem e estão plugados**:
+`routes/dvr-cftv.routes.ts:40` → `DVRCFTVController.liveStream` → `DVRCFTVService.startRTSPStream`
+(usa `-movflags frag_keyframe+empty_moov+faststart` + `-flags low_delay`). O Vision nunca chamou.
+
+> 💡 Os ~9s são o **DVR posicionando a gravação no HD** — 64KB chegam em 9,7s e 1MB em 9,1s.
+> Depois disso o vídeo jorra. Não há o que otimizar aí.
+>
+> 💡 `startRTSPStream` aplica o **"Tempo ANTES" corretamente** (`start = evento - antes`),
+> ao contrário do `generateClip`.
+
+### 🔴 ANTES DE ATIVAR: falta teto de ffmpeg simultâneos
+**Roberto relata incidente passado: mexida em câmeras → looping → VPS esquentou e travou.**
+A causa se reproduz assim:
+
+| Proteção | Estado |
+|---|---|
+| Matar ffmpeg no disconnect (`res.on('close')` → SIGKILL) | ✅ existe (`dvr-cftv.controller.ts:180`) |
+| Limite de duração (`-t`) | ✅ existe (modo transcode) |
+| **Teto de ffmpeg simultâneos** | 🔴 **NÃO EXISTE** |
+
+> ⚠️ **Câmeras têm resoluções diferentes** (medido 16/07): PDV 1 ≈ 1 Mbit/s → **1.01x** (streaming
+> ok); PDV 3 é **2880x1616 @ 12.7 Mbit/s** → **0.675x** → **o player alcança o ffmpeg e engasga**
+> → usuário clica de novo → mais ffmpeg → 4 núcleos entopem. `scale` **não resolve**: o gargalo
+> é *decodificar* H.265 5MP.
+>
+> **Desenho seguro:** clipe pré-gerado (instantâneo + seek) → senão live-stream (~9s) →
+> **com fila/teto de 2 simultâneos**.
+
+## 🩺 Healthcheck do frontend: `unhealthy` é FALSO POSITIVO (todos os clientes)
+
+```
+Test: wget --spider http://localhost:3004   →  "Connection refused"
+```
+O healthcheck aponta pra **3004**, mas o nginx do container serve na **80**. **Todos** os
+frontends da VPS estão `unhealthy` há 8+ dias por isso. O site responde **HTTP 200 em 33ms**.
+**Não investigar como incidente** — e não confiar nesse status pra validar deploy.
+
+## 📼 Retenção real do DVR do Tradição (medido 16/07)
+
+| Dia 11/07 | 08:00 | 12:00 | 15:00 | 18:00 | 20:00 |
+|---|---|---|---|---|---|
+| Canal 1 (FACIAL ENTRADA) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Canais 2, 3, 4 (PDVs) | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+Do dia 12 em diante: tudo cheio. **A borda de retenção das câmeras de PDV é ~11/07 18:00**
+(~4,5 dias). É sobrescrita circular normal, não falha do sistema — mas explica clipes que
+saem curtos (5MB/35s quando se pede 130s): pegam pedaços perto do buraco.
+
+> ⚠️ **Testar retenção com 1 canal em 1 horário dá conclusão errada** — a primeira medição
+> disse "dia 11 não tem nada"; varrendo 4 canais × 5 horários apareceu que tem.
 
 ## 🔗 Bugs/features relacionados
 - [[../bugs-resolvidos/2026-05-06-dvr-tradicao-rtsp-port-quebrou|2026-05-06 — Tradição: porta RTSP errada após mexer no Nunes]]
