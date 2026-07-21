@@ -504,10 +504,16 @@ export class WhatsAppService {
               WHERE RIGHT(regexp_replace(telefone, '\\D', '', 'g'), 8) = ANY($1)`),
     ]);
 
+    // A base importada tem MUITO nome-lixo ("111111", "914", "27"). Exigir ao
+    // menos duas letras derruba isso sem perder nome de verdade — melhor cair
+    // no pushName do WhatsApp, ou nao mostrar nome nenhum, do que anunciar
+    // "o ganhador e o 914".
+    const pareceNome = (v: string) => (v.match(/\p{L}/gu) || []).length >= 2;
+
     // disparo_contatos por ultimo: nome cadastrado vence o pushName do WhatsApp
     for (const linha of [...doChatbot, ...contatos]) {
       const nome = String(linha?.nome || '').trim();
-      if (!nome) continue;
+      if (!nome || !pareceNome(nome)) continue;
       const chave = String(linha.telefone).replace(/\D/g, '').slice(-8);
       mapa[chave] = nome;
     }
