@@ -105,7 +105,7 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Cliente | DVR IP Local | VPS HTTP | VPS RTSP | Codec | Status |
 |---|---|---|---|---|---|
-| [[../clientes/tradicao\|Tradição]] | **10.6.1.148** (Intelbras **MHDX 5116**) | **28100** | **28101** | transcode H.265→H.264 | ⚠️ IP trocado 21/07 — ver abaixo |
+| [[../clientes/tradicao\|Tradição]] | **10.6.1.148** (Intelbras **MHDX 5116**) | **28100** | **28101** | transcode H.265→H.264 | ✅ túnel OK 21/07 (RPC2 challenge respondendo) |
 | [[../clientes/nunes\|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
 
 ## 🔄 Trocar o IP do DVR: mudar na TELA NÃO adianta
@@ -118,24 +118,48 @@ const dvrIp = isDocker && isPrivateIp && rawHttpPort > 10000 ? '172.20.0.1' : co
 IP privado + porta >10000 → conecta em `172.20.0.1` (boca do túnel) e **descarta o IP digitado**.
 Ele serve só como bandeira "é privado, vá pelo túnel".
 
-**Quem sabe o IP real do DVR é a máquina Windows da loja:**
+**🔑 A FONTE DE VERDADE é o `tunnels.json`, NÃO o `tunnel-service.ps1`.**
+Na máquina Windows da loja quem manda os túneis é o **`SSH-Tunnel-Manager`**, que
+reconstrói tudo a partir de `C:\ProgramData\SSHTunnels\tunnels.json`. O
+`tunnel-service.ps1` das pastas `SSHTunnels-*DVR\` está **desativado** (vira
+`tunnel-service.ps1.disabled-by-manager`). Editar o `.ps1` NÃO adianta — o manager
+sobrescreve com o IP velho em segundos.
+
 ```powershell
-# ver config atual
-Select-String -Path "C:\ProgramData\SSHTunnels-*DVR\tunnel-service.ps1" -Pattern "LOCAL_IP|LOCAL_PORT|REMOTE_PORT"
-# trocar o IP
-$f = (Get-ChildItem 'C:\ProgramData\SSHTunnels-*DVR\tunnel-service.ps1').FullName
-(Get-Content $f -Raw) -replace '10\.6\.1\.123','10.6.1.148' | Set-Content $f -Encoding UTF8
-Get-Service SSH-Tunnel-*DVR | Restart-Service
+# 1. Confirmar que o DVR novo responde nas portas do túnel (80/554)
+Test-NetConnection 10.6.1.148 -Port 80
+Test-NetConnection 10.6.1.148 -Port 554
+# 2. Trocar SÓ os forwards do DVR no tunnels.json (NÃO tocar na entrada do Oracle/1521)
+$j = 'C:\ProgramData\SSHTunnels\tunnels.json'; Copy-Item $j "$j.bak" -Force
+(Get-Content $j -Raw) -replace '28100:10\.6\.1\.123:80','28100:10.6.1.148:80' `
+                      -replace '28101:10\.6\.1\.123:554','28101:10.6.1.148:554' | Set-Content $j -Encoding UTF8
+# 3. Matar o ssh.exe do DVR; o manager ressuscita com o IP novo em ~30-60s
+Get-CimInstance Win32_Process -Filter "Name='ssh.exe'" |
+  Where-Object { $_.CommandLine -like '*Loja1DVR*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 ```
 
 **Diagnóstico pela VPS** (distingue "túnel caiu" de "túnel vivo apontando errado"):
 ```bash
 ss -ltn | grep -E '28100|28101'                     # escutando? => túnel SSH de pé
-curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:28100/   # 000 => destino errado
+curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:28100/   # 000=destino errado, 200=ok
+# RPC2 (a API que o sistema usa) — resposta boa é "login challenge":
+curl -s --max-time 8 -X POST http://127.0.0.1:28100/RPC2_Login \
+  -H 'Content-Type: application/json' \
+  --data '{"method":"global.login","params":{"userName":"admin"},"id":1}'
 ```
 > ⚠️ Testar a porta RTSP com TCP puro **engana**: o `-R` aceita a conexão localmente
 > antes de tentar repassar, então "aceitou" não prova que o outro lado responde.
-> **Use o teste HTTP na 28100** como sinal de verdade.
+> **Use o HTTP 200 na 28100 + `login challenge` no RPC2** como sinal de verdade.
+> `login challenge` / RTSP `401 Digest` = caminho OK, só falta a autenticação normal.
+
+> ⚠️ **NÃO confie no software da Intelbras (SIM/gDMSS) pra saber se o IP mudou.** Ele
+> mostrava o `.123` como **"Online"** por cache — mas `Test-NetConnection` no `.123`
+> dava False em TODAS as portas (80/554/34567/37777). A rede é a verdade, não a UI dele.
+
+> 📌 A loja pode ter **vários DVRs** (Tradição: HDX 1116, HDX 1216, **HDX 5116**). O que
+> alimenta o Vision é o do `tunnels.json`. Porta web do MHDX 5116 no software = 34567,
+> mas o RTSP/API que usamos é **80 + 554** (medido respondendo).
 
 ## 🚫 Por que NÃO dá pra usar "porta direta no roteador" (IP público)
 

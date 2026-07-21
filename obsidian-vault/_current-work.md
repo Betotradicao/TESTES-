@@ -1,5 +1,22 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ DVR Tradição — IP trocado 10.6.1.123 → 10.6.1.148 (21/07)
+
+DVR começou a dar problema, trocaram o aparelho/IP. Agora é **Intelbras MHDX 5116** no
+`10.6.1.148`. Túnel arrumado e respondendo (HTTP 200 + RPC2 `login challenge`).
+Mexido: `dvr_devices.ip` (banco Tradição) + `tunnels.json` (forwards 28100/28101 → .148).
+Backups `.bak-20260721`. **Detalhe da armadilha "editar o .ps1 não adianta" em
+[[modulos/dvr-cameras]].** Falta Roberto clicar em Testar Conexão e validar o vídeo.
+
+> 🔴 **PENDÊNCIA (Roberto pediu pra focar só no DVR):** o `tunnels.json` da máquina da
+> loja tem, na entrada do **Oracle**, um forward morto pro DVR velho:
+> `-R 18080:10.6.1.123:80` (junto do `-R 1521:...:1521` do banco). É o padrão que já
+> derrubou o Oracle antes ([[bugs-resolvidos/2026-07-15-tunel-dvr-chave-nao-autorizada-matava-oracle]]).
+> Corrigir = trocar .123→.148 ou remover o forward, MAS reinicia o túnel do Oracle
+> (banco fica alguns segundos fora). Fazer em horário de baixo movimento.
+
+---
+
 ## 🎲 Sorteador (menu Marketing no Radar) — 20/07 — ⏳ AGUARDANDO TESTE
 
 Roberto quer sortear **entre os membros da comunidade** (recusou sortear na base dos 6.789).
