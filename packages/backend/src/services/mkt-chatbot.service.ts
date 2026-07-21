@@ -506,6 +506,19 @@ export class MktChatbotService {
         proximoBloco = await blocoRepo.findOne({ where: { fluxo_id: fluxo.id, is_inicial: true } });
       } else {
         proximoBloco = await this.resolverProximoBloco(blocoAtual, textoRecebido);
+
+        if (!proximoBloco && !blocoAtual.is_inicial) {
+          // As opcoes do MENU valem de qualquer ponto do fluxo.
+          // Sem isso a sessao morre no bloco da opcao ja respondida: o bloco 4
+          // ("falar com atendente"), por exemplo, so aceita "0" (voltar), entao
+          // "1"/"2" nao casavam com nada e o bot ficava mudo pra sempre.
+          // O bloco atual tem prioridade — so cai aqui se ele nao casou.
+          const inicial = await blocoRepo.findOne({ where: { fluxo_id: fluxo.id, is_inicial: true } });
+          if (inicial && inicial.id !== blocoAtual.id) {
+            proximoBloco = await this.resolverProximoBloco(inicial, textoRecebido);
+          }
+        }
+
         if (!proximoBloco) {
           // Nao casou com nenhuma opcao => SILENCIO TOTAL.
           // Nada de "nao entendi" e nada de repetir o bloco: o cliente escreve
@@ -548,41 +561,6 @@ export class MktChatbotService {
       // Bloco automatico — avanca
       proximoBloco = await this.resolverProximoBloco(proximoBloco, '');
     }
-
-    await this.reancorarNoMenu(sessao, fluxo);
-  }
-
-  /**
-   * Se a sessao parou num bloco-folha (sem conexao de saida), reaponta ela pro
-   * bloco inicial — SEM reenviar o menu.
-   *
-   * Sem isso a sessao fica presa na opcao que o cliente escolheu: como agora
-   * "nao casou = silencio", ele digitaria "2" e o bot ficaria mudo pra sempre,
-   * porque o bloco da opcao 4 nao tem opcao 2 nenhuma. Reancorando calado, os
-   * numeros do menu voltam a valer sem o menu reaparecer.
-   *
-   * Bloco com saida propria (submenu de verdade) fica onde esta.
-   */
-  private static async reancorarNoMenu(
-    sessao: MktChatbotSessao,
-    fluxo: MktChatbotFluxo,
-  ): Promise<void> {
-    if (sessao.status !== 'ativa' || !sessao.bloco_atual_id) return;
-
-    const blocoRepo = AppDataSource.getRepository(MktChatbotBloco);
-    const atual = await blocoRepo.findOne({ where: { id: sessao.bloco_atual_id } });
-    if (!atual || atual.is_inicial) return;
-
-    const saidas = await AppDataSource.getRepository(MktChatbotConexao).count({
-      where: { origem_id: atual.id },
-    });
-    if (saidas > 0) return;
-
-    const inicial = await blocoRepo.findOne({ where: { fluxo_id: fluxo.id, is_inicial: true } });
-    if (!inicial) return;
-
-    sessao.bloco_atual_id = inicial.id;
-    await AppDataSource.getRepository(MktChatbotSessao).save(sessao);
   }
 
   /**
