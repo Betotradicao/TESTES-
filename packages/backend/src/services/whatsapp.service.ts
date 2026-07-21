@@ -352,11 +352,14 @@ export class WhatsAppService {
   /**
    * Busca todos os grupos do WhatsApp da instância configurada
    */
-  static async fetchGroups(): Promise<any[]> {
+  static async fetchGroups(comParticipantes = false): Promise<any[]> {
     try {
       const { apiToken, apiUrl, instance } = await this.validateEnvironment();
 
-      const url = `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`;
+      // getParticipants=true e bem mais pesado (traz a lista inteira de cada
+      // grupo), mas e o unico jeito de saber quem e admin — a Evolution nao
+      // devolve essa informacao no modo leve.
+      const url = `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=${comParticipantes}`;
 
       console.log(`📱 Buscando grupos do WhatsApp da instância ${instance}...`);
 

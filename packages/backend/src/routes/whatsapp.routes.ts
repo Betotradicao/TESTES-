@@ -106,7 +106,7 @@ router.get('/connection-status', async (req, res) => {
  */
 router.get('/fetch-groups', async (req, res) => {
   try {
-    const groups = await WhatsAppService.fetchGroups();
+    const groups = await WhatsAppService.fetchGroups(req.query.participants === 'true');
 
     res.json({
       success: true,
