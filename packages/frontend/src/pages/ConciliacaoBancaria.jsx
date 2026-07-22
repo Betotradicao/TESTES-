@@ -1365,16 +1365,31 @@ export default function ConciliacaoBancaria() {
 }
 
 /* ============ MODO "DIRETO MANUAL" ============ */
-function SummaryCardMini({ title, value, color }) {
+function SummaryCardMini({ title, value, color, onClick, active }) {
   const colors = {
     gray: 'border-gray-300 text-gray-700',
     green: 'border-green-400 text-green-700',
     red: 'border-red-400 text-red-700',
   };
+  const bgAtivo = {
+    gray: 'bg-gray-100 ring-2 ring-gray-400',
+    green: 'bg-green-50 ring-2 ring-green-500',
+    red: 'bg-red-50 ring-2 ring-red-500',
+  };
+  const clicavel = typeof onClick === 'function';
   return (
-    <div className={`bg-white border-2 rounded-lg px-4 py-3 text-center ${colors[color] || colors.gray}`}>
+    <div
+      onClick={onClick}
+      title={clicavel ? 'Clique para filtrar a lista' : undefined}
+      className={`border-2 rounded-lg px-4 py-3 text-center transition
+        ${active ? bgAtivo[color] : 'bg-white'}
+        ${colors[color] || colors.gray}
+        ${clicavel ? 'cursor-pointer hover:shadow-md' : ''}`}
+    >
       <div className="text-2xl font-black">{value}</div>
-      <div className="text-xs font-bold uppercase tracking-wider">{title}</div>
+      <div className="text-xs font-bold uppercase tracking-wider">
+        {title}{active && ' ✓'}
+      </div>
     </div>
   );
 }
@@ -1604,6 +1619,10 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
   const [sortDir, setSortDir] = useState('asc');
   const [busca, setBusca] = useState('');
   const [agruparDia, setAgruparDia] = useState(true);
+  // Filtro pelos cards: 'todos' | 'classificados' | 'naoclass'. Clicar no card
+  // de novo desliga (volta pra todos).
+  const [cardFiltro, setCardFiltro] = useState('todos');
+  const toggleCard = (alvo) => setCardFiltro(f => (f === alvo ? 'todos' : alvo));
   const sortBy = (col) => {
     if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortCol(col); setSortDir('asc'); }
@@ -1627,13 +1646,18 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
     });
   }, [rows, sortCol, sortDir]);
   const visibleRows = useMemo(() => {
+    let base = sortedRows;
+    // Filtro dos cards
+    if (cardFiltro === 'classificados') base = base.filter(r => r.classificacao);
+    else if (cardFiltro === 'naoclass') base = base.filter(r => !r.classificacao);
+    // Busca por palavra-chave
     const q = busca.trim().toUpperCase();
-    if (!q) return sortedRows;
-    return sortedRows.filter(r =>
+    if (!q) return base;
+    return base.filter(r =>
       (r.banco?.FAVORECIDO || '').toUpperCase().includes(q) ||
       (r.classificacao?.conta_nome || '').toUpperCase().includes(q)
     );
-  }, [sortedRows, busca]);
+  }, [sortedRows, busca, cardFiltro]);
 
   const selCount = visibleRows.filter(r => selected?.has(r.mov_key)).length;
   const allKeys = visibleRows.map(r => r.mov_key);
@@ -1642,9 +1666,12 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
   return (
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <SummaryCardMini title="Total Banco" value={total} color="gray" />
-        <SummaryCardMini title="Classificados" value={classificados} color="green" />
-        <SummaryCardMini title="Não Classificado" value={naoClass} color="red" />
+        <SummaryCardMini title="Total Banco" value={total} color="gray"
+          active={cardFiltro === 'todos'} onClick={() => setCardFiltro('todos')} />
+        <SummaryCardMini title="Classificados" value={classificados} color="green"
+          active={cardFiltro === 'classificados'} onClick={() => toggleCard('classificados')} />
+        <SummaryCardMini title="Não Classificado" value={naoClass} color="red"
+          active={cardFiltro === 'naoclass'} onClick={() => toggleCard('naoclass')} />
       </div>
 
       {selCount > 0 && (
@@ -1663,7 +1690,11 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
           />
           {busca && <button onClick={() => setBusca('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm">✕</button>}
         </div>
-        <span className="text-xs text-gray-500">{visibleRows.length} de {total} linha(s)</span>
+        <span className="text-xs text-gray-500">
+          {visibleRows.length} de {total} linha(s)
+          {cardFiltro === 'classificados' && <span className="ml-1 text-green-600 font-semibold">· só classificados</span>}
+          {cardFiltro === 'naoclass' && <span className="ml-1 text-red-600 font-semibold">· só não classificados</span>}
+        </span>
         <label className="text-xs flex items-center gap-1 cursor-pointer text-gray-600 ml-auto" title="Desligue (ou ordene por uma coluna) para lista livre">
           <input type="checkbox" checked={agruparDia} onChange={e => setAgruparDia(e.target.checked)} className="w-4 h-4 accent-orange-600" />
           📆 Agrupar por dia
