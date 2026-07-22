@@ -1,5 +1,41 @@
 # 🚧 Trabalho em Andamento
 
+## 📵 Disparo WhatsApp caiu no meio (21/07) — PARAR AQUI, retomar amanhã
+
+**O que aconteceu:** campanha "TV GRUPO 1" (lista de 2000) disparou 68 e travou. Erro nas
+linhas = `Connection Closed` (HTTP 500/400). **NÃO é ban** — a instância **MARKETING**
+(número próprio `5512988996258`) foi pra estado **`close`/Disconnected**. As outras 3
+instâncias (NUNES/KONTRATAI/TRADICAO, todas o mesmo `...8474416`) seguiram Connected.
+68 entregues + 6 lidas antes de cair = número saudável, só derrubado por volume.
+
+**Causa:** ritmo 4–6s pra 2 mil números novos → WhatsApp encerra a sessão (autoproteção
+anti-spam). A cada queda sobe o risco de virar ban de verdade.
+
+**Como diagnosticar de novo** (a instância dá o veredito):
+```
+GET {evolution_url}/instance/connectionState/MARKETING  → {"state":"close"}
+```
+Evolution manager: **https://evolution.kontrataai.com.br/manager** → card MARKETING →
+engrenagem → Connect/QR com o WhatsApp do 5512988996258.
+
+**⏭️ AMANHÃ (Roberto aprovou):** deixar **intervalo entre msgs** e **tamanho do lote/dia**
+ajustáveis na TELA (hoje fixos: `delay_min_ms=4000/delay_max_ms=6000/daily_limit=3500`).
+Recomendação: 15–30s e lotes de 300–500/dia. Campos em `disparo_campanhas`; front em
+`DisparoWhatsapp.jsx` (aba Campanhas).
+
+> ✅ **Já feito hoje, commit LOCAL não pushado** (`fix(disparo): trava autofill do Chrome`):
+> a tela de config da instância (`DisparoWhatsTab.jsx`) deixava o Chrome preencher URL da
+> API com "Roberto" e Token com senha. **Salvar assim gravava `Roberto` como URL e
+> quebrava o disparo.** Config real NUNCA mudou (banco = URL kontrataai + instância
+> MARKETING). Blindado com autoComplete=off + readonly-até-focar + guard que recusa URL
+> sem http. **Falta push + deploy** (subir junto com o ajuste de intervalo amanhã).
+
+> 🐛 **Bug de contadores JÁ corrigido hoje** (commitado/deployado, `87536cf`): recibo de
+> entrega/leitura era descartado (payload `messages.update` achatado na v2). Por isso a
+> campanha antiga mostrava tudo "-" em Entregue/Lida. Agora preenche.
+
+---
+
 ## ✅ DVR Tradição — IP trocado 10.6.1.123 → 10.6.1.148 (21/07)
 
 DVR começou a dar problema, trocaram o aparelho/IP. Agora é **Intelbras MHDX 5116** no
