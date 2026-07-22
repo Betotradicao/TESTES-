@@ -1,5 +1,26 @@
 # 🚧 Trabalho em Andamento
 
+## ❓ "PIX fica sem classificar no Demonstrativo Manual" — NÃO é bug (21/07)
+
+Roberto: no Direto Sistema mostra 100% classificado, mas no Demonstrativo Manual os
+`PIX RECEBIDO` ficam sempre "sem classificar". **Explicado, sem correção (ele pediu só
+entender por ora).**
+
+**Causa:** são dois sistemas de classificação distintos.
+- **Direto Sistema** → vem do ERP/Oracle (TAB_FLUXO). Sabe que PIX = RECEITA A VISTA → 100%.
+- **Direto Manual** → vem das `conciliacao_amarracoes` por **texto EXATO**.
+  `PIX RECEBIDO - <CPF>` tem texto único por linha → amarrar um não pega os outros.
+  (As 1762 amarrações existentes são `PIX ENVIADO - <nome>`, nomes que se repetem.)
+
+**Soluções na mesa (Roberto vai decidir depois):**
+1. **Amarração por PREFIXO** — amarrar "PIX RECEBIDO" uma vez pega todos + futuros.
+   Exigiria coluna tipo_match ('exato'|'prefixo') em conciliacao_amarracoes e ajuste no
+   match do `getDadosManual`. É o mais definitivo pra texto que muda por linha.
+2. **Fallback pro Sistema** no Demonstrativo Manual (usa ERP quando não há amarração manual).
+3. Deixar como está.
+
+---
+
 ## 📵 Disparo WhatsApp caiu no meio (21/07) — PARAR AQUI, retomar amanhã
 
 **O que aconteceu:** campanha "TV GRUPO 1" (lista de 2000) disparou 68 e travou. Erro nas
