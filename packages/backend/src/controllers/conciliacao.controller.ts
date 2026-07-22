@@ -1,7 +1,31 @@
 import { Request, Response } from 'express';
 import { ConciliacaoService } from '../services/conciliacao.service';
+import { FaturaPdfService } from '../services/fatura-pdf.service';
 
 export class ConciliacaoController {
+
+  /** POST /fatura/importar-pdf — lê o PDF e devolve os lançamentos + sugestões */
+  static async importarFaturaPdf(req: Request, res: Response) {
+    try {
+      const file = (req as any).file;
+      if (!file?.buffer) {
+        return res.status(400).json({ success: false, message: 'Envie o PDF no campo "pdf".' });
+      }
+      const codLoja = Number(req.body?.cod_loja ?? req.query.codLoja) || 1;
+      const result = await FaturaPdfService.parse(file.buffer, codLoja);
+      if (result.totalItens === 0) {
+        return res.json({
+          success: true,
+          data: result,
+          aviso: 'Nenhum lançamento reconhecido. Se a fatura for escaneada (imagem), o texto não pode ser lido — lance manualmente.',
+        });
+      }
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('Erro importarFaturaPdf:', error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
 
   static async getDados(req: Request, res: Response) {
     try {

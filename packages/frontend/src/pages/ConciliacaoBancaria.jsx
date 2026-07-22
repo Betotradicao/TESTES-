@@ -1356,6 +1356,7 @@ export default function ConciliacaoBancaria() {
         <FaturaModal
           row={faturaModal.row}
           planoContas={planoContasTree}
+          codLoja={lojaSelecionada}
           onSave={(itens) => handleFatura(faturaModal.row, itens)}
           onClose={() => setFaturaModal(null)}
         />
@@ -1448,7 +1449,7 @@ function ContaSelect({ contas, value, onChange, placeholder = 'Conta…', autoFo
   );
 }
 
-function FaturaModal({ row, planoContas, onSave, onClose }) {
+function FaturaModal({ row, planoContas, codLoja, onSave, onClose }) {
   const banco = row.banco;
   const alvo = Math.abs(parseFloat(banco.VAL_DOCTO) || 0);
   const isCred = banco.TIPO_OPERACAO === 0;
@@ -1457,6 +1458,8 @@ function FaturaModal({ row, planoContas, onSave, onClose }) {
     ? row.classificacao.itens.map(it => ({ plano_conta_id: String(it.plano_conta_id), valor: String(it.valor).replace('.', ',') }))
     : [{ plano_conta_id: '', valor: '' }];
   const [itens, setItens] = useState(inicial);
+  const [importando, setImportando] = useState(false);
+  const [importInfo, setImportInfo] = useState(null);   // {itens, soma, totalPdf, bate}
   const parseV = (v) => parseFloat(String(v).replace(',', '.')) || 0;
   const setItem = (i, patch) => setItens(prev => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
   const addItem = (valor = '') => setItens(prev => [...prev, { plano_conta_id: '', valor }]);
@@ -1466,6 +1469,45 @@ function FaturaModal({ row, planoContas, onSave, onClose }) {
   const bate = Math.abs(diff) < 0.01;
   const validos = itens.filter(it => it.plano_conta_id && parseV(it.valor) > 0);
 
+  // Importa o PDF da fatura -> troca a lista de itens pelos lançamentos lidos,
+  // já com a conta sugerida (aprendida das amarrações anteriores).
+  const importarPdf = async (file) => {
+    if (!file) return;
+    setImportando(true);
+    setImportInfo(null);
+    try {
+      const fd = new FormData();
+      fd.append('pdf', file);
+      if (codLoja) fd.append('cod_loja', String(codLoja));
+      const res = await api.post('/conciliacao/fatura/importar-pdf', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const d = res.data?.data;
+      if (!d || !d.lancamentos?.length) {
+        toast.error(res.data?.aviso || 'Nenhum lançamento reconhecido no PDF.');
+        return;
+      }
+      // Vira o formato do modal (conta como string, valor com vírgula)
+      setItens(d.lancamentos.map(l => ({
+        plano_conta_id: l.plano_conta_id ? String(l.plano_conta_id) : '',
+        valor: String(l.valor).replace('.', ','),
+        descricao: l.descricao,   // só pra mostrar de onde veio a linha
+      })));
+      setImportInfo({
+        qtd: d.totalItens,
+        soma: d.somaLancamentos,
+        totalPdf: d.totalFaturaDetectadoPdf,
+        bate: d.bateComPdf,
+      });
+      const semConta = d.lancamentos.filter(l => !l.plano_conta_id).length;
+      toast.success(`${d.totalItens} lançamentos lidos${semConta ? ` · ${semConta} sem conta sugerida` : ' · todos com sugestão'}`);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Falha ao ler o PDF.');
+    } finally {
+      setImportando(false);
+    }
+  };
+
   const salvar = () => {
     if (!validos.length) return;
     onSave(validos.map(it => ({ plano_conta_id: Number(it.plano_conta_id), valor: parseV(it.valor) })));
@@ -1473,22 +1515,59 @@ function FaturaModal({ row, planoContas, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-5 py-3 rounded-t-xl">
           <div className="font-bold">🧾 Fatura / Cartão — vários lançamentos</div>
           <div className="text-indigo-100 text-xs mt-0.5 truncate">{formatDate(banco.DTA_ENTRADA)} · {banco.FAVORECIDO}</div>
         </div>
-        <div className="p-5">
+        <div className="p-5 overflow-y-auto">
           <div className="flex items-center justify-between mb-3 text-sm">
             <span className="text-gray-500">Valor do banco (alvo):</span>
             <span className="font-black text-lg text-gray-800">{formatCurrency(alvo)}</span>
           </div>
+
+          {/* Importador de PDF */}
+          <div className="mb-4 rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer ${importando ? 'bg-gray-200 text-gray-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                {importando ? '⏳ Lendo PDF...' : '📄 Importar PDF da fatura'}
+                <input type="file" accept="application/pdf" className="hidden" disabled={importando}
+                  onChange={e => { importarPdf(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              <span className="text-[11px] text-gray-500">Lê os lançamentos e já sugere a conta de cada um.</span>
+            </div>
+            {importInfo && (
+              <div className="mt-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
+                <span>Lidos: <strong>{importInfo.qtd}</strong></span>
+                <span>Soma do PDF: <strong>{formatCurrency(importInfo.soma)}</strong></span>
+                {importInfo.totalPdf != null && (
+                  <span className={importInfo.bate ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                    {importInfo.bate ? '✓ soma = total da fatura' : `⚠ total no PDF: ${formatCurrency(importInfo.totalPdf)}`}
+                  </span>
+                )}
+                {Math.abs(importInfo.soma - alvo) >= 0.01 && (
+                  <span className="text-amber-700">
+                    ⚠ PDF ({formatCurrency(importInfo.soma)}) ≠ linha do banco ({formatCurrency(alvo)}) — pode faltar outra fatura
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             {itens.map((it, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <ContaSelect contas={contas} value={it.plano_conta_id} onChange={(id) => setItem(i, { plano_conta_id: id })} placeholder="Conta…" />
-                <input value={it.valor} onChange={e => setItem(i, { valor: e.target.value })} placeholder="0,00" inputMode="decimal" className="w-[120px] border border-gray-300 rounded px-2 py-1.5 text-sm text-right" />
-                <button onClick={() => delItem(i)} className="text-gray-400 hover:text-red-600 font-bold px-1" title="Remover">✕</button>
+              <div key={i}>
+                {it.descricao && (
+                  <div className="text-[11px] text-gray-500 truncate mb-0.5" title={it.descricao}>
+                    {it.descricao}
+                    {!it.plano_conta_id && <span className="ml-1 text-amber-600 font-semibold">· escolha a conta</span>}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <ContaSelect contas={contas} value={it.plano_conta_id} onChange={(id) => setItem(i, { plano_conta_id: id })} placeholder="Conta…" />
+                  <input value={it.valor} onChange={e => setItem(i, { valor: e.target.value })} placeholder="0,00" inputMode="decimal" className="w-[120px] border border-gray-300 rounded px-2 py-1.5 text-sm text-right" />
+                  <button onClick={() => delItem(i)} className="text-gray-400 hover:text-red-600 font-bold px-1" title="Remover">✕</button>
+                </div>
               </div>
             ))}
           </div>
