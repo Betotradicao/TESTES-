@@ -37,6 +37,20 @@ export default function DisparoWhatsTab() {
   };
 
   const handleSave = async () => {
+    // Trava anti-autofill do Chrome: ele despeja nome/senha nesses 3 campos e,
+    // se salvar, grava "Roberto" como URL e quebra o disparo inteiro. Uma URL
+    // de verdade sempre tem http. Ver bug documentado no vault.
+    const url = (config.disparo_whats_url || '').trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      alert(
+        'A URL da API parece inválida ("' + url + '").\n\n' +
+        'Isso costuma ser o preenchimento automático do Chrome, que joga seu ' +
+        'nome/senha nos campos. Recarregue a página (F5) para ver a config real ' +
+        'antes de salvar. URL válida começa com http:// ou https://'
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       await api.post('/config/configurations', {
@@ -83,11 +97,18 @@ export default function DisparoWhatsTab() {
         <p className="text-green-600 text-sm">Configure aqui a instancia do WhatsApp que sera usada para disparos de ofertas e monitoramento de entrega.</p>
       </div>
 
-      <div className="space-y-4">
+      {/* autoComplete/name aleatorio + readOnly-ate-focar: combinacao que o
+          Chrome respeita pra NAO despejar nome/senha nesses campos. */}
+      <form autoComplete="off" className="space-y-4" onSubmit={e => e.preventDefault()}>
+        <input type="text" name="prevent_autofill" className="hidden" autoComplete="off" />
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">URL da API</label>
           <input
             type="text"
+            name="dw_url_field"
+            autoComplete="off"
+            readOnly
+            onFocus={e => e.target.removeAttribute('readonly')}
             value={config.disparo_whats_url}
             onChange={e => setConfig(prev => ({ ...prev, disparo_whats_url: e.target.value }))}
             placeholder="Ex: http://31.97.82.235:8090"
@@ -100,6 +121,10 @@ export default function DisparoWhatsTab() {
           <div className="relative">
             <input
               type={config.showToken ? 'text' : 'password'}
+              name="dw_token_field"
+              autoComplete="new-password"
+              readOnly
+              onFocus={e => e.target.removeAttribute('readonly')}
               value={config.disparo_whats_token}
               onChange={e => setConfig(prev => ({ ...prev, disparo_whats_token: e.target.value }))}
               placeholder="Token de autenticacao"
@@ -128,13 +153,17 @@ export default function DisparoWhatsTab() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Instancia</label>
           <input
             type="text"
+            name="dw_inst_field"
+            autoComplete="off"
+            readOnly
+            onFocus={e => e.target.removeAttribute('readonly')}
             value={config.disparo_whats_instancia}
             onChange={e => setConfig(prev => ({ ...prev, disparo_whats_instancia: e.target.value }))}
             placeholder="Nome da instancia (Ex: DISPARO-OFERTAS)"
             className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
           />
         </div>
-      </div>
+      </form>
 
       {testResult && (
         <div className={`p-3 rounded-lg text-sm ${testResult.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
