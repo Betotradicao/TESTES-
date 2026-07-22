@@ -124,8 +124,11 @@ export class FaturaPdfService {
   }
 
   static async parse(buffer: Buffer, codLoja: number): Promise<FaturaParseResult> {
-    // pdf-parse 2.x expõe a classe PDFParse (não a função default da v1).
-    // Import dinâmico pra não pesar o boot do backend.
+    // pdf-parse 2.x (classe PDFParse). Escolhida de propósito: ela separa as
+    // colunas com ESPAÇO ("15/06 SCP... 11,40 0,00 5,387"), o que dá pra
+    // parsear. A 1.x cola tudo ("SCP...11,400,005,387") e vira ambíguo.
+    // Requer Node 20+ (process.getBuiltinModule/DOMMatrix) — o backend roda
+    // Node 20 (ver Dockerfile).
     const { PDFParse } = await import('pdf-parse') as any;
     const parser = new PDFParse({ data: buffer });
     const parsed = await parser.getText();
