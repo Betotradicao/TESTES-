@@ -235,13 +235,15 @@ function DemonstrativoManual({ data, loading }) {
       </div>
 
       {/* Tabela agrupada */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
         <table className="w-full text-sm">
           <colgroup>
-            <col style={{ width: 460 }} />
-            <col style={{ width: 150 }} />
-            <col style={{ width: 100 }} />
+            {/* Movimento pega TODO o espaço livre (antes ficava fixo em 460 e a
+                coluna vazia comia o resto → nome da conta quebrava em 2 linhas) */}
             <col />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 8 }} />
           </colgroup>
           <thead>
             <tr className="bg-gray-700 text-white">
@@ -273,7 +275,7 @@ function DemonstrativoManual({ data, loading }) {
                   <td
                     onClick={() => handleSort(g.nome, 'nome')}
                     title="Ordenar as contas deste grupo por nome"
-                    className={`py-1.5 px-3 font-bold cursor-pointer select-none ${hover}`}
+                    className={`py-1.5 px-3 font-bold cursor-pointer select-none whitespace-nowrap ${hover}`}
                   >
                     {g.nome}
                     {g.fora_dre && (
@@ -313,7 +315,7 @@ function DemonstrativoManual({ data, loading }) {
                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                         onClick={() => setAbertos((a) => ({ ...a, [chave]: !a[chave] }))}
                       >
-                        <td className="py-1.5 px-3 pl-6 text-gray-700">
+                        <td className="py-1.5 px-3 pl-6 text-gray-700 whitespace-nowrap">
                           <span className={`inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded border text-[11px] font-bold leading-none ${
                             aberto
                               ? 'bg-orange-500 border-orange-500 text-white'
