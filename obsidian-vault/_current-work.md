@@ -1,5 +1,36 @@
 # 🚧 Trabalho em Andamento
 
+## 🧾 Importar PDF de fatura de cartão na Conciliação (22/07) — ✅ NO AR, testar UI
+
+Dentro do botão **Fatura** (modo Manual) agora tem **"📄 Importar PDF da fatura"**. Lê os
+lançamentos, sugere a conta de cada um (aprendida das amarrações por prefixo do
+estabelecimento) e você só ajusta. Reusa a trava "soma bate com o banco".
+
+**Validado em produção:** fatura Santander do Roberto → 38 itens, soma R$ 14.992,91,
+**bate exato** com o "Total Desta Fatura". Testado dentro do container.
+
+**Arquivos:** `fatura-pdf.service.ts` (parser), rota `POST /conciliacao/fatura/importar-pdf`
+(multer memory), `FaturaModal` no `ConciliacaoBancaria.jsx`.
+
+> 🔑 **LIÇÃO CARA — pdf-parse 1.x vs 2.x + Node:**
+> - **2.x** (classe `PDFParse`, `.getText()`) separa colunas com ESPAÇO → parseável.
+> - **1.x** (`pdf(buffer)`) COLA tudo (`SCP...11,400,005,387`) → ambíguo, inútil pra isso.
+> - 2.x exige **Node 20+** (`process.getBuiltinModule`/`DOMMatrix`). O backend rodava
+>   **Node 18** → `DOMMatrix is not defined`. **Subi o Dockerfile pra `node:20-slim`**
+>   (mesmo Debian bookworm; oracledb/sharp recompilam no npm install). Backend healthy,
+>   Oracle conectou (3037 vendas), Node v20.20.2.
+
+> ⚠️ **DÍVIDA:** `email-monitor.service.ts` e `garimpador-processador.service.ts` chamam
+> `require('pdf-parse')` como FUNÇÃO (API 1.x), mas está instalado o 2.x → **o PDF deles
+> está quebrado** (não é regressão desta sessão, já estava). Corrigir = migrar os dois pra
+> `new PDFParse({data}).getText()`. Fora do escopo de hoje.
+
+> 📌 Fatura com VÁRIOS cartões num débito só: o parser lê UM PDF por vez. O modal avisa
+> quando a soma do PDF < valor da linha do banco ("pode faltar outra fatura"). Cada linha
+> do extrato terá seu próprio PDF (confirmado pelo Roberto).
+
+---
+
 ## ❓ "PIX fica sem classificar no Demonstrativo Manual" — NÃO é bug (21/07)
 
 Roberto: no Direto Sistema mostra 100% classificado, mas no Demonstrativo Manual os
