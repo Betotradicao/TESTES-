@@ -30,6 +30,18 @@ export class SellsSyncService {
   private static readonly MAX_RUN_MS = 8 * 60 * 1000;
   private static lastStats: SyncStats | null = null;
 
+  // Identidade da execucao atual. O `finally` so libera a trava se ela ainda for
+  // DELE. Sem isso, um sync abandonado que termina 10min depois zerava a trava do
+  // sync que assumiu no lugar dele e liberava execucao paralela.
+  private static runToken = 0;
+
+  // Quantos syncs estao REALMENTE em voo (o atual + os abandonados que ainda nao
+  // terminaram). Teto rigido: cada sync em voo segura conexoes do pool do Postgres,
+  // e o pool tem ~10. Sem teto, uma queda longa do Oracle multiplicava os
+  // abandonados ate esgotar o pool e congelar o backend inteiro.
+  private static emVoo = 0;
+  private static readonly MAX_EM_VOO = 2; // o atual + no maximo 1 abandonado
+
   /**
    * Retorna estatísticas da última execução
    */
@@ -45,17 +57,32 @@ export class SellsSyncService {
     // Evita execução paralela — MAS com watchdog anti-deadlock.
     // Sem o watchdog, um unico sync travado (query que nunca resolve) deixava
     // isRunning=true pra sempre e o cron nunca mais rodava ate reiniciar o backend.
+    // Teto rigido de execucoes em voo — checado ANTES de qualquer coisa.
+    // Reassumir NAO cancela o sync anterior (nao ha como abortar query em
+    // andamento), entao ele continua vivo segurando conexoes do pool do Postgres
+    // (que tem ~10). Se ja ha abandonados demais, e melhor NAO comecar outro:
+    // mais um sync so acelera o esgotamento do pool e o congelamento do backend.
+    if (this.emVoo >= this.MAX_EM_VOO) {
+      console.error(
+        `[SellsSync] 🛑 ${this.emVoo} syncs ainda em voo (teto ${this.MAX_EM_VOO}). ` +
+        `NAO vou iniciar outro — provavel Oracle fora do ar. Aguardando os anteriores terminarem.`
+      );
+      return;
+    }
+
     if (this.isRunning) {
       const stuckMs = Date.now() - this.runStartedAt;
       if (stuckMs < this.MAX_RUN_MS) {
         console.log('[SellsSync] Já está em execução, pulando...');
         return;
       }
-      console.warn(`[SellsSync] ⚠️ Sync anterior preso há ${Math.round(stuckMs / 1000)}s — resetando trava e reassumindo`);
+      console.warn(`[SellsSync] ⚠️ Sync anterior preso há ${Math.round(stuckMs / 1000)}s — abandonando e reassumindo`);
     }
 
+    const meuToken = ++this.runToken;
     this.isRunning = true;
     this.runStartedAt = Date.now();
+    this.emVoo++;
     const startTime = Date.now();
 
     try {
@@ -76,7 +103,18 @@ export class SellsSyncService {
     } catch (error) {
       console.error('[SellsSync] Erro no sync:', error);
     } finally {
-      this.isRunning = false;
+      this.emVoo--;
+      // So libera a trava se ela ainda for MINHA. Se enquanto eu rodava outro tick
+      // me deu como preso e assumiu, a trava agora pertence a ele — zerar aqui
+      // liberaria execucao paralela (foi o que congelou o backend em 25/07/2026).
+      if (this.runToken === meuToken) {
+        this.isRunning = false;
+      } else {
+        console.warn(
+          `[SellsSync] Sync #${meuToken} (abandonado) terminou em ` +
+          `${Math.round((Date.now() - startTime) / 1000)}s — trava mantida com o #${this.runToken}`
+        );
+      }
     }
   }
 

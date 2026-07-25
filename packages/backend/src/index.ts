@@ -1617,7 +1617,18 @@ const startServer = async () => {
   // Gera 1 clipe por canal mapeado em dvr_cameras_bipagens, salva em /uploads/dvr-clips
   // Retencao 2 dias (apos isso, fallback para live-stream sob demanda).
   // ==========================================
+  // Trava anti-empilhamento: uma rodada gera ate 10 bipagens x N cameras, e cada
+  // clipe pode levar ate 6,6 min (transcode de H.265). Como o cron dispara a cada
+  // 5 min, sem essa trava a rodada seguinte comeca por cima da anterior e os
+  // ffmpeg se acumulam. A VPS tem 4 nucleos para 12 clientes — ffmpeg empilhado
+  // ja travou a maquina antes.
+  let preClipeRodando = false;
   cron.schedule('*/5 * * * *', async () => {
+    if (preClipeRodando) {
+      console.log('🎬 [Pre-clipe] Rodada anterior ainda em andamento, pulando...');
+      return;
+    }
+    preClipeRodando = true;
     try {
       const { AppDataSource } = await import('./config/database');
       const { Bip } = await import('./entities/Bip');
@@ -1708,6 +1719,8 @@ const startServer = async () => {
       console.log(`🎬 [Pre-clipe] Resultado: ${okCount} OK, ${pendingCount} retry, ${failedCount} desistido`);
     } catch (error) {
       console.error('❌ Pre-geracao clipes cron error:', error);
+    } finally {
+      preClipeRodando = false;
     }
   });
   console.log('🎬 Pre-geracao clipes DVR cron job started (every 5 minutes)');
@@ -1771,7 +1784,15 @@ const startServer = async () => {
   // Jitter de 0-180s no inicio: 5 lojas na mesma VPS nao disparam no mesmo segundo
   // (evita pico de ffmpegs simultaneos).
   // ==========================================
+  // Mesma trava anti-empilhamento do cron de bipagens: uma rodada varre 48h de
+  // eventos e gera 1 clipe por camera, entao pode passar dos 30 min do intervalo.
+  let preClipePdvRodando = false;
   cron.schedule('*/30 * * * *', async () => {
+    if (preClipePdvRodando) {
+      console.log('🎬 [Pre-clipe-PDV] Rodada anterior ainda em andamento, pulando...');
+      return;
+    }
+    preClipePdvRodando = true;
     try {
       // Jitter pra espalhar a carga entre lojas multi-tenant
       const jitterMs = Math.floor(Math.random() * 180_000);
@@ -1920,6 +1941,8 @@ const startServer = async () => {
       }
     } catch (error) {
       console.error('❌ Pre-geracao clipes PDV cron error:', error);
+    } finally {
+      preClipePdvRodando = false;
     }
   });
   console.log('🎬 Pre-geracao clipes PDV (Vision Palavra-Chave) cron job started (every 30min, max 10/exec, jitter 0-3min)');
