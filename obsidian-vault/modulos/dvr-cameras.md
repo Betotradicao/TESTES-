@@ -105,7 +105,7 @@ O PostgreSQL do RP INFO ([[../clientes/nunes|Nunes]]) retorna hora **sem `:`** (
 
 | Cliente | DVR IP Local | VPS HTTP | VPS RTSP | Codec | Status |
 |---|---|---|---|---|---|
-| [[../clientes/tradicao\|Tradição]] | **10.6.1.148** (Intelbras **MHDX 5116**) | **28100** | **28101** | transcode H.265→H.264 | ✅ túnel OK 21/07 (RPC2 challenge respondendo) |
+| [[../clientes/tradicao\|Tradição]] | **10.6.1.110** (Intelbras **iMHDX 5116**, MAC `98-E5-5B-45-04-7A`) | **28100** | **28101** | transcode H.265→H.264 | ✅ validado 24/07 (HTTP 200 + RPC2 challenge + ffprobe `hevc 2880x1616`) |
 | [[../clientes/nunes\|Nunes]] | 192.168.102.169 | 38100 | 38101 | H.265→H.264 | ✅ |
 
 ## 🔄 Trocar o IP do DVR: mudar na TELA NÃO adianta
@@ -139,6 +139,11 @@ Get-CimInstance Win32_Process -Filter "Name='ssh.exe'" |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 ```
 
+> 🔑 **A máquina de desenvolvimento (D:, `10.6.1.171`) É a máquina da loja do Tradição.**
+> Está na **mesma LAN do DVR** e é ela que roda os túneis (`C:\ProgramData\SSHTunnels\`).
+> Ou seja: dá pra varrer a rede, falar RPC2 com o DVR e editar o `tunnels.json`
+> **direto daqui**, sem precisar de ninguém na loja. Não pedir acesso remoto à toa.
+
 **Diagnóstico pela VPS** (distingue "túnel caiu" de "túnel vivo apontando errado"):
 ```bash
 ss -ltn | grep -E '28100|28101'                     # escutando? => túnel SSH de pé
@@ -152,6 +157,12 @@ curl -s --max-time 8 -X POST http://127.0.0.1:28100/RPC2_Login \
 > antes de tentar repassar, então "aceitou" não prova que o outro lado responde.
 > **Use o HTTP 200 na 28100 + `login challenge` no RPC2** como sinal de verdade.
 > `login challenge` / RTSP `401 Digest` = caminho OK, só falta a autenticação normal.
+
+> 🔁 **O IP do DVR do Tradição JÁ MUDOU 2x em 3 dias** (`.123` → `.148` → `.110`) porque
+> pega DHCP. Antes de investigar qualquer coisa, **confirme onde o DVR está**: varredura
+> de porta 80/554 + `magicBox.cgi?action=getDeviceType` (receita completa em
+> [[../bugs-resolvidos/2026-07-24-dvr-tradicao-mudou-de-ip-sozinho]]).
+> `ping`/ARP **não acham** — o aparelho não responde ICMP.
 
 > ⚠️ **NÃO confie no software da Intelbras (SIM/gDMSS) pra saber se o IP mudou.** Ele
 > mostrava o `.123` como **"Online"** por cache — mas `Test-NetConnection` no `.123`

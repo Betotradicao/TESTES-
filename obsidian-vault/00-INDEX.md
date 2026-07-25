@@ -16,6 +16,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[arquitetura/oracle-intersolid|Oracle Intersolid]]
 - [[arquitetura/mapeamento-tabelas|Mapeamento de Tabelas (v1/v2)]]
 - [[arquitetura/estrutura-vps|Estrutura da VPS 46]]
+- [[arquitetura/radar-watchdog|🐕 Radar Watchdog — reinicia container congelado (com disjuntor)]]
 - [[arquitetura/whitelabel|Whitelabel — Estado Atual + Plano de Mudança]] ← antes de mexer, ler
 
 ## ⚙️ Módulos do Sistema
@@ -62,6 +63,8 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ## 🐛 Bugs Resolvidos / Features Recentes
 
 ### Julho 2026
+- [[bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle|🌟🚨 Queda de 38min do Oracle CONGELOU o backend por 10h — e o Docker viu e não fez nada]]
+- [[bugs-resolvidos/2026-07-24-dvr-tradicao-mudou-de-ip-sozinho|🌟📡 DVR do Tradição mudou de IP sozinho (DHCP) — como ACHAR o DVR na rede]]
 - [[bugs-resolvidos/2026-07-21-demonstrativo-manual-conta-chumbada|🌟💰 Demonstrativo Manual mostrava só UMA conta (chumbada no código) — dinheiro sumindo do DRE]]
 - [[bugs-resolvidos/2026-07-21-disparo-recibo-entrega-payload-achatado-v2|📬 Disparo: Entregue/Lida sempre vazias — payload do messages.update é achatado na v2]]
 - [[bugs-resolvidos/2026-07-20-comunidade-whatsapp-numeros-ocultos-lid|🌟🚨 Comunidade do WhatsApp esconde o número dos membros (LID) — sorteio por comunidade é inviável]]

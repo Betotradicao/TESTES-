@@ -1,5 +1,58 @@
 # 🚧 Trabalho em Andamento
 
+## 🚨 Tradição ficou 10h fora (25/07) — ✅ NO AR, mas SEM correção definitiva
+
+**Gatilho:** o Oracle da loja caiu às 05:32 UTC e voltou depois. **A queda foi passageira —
+o estrago não.** O backend congelou às 06:10 e ficou assim até o `docker restart` às 16:07.
+
+Resolvido com `docker restart prevencao-tradicao-backend` (health 200 em 0,24s, Oracle e
+IMAP reconectados). **Nada de código/config foi alterado.**
+
+Causa-raiz completa + método forense: [[bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle]]
+
+> 🔴 **VAI REPETIR.** Nada foi corrigido — na próxima oscilação do Oracle o backend congela
+> de novo e fica fora até alguém perceber.
+
+### ✅ Item 1 FEITO — Radar Watchdog no ar (25/07)
+Roberto aprovou **exigindo que não repita o incidente de "recriar tudo sozinho e esquentar
+a VPS"**. Feito script próprio com **lista branca + disjuntor** em vez de `autoheal` pronto
+(que reiniciaria os **13 frontends falso-positivo** em loop — o medo dele estava certo).
+Testado em container descartável, 111ms de CPU/execução. Detalhes:
+[[arquitetura/radar-watchdog]]
+
+### ✅ Itens 2, 4 e 5 FEITOS — código LOCAL, `tsc --noEmit` limpo, **NÃO commitado**
+- **#2 zumbis esterilizados** (`sells-sync.service.ts`): token de posse + teto de 2 em voo.
+  O `finally` do sync abandonado não zera mais a trava do sync atual.
+- **#4 anti-empilhamento** (`index.ts`): `preClipeRodando` e `preClipePdvRodando` nos 2 crons.
+- **#5 healthcheck do frontend** (`nginx.conf`): `listen [::]:3004;`. Provado no container:
+  `127.0.0.1:3004` OK / `localhost:3004` recusado.
+
+⏭️ **Roberto testar → depois commit + push TESTE + deploy.** O #5 exige rebuild da imagem
+do frontend pra valer.
+
+⏭️ **#3 Oracle pelo túnel SSH — NÃO feito, precisa da sua decisão.** Muda como a produção
+fala com o ERP; trocar às cegas pode derrubar tudo. Ver a contradição do CGNAT na nota.
+
+## ✅ DVR Tradição "RPC2 timeout" (24/07) — RESOLVIDO: o DVR mudou de IP sozinho
+
+`10.6.1.148` → **`10.6.1.110`** (DHCP). Aparelho estava saudável o tempo todo.
+Corrigido `tunnels.json` (backup `.bak-20260724`) + `dvr_devices.ip` no banco.
+Validado: HTTP 200 (68ms), RPC2 `login challenge`, container→gateway 21ms, ffprobe
+`hevc 2880x1616` ao vivo.
+
+> 🔑 A máquina de desenvolvimento (D:, `10.6.1.171`) **É a máquina da loja** — está na
+> mesma LAN do DVR. Dá pra varrer a rede e falar com o DVR direto daqui, sem ir na loja.
+
+Causa-raiz + receita de "como achar o DVR quando ele some":
+[[bugs-resolvidos/2026-07-24-dvr-tradicao-mudou-de-ip-sozinho]]
+
+⏭️ **Roberto:** clicar em **Testar Conexão** na tela (deve ficar verde) e validar o vídeo.
+
+> ⚠️ **Prevenção NÃO feita — Roberto decidiu "deixar como está" (24/07).** O DVR segue com
+> `DhcpEnable=true`, então **vai trocar de IP de novo** e o Vision cai junto. Quando isso
+> acontecer: aplicar a receita da nota (varredura 80/554 + `getDeviceType`) — leva ~5min.
+> O MikroTik **não é acessível** desta máquina (tudo fechado por firewall, já medido).
+
 ## 🧾 Importar PDF de fatura de cartão na Conciliação (22/07) — ✅ NO AR, testar UI
 
 Dentro do botão **Fatura** (modo Manual) agora tem **"📄 Importar PDF da fatura"**. Lê os
