@@ -50,5 +50,13 @@ Se `minio_endpoint` não for `prevencao-<cliente>-minio`, **corrigir primeiro**,
 **Status 2026-07-10:** Nunes e SuperVital corrigidos. Tradição já estava correto.
 MaxValle: **verificar** (provável mesmo problema — ainda não deployado).
 
+**✅ Status 2026-08-03 — MaxValle VERIFICADO e OK.** Conferido antes de deployar:
+`minio_endpoint = prevencao-maxvale-minio`, `minio_port = 9000` — já estava no padrão certo.
+Deploy feito e o boot passou pelo ponto de risco: `✅ MinIO client initialized:
+prevencao-maxvale-minio:9000`. **Pendência encerrada — os 4 clientes estão corretos.**
+
+> 🔑 **O checklist funcionou:** 30 segundos de conferência antes do deploy evitaram o risco
+> de derrubar o cliente num boot travado. Vale manter o hábito.
+
 ## 🏷️ Tags
 #bug-resolvido #minio #deploy #boot #hairpin-nat #config

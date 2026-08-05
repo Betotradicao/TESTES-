@@ -80,10 +80,25 @@ systemctl disable --now radar-watchdog.timer   # desliga tudo
 Se aparecer `!! DISJUNTOR ABERTO`, **não é pra insistir** — o container está quebrado de
 verdade e reiniciar não resolve.
 
-## 🚧 Ainda na lista branca: só `prevencao-tradicao-backend`
+## 🚧 Lista branca atual (3 backends)
 
-Os outros backends (`supervital`, `maxvale`, `nunes`, e os 9 `kontrata-*`) usam o mesmo
-healthcheck e seriam seguros — **decisão consciente de começar por um só** e observar.
+```
+prevencao-tradicao-backend
+prevencao-supervital-backend
+prevencao-maxvale-backend
+```
+
+> 🔴 **`prevencao-nunes-backend` está FORA** — decisão do Roberto (03/08). Ele roda o código
+> antigo (sem a correção anti-travamento) **e** sem vigia: se congelar, fica fora até alguém
+> reparar na tela, como aconteceu com o SuperVital (3 dias).
+
+Ampliada em **03/08/2026**, depois que o **SuperVital congelou e ficou 3 dias fora** sem
+ninguém perceber — ele não estava na lista.
+Ver [[../bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle]].
+
+> 🔴 **`kontrata-*` (9 containers) continuam FORA.** São outro produto (porta 3010) e o
+> health endpoint deles **não foi auditado** — não dá pra afirmar que devolve 200 com o ERP
+> fora. Só entram depois de conferir isso; senão viram loop de restart.
 
 ⏭️ **Pendência que destrava os frontends:** o healthcheck deles sonda `localhost:3004`,
 mas o nginx do container só escuta IPv4 e `localhost` resolve `::1`. Fix = `listen [::]:3004;`

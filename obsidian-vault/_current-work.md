@@ -1,5 +1,127 @@
 # 🚧 Trabalho em Andamento
 
+## 🔧 Conciliação: 2 bugs corrigidos (05/08) — código LOCAL, **falta deploy**
+
+**Não era bug de tela: o backend recusava as gravações e ninguém avisava.** O front mandava
+1 POST por linha; com ~470 selecionadas o rate limit (200/min) cortava o excedente com 429,
+mas a tela já tinha pintado tudo verde (otimista). Medido: 232 chegaram, 218 gravaram,
+**288 ficaram sem classificação** — e o Demonstrativo estava certo o tempo todo.
+
+Também corrigida a **tela branca**: `ManualConciliacao` chamava `useState` **depois** de
+`return` condicional (quebra as Regras dos Hooks).
+
+**Feito:** novos endpoints de lote (`/amarracoes/lote` e `/movimento/unica/lote`), front
+manda 1 requisição só, desfaz o verde no erro e mostra quantas salvaram de verdade.
+`tsc --noEmit` limpo, JSX compila.
+
+Causa-raiz + queries de conferência:
+[[bugs-resolvidos/2026-08-05-conciliacao-rate-limit-engoliu-classificacoes]]
+
+⏭️ **Falta deploy no Tradição.** Depois dele, Roberto precisa **reclassificar as 288 linhas**
+(agora vai numa tacada só).
+
+## ✅ SuperVital "CONEXÃO = OFF" (03/08) — RESOLVIDO + blindado
+
+**Backend congelado desde 31/07 00:00 (BRT) — 3 dias fora, ninguém percebeu.**
+Mesma assinatura do Tradição (`futex_wait_queue`, 236 healthchecks empilhados). O container
+dizia `Up 3 weeks` o tempo todo. Oracle dele estava OK — o problema era o processo Node.
+
+**Causa de fundo:** a correção anti-travamento de 25/07 tinha sido deployada **só no Tradição**.
+
+**Feito:** restart → deploy da correção (verificada dentro da imagem) → **SuperVital entrou
+na lista do watchdog**. Backend e frontend `healthy`, Oracle com 1415 vendas.
+
+## ✅ MaxValle também corrigido (03/08) — preventivo
+
+Ele **não estava travado** (rodando normal desde 07/07), mas com o código antigo. Deploy
+feito: correção verificada na imagem, backend e frontend `healthy`, Oracle com 511 vendas,
+API 200. **Entrou na lista do watchdog.**
+
+> ✅ **Checklist do MinIO conferido antes** (`prevencao-maxvale-minio:9000` — correto).
+> Era o risco de travar o boot e derrubar o cliente. Fecha pendência antiga do vault.
+
+> 🔴 **Nunes ficou de fora** (decisão do Roberto, 03/08): código antigo **e** sem vigia.
+
+Detalhes + método forense: [[bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle]]
+
+## ✅ RESOLVIDO (04/08) — Santander LTDA voltou: token `HTTP 200`
+
+**O que destravou: criar uma APLICAÇÃO NOVA no portal.** O botão "Renovar" da aplicação
+existente atualizou a validade na tela mas **nunca** trocou o certificado no gateway da API
+(ficou `403 Unauthorized hash` por +24h). Credenciais novas gravadas (id 32ch, secret 16ch);
+certificado do nosso lado não mudou. Backup: `bank_accounts_bkp_20260804`.
+Lição completa em [[bugs-resolvidos/2026-07-10-santander-certificado-renovacao]].
+
+✅ **VALIDADO PELO ROBERTO (04/08): o extrato voltou a aparecer na tela.** Assunto encerrado.
+
+---
+
+## 🔴 Histórico: Conciliação Manual vazia (25/07) — certificado Santander LTDA VENCEU
+
+**Não é bug da tela.** A API do Santander devolve **403** → extrato com 0 lançamentos →
+o modo Manual (que só usa o banco) fica vazio. O modo Sistema disfarça porque ainda
+mostra o Oracle.
+
+**Medido:** cert da conta **SANTANDER LTDA** (`47692182000172`, conta `000130075973`)
+**venceu em 23/07/2026**. A ADM COMERCIAL está válida até 09/06/2027.
+A renovação de 10/07 pegou só uma das duas contas.
+
+**Feito em 25/07 (ainda NÃO resolvido):**
+- ✅ Cert novo instalado e **convertido de legacy→moderno** (cópia manual não basta:
+  Node dá `Unsupported PKCS12 PFX data`). Válido até 09/06/2027.
+- ✅ `.cer` da cadeia pública gerado pro portal:
+  `Desktop\CERTIFICADOs 2026 2027\SANTANDER-LTDA-47692182000172.cer` (4 certs, 0 chave privada).
+- ✅ Credenciais novas do Roberto gravadas cifradas.
+- ❌ **Token ainda falha: `401 Invalid client credentials`.**
+
+> 🔑 **Mas ANDOU:** era `403` (certificado recusado), virou `401` (credencial recusada) —
+> ou seja, **o certificado já passou no mTLS**. Controle na conta ADM COMERCIAL deu
+> `200 + token`, provando que o método de teste está certo.
+
+> 🔀 **27/07 — o `401` era erro MEU, não do portal.** Gravei `client_id`/`client_secret`
+> **invertidos**: no Santander o **id tem 32 chars e o secret 16** (o inverso do usual).
+> Corrigido. E ficou provado que **as credenciais NUNCA mudaram** — as que o Roberto passou
+> são idênticas às antigas (a renovação não emite credencial nova, é a mesma aplicação
+> RADAR 360). **Só falta mesmo registrar o certificado no portal.**
+
+**Nosso lado está 100% verificado — o bloqueio é o PORTAL do Santander:**
+- Senha do PFX conferida contra a que o Roberto passou: **idêntica**, e abre o certificado.
+- `client_id`/`client_secret` gravados decriptam **exatos** aos que ele passou.
+- Roberto relatou (25/07) que **o upload do `.cer` no portal NÃO deu certo**.
+
+Arquivos prontos em `Desktop\CERTIFICADOs 2026 2027\` pra tentar formatos diferentes:
+| Arquivo | Conteúdo |
+|---|---|
+| `SANTANDER-LTDA-47692182000172.cer` | cadeia completa (4 certs) — mesmo formato que funcionou na ADM COMERCIAL |
+| `LTDA-somente-folha.cer` / `.crt` / `.pem` | só o certificado da empresa (1 cert) |
+
+**27/07 — Roberto renovou no portal (mostra "Dentro do prazo", Ativo, Produção). Ainda `403`.**
+Testado 5x ao longo de ~10min: sempre `Unauthorized hash`. Não é propagação de curto prazo.
+
+Verificações que **descartam problema do nosso lado**:
+- Digital SHA-256 do cert instalado == a do arquivo do Roberto (`9A:BD:B7:32...`).
+- PFX instalado tem **4 certificados** — cadeia idêntica à da ADM COMERCIAL que funciona.
+- Os 2 uploads dele pela tela **funcionaram** (log: "PFX convertido... Certificado salvo").
+- ✅ **ADM COMERCIAL segue `200 + token`** — nada foi quebrado de colateral.
+
+> 🔑 **As 2 contas são APLICAÇÕES DIFERENTES no portal** (client_ids distintos:
+> ADM `YLhGx...Ipfz`, LTDA `6uRPp...3mlb`). Mas o portal lista **só a RADAR 360** —
+> provável que cada CNPJ tenha seu próprio login/aplicação. **Confirmar em qual CNPJ
+> ele está logado ao renovar.**
+
+⏭️ **A hipótese que sobrou (só o Roberto consegue checar):** renovar pode ter **rotacionado
+o Client Secret**. Abrir RADAR 360 → **Acessar** → aba **Credenciais** e comparar com
+`h0Nf...N6aw` (16ch). Lembrar: **id=32ch, secret=16ch**.
+
+⏭️ **Decisão pendente do Roberto:**
+- **(A)** Insistir na aplicação NOVA → precisa registrar o cert nela e ativar APIs/Produtos.
+- **(B)** Voltar pra aplicação **RADAR 360 antiga** (client_id conhecido, dava
+  `403 Unauthorized hash` = só faltava o cert novo). Credenciais antigas estão em
+  `bank_accounts_bkp_20260725`; reverter é um UPDATE.
+> 💡 **(B) tende a ser mais curto:** o `403 Unauthorized hash` prova que aquele client_id
+> É reconhecido — só falta casar o certificado. Já o novo dá `401`, que é "não conheço
+> esse client_id".
+
 ## 🚨 Tradição ficou 10h fora (25/07) — ✅ NO AR, mas SEM correção definitiva
 
 **Gatilho:** o Oracle da loja caiu às 05:32 UTC e voltou depois. **A queda foi passageira —
@@ -20,7 +142,25 @@ a VPS"**. Feito script próprio com **lista branca + disjuntor** em vez de `auto
 Testado em container descartável, 111ms de CPU/execução. Detalhes:
 [[arquitetura/radar-watchdog]]
 
-### ✅ Itens 2, 4 e 5 FEITOS — código LOCAL, `tsc --noEmit` limpo, **NÃO commitado**
+### ✅✅ DEPLOYADO NO TRADIÇÃO (25/07, commits `a4b13b9` + vault, push TESTE `3f24ba2`)
+Build `--no-cache` + `up -d --no-deps frontend backend`. Backend e frontend recriados
+16:45, ambos **`healthy`**, Oracle reconectou (2479 vendas), SellsSync em 2s.
+
+> 🎉 **O frontend do Tradição ficou `healthy` pela 1ª vez em 8+ dias.** Prova dentro do
+> container: `localhost:3004` agora responde OK (antes: `Connection refused`).
+> Os outros 12 frontends só corrigem quando levarem deploy.
+
+> 🔬 **Flagrante do bug ANTES do deploy:** havia **3 ffmpeg simultâneos do MESMO clipe**
+> (canal 16, mesmo starttime), iniciados com 3min/1min/45s de diferença — carga da VPS em
+> **9.55**. Era o cron de 5min disparando por cima da rodada anterior, exatamente o que a
+> trava corrige. Encerrados manualmente; carga voltou pra ~3.
+
+> ⚠️ **As travas ainda NÃO foram exercitadas em produção** — elas só logam quando barram
+> algo, e desde o deploy não houve sobreposição nem queda de Oracle. Sinais a procurar:
+> `🎬 [Pre-clipe] Rodada anterior ainda em andamento, pulando...` e
+> `[SellsSync] 🛑 N syncs ainda em voo`.
+
+### ✅ Itens 2, 4 e 5 (o que foi corrigido)
 - **#2 zumbis esterilizados** (`sells-sync.service.ts`): token de posse + teto de 2 em voo.
   O `finally` do sync abandonado não zera mais a trava do sync atual.
 - **#4 anti-empilhamento** (`index.ts`): `preClipeRodando` e `preClipePdvRodando` nos 2 crons.

@@ -151,6 +151,58 @@ Os dois caminhos responderam OK no teste pós-incidente.
 reconectou (`✅ [ORACLE] Produto encontrado: AC SUINO...`), IMAP voltou a logar no Gmail.
 **Nenhuma alteração de código ou config.**
 
+## 🔁 03/08/2026 — REPETIU no SuperVital (e a lição que faltava)
+
+Roberto reportou `CONEXÃO = OFF` no SuperVital. **Mesma assinatura, outro cliente:**
+
+```
+thread principal do node : futex_wait_queue     <- event loop morta
+healthchecks empilhados  : 236 processos travados
+conexoes penduradas      : 284 FIN-WAIT-2 + 10 SYN-SENT
+ultimo log               : 31/07 03:00:14 UTC   <- 3 DIAS parado
+```
+
+> ⚠️ **`docker ps` dizia `Up 3 weeks`.** O container nunca caiu — quem congela é o processo
+> Node dentro dele. **Uptime de container não é sinal de saúde.**
+
+**Detalhe que engana:** o PID 1 do container é o `docker-init` (724 kB, 1 thread,
+`do_sigtimedwait`). **Olhar o wchan do PID 1 dá falso negativo** — tem que pegar o PID do
+`node dist/index.js` com `docker top`.
+
+**Descartado:** Oracle no ar (`smvital.o3utm.com.br:1521` respondendo), sem erro nos logs,
+sem queda de ERP. Congelou às 03:00 UTC = **meia-noite de Brasília** (container em
+`America/Sao_Paulo`, então NÃO é o cron das 3h — esse dispara 06:00 UTC). **Gatilho exato
+não identificado.**
+
+### 🔑 A LIÇÃO: deploy num cliente só deixa os outros expostos
+
+| Cliente | Imagem | Tem a correção? | Resultado |
+|---|---|---|---|
+| Tradição | 25/07 | ✅ | 5 dias healthy |
+| **SuperVital** | 10/07 | ❌ | **congelou 31/07** |
+| MaxValle | 01/06 | ❌ | exposto |
+| Nunes | 10/07 | ❌ | exposto |
+
+Como conferir se a correção está numa imagem, sem adivinhar:
+```bash
+docker exec <container> grep -c 'Rodada anterior ainda em andamento' /app/dist/index.js
+# 0 = codigo antigo | >0 = tem a correcao
+```
+
+### ✅ Feito em 03/08
+1. `docker restart prevencao-supervital-backend` → 200 em 0,25s, Oracle voltou (1396 vendas).
+2. **Lista branca do watchdog ampliada** de 1 para **4 backends** (`tradicao`, `supervital`,
+   `maxvale`, `nunes`). Se repetir, cai de **3 dias** para **~4 minutos**.
+   `kontrata-*` ficaram de fora: outro produto, health endpoint não auditado.
+
+3. ✅ **Correção `a4b13b9` DEPLOYADA no SuperVital** (build `--no-cache` + `up -d --no-deps`).
+   Verificado dentro da imagem nova: trava anti-empilhamento = 2, teto anti-zumbi = 1
+   (antes 0 e 0). Backend e **frontend `healthy`** (o fix do nginx pegou aqui também),
+   Oracle reconectou (1415 vendas).
+
+> 📌 **MaxValle e Nunes NÃO foram tocados — decisão do Roberto (03/08): "mexer só no Vital".**
+> Seguem com o código antigo e **fora** da lista do watchdog. Se congelarem, ninguém avisa.
+
 ## 🔗 Relacionados
 - [[2026-07-10-sells-sync-deadlock|Sells Sync deadlock (watchdog criado aqui)]]
 - [[2026-07-10-oracle-pool-njs064-stuck|Oracle pool preso NJS-064]]

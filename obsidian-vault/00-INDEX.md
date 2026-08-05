@@ -62,6 +62,9 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 
 ## 🐛 Bugs Resolvidos / Features Recentes
 
+### Agosto 2026
+- [[bugs-resolvidos/2026-08-05-conciliacao-rate-limit-engoliu-classificacoes|🌟🚨 O rate limit engolia classificações em silêncio (+ tela branca por hook fora de ordem)]]
+
 ### Julho 2026
 - [[bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle|🌟🚨 Queda de 38min do Oracle CONGELOU o backend por 10h — e o Docker viu e não fez nada]]
 - [[bugs-resolvidos/2026-07-24-dvr-tradicao-mudou-de-ip-sozinho|🌟📡 DVR do Tradição mudou de IP sozinho (DHCP) — como ACHAR o DVR na rede]]
