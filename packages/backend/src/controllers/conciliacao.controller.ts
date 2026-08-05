@@ -203,6 +203,42 @@ export class ConciliacaoController {
     }
   }
 
+  /**
+   * POST /api/conciliacao/amarracoes/lote — salva várias amarrações numa requisição só.
+   * Existe pra não estourar o rate limit (200 req/min) quando o usuário classifica
+   * centenas de linhas de uma vez. Devolve quantas salvaram e quais falharam.
+   */
+  static async salvarAmarracoesLote(req: Request, res: Response) {
+    try {
+      const codLoja = Number(req.body?.cod_loja ?? req.query.codLoja) || 1;
+      const { itens } = req.body || {};
+      if (!Array.isArray(itens) || itens.length === 0) {
+        return res.status(400).json({ success: false, message: 'itens (array) é obrigatório' });
+      }
+      const r = await ConciliacaoService.salvarAmarracoesLote(codLoja, itens);
+      res.json({ success: true, ...r, enviadas: itens.length });
+    } catch (error: any) {
+      console.error('Erro salvarAmarracoesLote:', error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  /** POST /api/conciliacao/movimento/unica/lote — classifica N movimentos de uma vez */
+  static async movimentoUnicaLote(req: Request, res: Response) {
+    try {
+      const codLoja = Number(req.body?.cod_loja ?? req.query.codLoja) || 1;
+      const { itens } = req.body || {};
+      if (!Array.isArray(itens) || itens.length === 0) {
+        return res.status(400).json({ success: false, message: 'itens (array) é obrigatório' });
+      }
+      const r = await ConciliacaoService.salvarMovimentosUnicaLote(codLoja, itens);
+      res.json({ success: true, ...r, enviadas: itens.length });
+    } catch (error: any) {
+      console.error('Erro movimentoUnicaLote:', error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   /** DELETE /api/conciliacao/amarracoes — remove amarração de um texto */
   static async removerAmarracao(req: Request, res: Response) {
     try {

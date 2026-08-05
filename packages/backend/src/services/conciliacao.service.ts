@@ -6,6 +6,7 @@
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 import { SantanderService } from './santander.service';
+import { In } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { BankTransfer } from '../entities/BankTransfer';
 import { BankAccount } from '../entities/BankAccount';
@@ -784,6 +785,73 @@ export class ConciliacaoService {
     return repo.save(row);
   }
 
+  /**
+   * Salva VÁRIAS amarrações numa requisição só.
+   *
+   * Por que existe: o front mandava 1 POST por linha via `Promise.all`. Classificar
+   * ~470 PIX de uma vez virava ~470 requisições simultâneas e o rate limit global
+   * (200/min por IP, index.ts) recusava o excedente com 429 — silenciosamente, porque
+   * a tela já tinha pintado tudo de verde de forma otimista. Resultado real medido em
+   * 05/08/2026: 232 chegaram, 218 gravaram, 288 linhas ficaram sem classificação.
+   */
+  static async salvarAmarracoesLote(
+    codLoja: number,
+    itens: Array<{ texto_exato: string; plano_conta_id: number }>,
+  ): Promise<{ salvas: number; erros: Array<{ texto_exato: string; erro: string }> }> {
+    if (!Array.isArray(itens) || itens.length === 0) {
+      throw new Error('itens é obrigatório (array não vazio)');
+    }
+
+    const repo = AppDataSource.getRepository(ConciliacaoAmarracao);
+    const erros: Array<{ texto_exato: string; erro: string }> = [];
+    let salvas = 0;
+
+    // Deduplica por texto (o mesmo texto 2x no lote viraria conflito de UNIQUE).
+    // O último vence, mesmo comportamento de salvar um por um em sequência.
+    const porTexto = new Map<string, number>();
+    for (const it of itens) {
+      const texto = (it?.texto_exato || '').trim();
+      if (!texto) { erros.push({ texto_exato: it?.texto_exato ?? '', erro: 'texto_exato vazio' }); continue; }
+      if (!it?.plano_conta_id) { erros.push({ texto_exato: texto, erro: 'plano_conta_id ausente' }); continue; }
+      porTexto.set(texto, Number(it.plano_conta_id));
+    }
+    if (porTexto.size === 0) return { salvas: 0, erros };
+
+    const textos = [...porTexto.keys()];
+    const existentes = await repo.find({ where: { cod_loja: codLoja, texto_exato: In(textos) } });
+    const mapExistentes = new Map(existentes.map((r) => [r.texto_exato, r]));
+
+    const aSalvar: ConciliacaoAmarracao[] = [];
+    for (const [texto, planoContaId] of porTexto) {
+      const atual = mapExistentes.get(texto);
+      if (atual) {
+        atual.plano_conta_id = planoContaId;
+        aSalvar.push(atual);
+      } else {
+        aSalvar.push(repo.create({ cod_loja: codLoja, texto_exato: texto, plano_conta_id: planoContaId }));
+      }
+    }
+
+    // Grava em blocos: um INSERT gigante estoura o limite de parâmetros do Postgres.
+    const BLOCO = 500;
+    for (let i = 0; i < aSalvar.length; i += BLOCO) {
+      const bloco = aSalvar.slice(i, i + BLOCO);
+      try {
+        await repo.save(bloco);
+        salvas += bloco.length;
+      } catch (e: any) {
+        // Bloco falhou inteiro: tenta um a um pra salvar o que der e reportar só o que falhou
+        for (const row of bloco) {
+          try { await repo.save(row); salvas++; }
+          catch (e2: any) { erros.push({ texto_exato: row.texto_exato, erro: e2?.message || String(e2) }); }
+        }
+      }
+    }
+
+    console.log(`[Conciliacao] Lote de amarrações: ${salvas} salvas, ${erros.length} erro(s)`);
+    return { salvas, erros };
+  }
+
   /** Remove a amarração de um texto exato */
   static async removerAmarracao(codLoja: number, textoExato: string): Promise<boolean> {
     const repo = AppDataSource.getRepository(ConciliacaoAmarracao);
@@ -843,6 +911,60 @@ export class ConciliacaoService {
     if (row) { row.tipo = 'unica'; row.plano_conta_id = planoContaId; row.transfer_id = null; }
     else row = repo.create({ cod_loja: codLoja, mov_key: movKey, tipo: 'unica', plano_conta_id: planoContaId });
     return repo.save(row);
+  }
+
+  /**
+   * ÚNICA em lote: N movimentos numa requisição só.
+   * Mesmo motivo do `salvarAmarracoesLote` — evitar o burst que o rate limit corta.
+   */
+  static async salvarMovimentosUnicaLote(
+    codLoja: number,
+    itens: Array<{ mov_key: string; plano_conta_id: number }>,
+  ): Promise<{ salvas: number; erros: Array<{ mov_key: string; erro: string }> }> {
+    if (!Array.isArray(itens) || itens.length === 0) {
+      throw new Error('itens é obrigatório (array não vazio)');
+    }
+    const repo = AppDataSource.getRepository(ConciliacaoMovimento);
+    const erros: Array<{ mov_key: string; erro: string }> = [];
+
+    const porKey = new Map<string, number>();
+    for (const it of itens) {
+      const mk = (it?.mov_key || '').trim();
+      if (!mk) { erros.push({ mov_key: it?.mov_key ?? '', erro: 'mov_key vazio' }); continue; }
+      if (!it?.plano_conta_id) { erros.push({ mov_key: mk, erro: 'plano_conta_id ausente' }); continue; }
+      porKey.set(mk, Number(it.plano_conta_id));
+    }
+    if (porKey.size === 0) return { salvas: 0, erros };
+
+    const keys = [...porKey.keys()];
+    const existentes = await repo.find({ where: { cod_loja: codLoja, mov_key: In(keys) } });
+    const mapExistentes = new Map(existentes.map((r) => [r.mov_key, r]));
+
+    const aSalvar: ConciliacaoMovimento[] = [];
+    for (const [mk, planoContaId] of porKey) {
+      const atual = mapExistentes.get(mk);
+      if (atual) {
+        atual.tipo = 'unica'; atual.plano_conta_id = planoContaId; atual.transfer_id = null;
+        aSalvar.push(atual);
+      } else {
+        aSalvar.push(repo.create({ cod_loja: codLoja, mov_key: mk, tipo: 'unica', plano_conta_id: planoContaId }));
+      }
+    }
+
+    let salvas = 0;
+    const BLOCO = 500;
+    for (let i = 0; i < aSalvar.length; i += BLOCO) {
+      const bloco = aSalvar.slice(i, i + BLOCO);
+      try { await repo.save(bloco); salvas += bloco.length; }
+      catch {
+        for (const row of bloco) {
+          try { await repo.save(row); salvas++; }
+          catch (e2: any) { erros.push({ mov_key: row.mov_key, erro: e2?.message || String(e2) }); }
+        }
+      }
+    }
+    console.log(`[Conciliacao] Lote de movimentos (única): ${salvas} salvos, ${erros.length} erro(s)`);
+    return { salvas, erros };
   }
 
   /** FATURA: um movimento com vários lançamentos (conta + valor) que somam o valor do banco */

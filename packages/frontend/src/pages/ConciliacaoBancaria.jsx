@@ -401,8 +401,26 @@ export default function ConciliacaoBancaria() {
     }));
     setManualSelected(new Set());
     try {
-      await Promise.all(textos.map(txt => api.post('/conciliacao/amarracoes', { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), texto_exato: txt, plano_conta_id: Number(contaId) })));
-    } catch { toast.error('Erro ao salvar (automática)'); }
+      // UMA requisição com o lote inteiro. Antes era um POST por linha via Promise.all:
+      // classificar centenas de PIX de uma vez estourava o rate limit (200/min) e o
+      // backend recusava o excedente com 429 — mas a tela já tinha pintado tudo de
+      // verde (otimista), então parecia salvo. Medido em 05/08/2026: de ~470 linhas,
+      // só 218 gravaram e 288 voltaram "não classificadas" no Demonstrativo.
+      const { data } = await api.post('/conciliacao/amarracoes/lote', {
+        ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}),
+        itens: textos.map(txt => ({ texto_exato: txt, plano_conta_id: Number(contaId) })),
+      });
+      const falhas = data?.erros?.length || 0;
+      if (falhas > 0) {
+        toast.error(`${data.salvas} salva(s), ${falhas} falhou(ram). Recarregue e confira.`);
+      } else if (textos.length > 1) {
+        toast.success(`${data.salvas} classificação(ões) salva(s)`);
+      }
+    } catch {
+      // Desfaz o verde otimista: sem isso a tela mente sobre o que foi gravado.
+      setManualRows(prev => prev.map(r => (textoSet.has(r.texto_exato) ? { ...r, classificacao: null } : r)));
+      toast.error('Erro ao salvar (automática) — nada foi gravado');
+    }
   }, [acharContaInfo, lojaSelecionada, manualSelected, manualRows]);
 
   // ÚNICA: por movimento (lote = cada selecionado)
@@ -414,8 +432,21 @@ export default function ConciliacaoBancaria() {
     setManualRows(prev => prev.map(r => keys.has(r.mov_key) ? { ...r, classificacao: cls } : r));
     setManualSelected(new Set());
     try {
-      await Promise.all(targets.map(t => api.post('/conciliacao/movimento/unica', { ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}), mov_key: t.mov_key, plano_conta_id: Number(contaId) })));
-    } catch { toast.error('Erro ao salvar (única)'); }
+      // Lote numa requisição só — mesmo motivo do handleAuto (rate limit de 200/min).
+      const { data } = await api.post('/conciliacao/movimento/unica/lote', {
+        ...(lojaSelecionada ? { cod_loja: Number(lojaSelecionada) } : {}),
+        itens: targets.map(t => ({ mov_key: t.mov_key, plano_conta_id: Number(contaId) })),
+      });
+      const falhas = data?.erros?.length || 0;
+      if (falhas > 0) {
+        toast.error(`${data.salvas} salva(s), ${falhas} falhou(ram). Recarregue e confira.`);
+      } else if (targets.length > 1) {
+        toast.success(`${data.salvas} classificação(ões) salva(s)`);
+      }
+    } catch {
+      setManualRows(prev => prev.map(r => (keys.has(r.mov_key) ? { ...r, classificacao: null } : r)));
+      toast.error('Erro ao salvar (única) — nada foi gravado');
+    }
   }, [acharContaInfo, lojaSelecionada, manualSelected, manualRows]);
 
   // TRANSFERÊNCIA: entre contas, fora do DRE (lote = mesmo destino pra todos)
@@ -1678,22 +1709,11 @@ function ManualTopo({ allRows, mesRef, onMudarMes }) {
 }
 
 function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, onToggleAll, onUnica, onAuto, onTransfer, onFatura, onLimpar }) {
-  if (loading) {
-    return <div className="flex justify-center py-20"><RadarLoading /></div>;
-  }
-  if (!rows || rows.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400">
-        <p className="text-lg font-medium">Selecione o período e clique em Buscar</p>
-        <p className="text-sm mt-1">No modo Manual você classifica cada linha do banco: Única, Transferência ou Automática.</p>
-      </div>
-    );
-  }
-
-  const total = rows.length;
-  const classificados = rows.filter(r => r.classificacao).length;
-  const naoClass = total - classificados;
-  // Ordenação por coluna (clique no cabeçalho) + busca por palavra-chave
+  // ⚠️ TODOS os hooks ficam ANTES de qualquer `return` condicional.
+  // Hook depois de early return quebra as Regras dos Hooks: quando `loading` vira
+  // true (nova busca, ou refetch depois de classificar uma linha) o componente
+  // retornava antes de chamar os useState/useMemo, o React via MENOS hooks que na
+  // renderização anterior -> "Rendered fewer hooks than expected" -> TELA BRANCA.
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [busca, setBusca] = useState('');
@@ -1701,14 +1721,11 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
   // Filtro pelos cards: 'todos' | 'classificados' | 'naoclass'. Clicar no card
   // de novo desliga (volta pra todos).
   const [cardFiltro, setCardFiltro] = useState('todos');
-  const toggleCard = (alvo) => setCardFiltro(f => (f === alvo ? 'todos' : alvo));
-  const sortBy = (col) => {
-    if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortCol(col); setSortDir('asc'); }
-  };
-  const arrow = (col) => (sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
   const sortedRows = useMemo(() => {
-    if (!sortCol) return rows;
+    // `rows` pode vir null/undefined enquanto carrega — os hooks agora rodam SEMPRE,
+    // entao precisam aguentar isso sem quebrar.
+    const base = rows || [];
+    if (!sortCol) return base;
     const val = (r) => {
       switch (sortCol) {
         case 'data': return r.banco?.DTA_ENTRADA ? new Date(r.banco.DTA_ENTRADA).getTime() : 0;
@@ -1718,7 +1735,7 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
         default: return 0;
       }
     };
-    return [...rows].sort((a, b) => {
+    return [...base].sort((a, b) => {
       const va = val(a), vb = val(b);
       const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'pt-BR', { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
@@ -1737,6 +1754,29 @@ function ManualConciliacao({ rows, loading, planoContas, selected, onToggleSel, 
       (r.classificacao?.conta_nome || '').toUpperCase().includes(q)
     );
   }, [sortedRows, busca, cardFiltro]);
+
+  // --- A PARTIR DAQUI pode ter return condicional: todos os hooks ja rodaram ---
+  if (loading) {
+    return <div className="flex justify-center py-20"><RadarLoading /></div>;
+  }
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-400">
+        <p className="text-lg font-medium">Selecione o período e clique em Buscar</p>
+        <p className="text-sm mt-1">No modo Manual você classifica cada linha do banco: Única, Transferência ou Automática.</p>
+      </div>
+    );
+  }
+
+  const total = rows.length;
+  const classificados = rows.filter(r => r.classificacao).length;
+  const naoClass = total - classificados;
+  const toggleCard = (alvo) => setCardFiltro(f => (f === alvo ? 'todos' : alvo));
+  const sortBy = (col) => {
+    if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+  const arrow = (col) => (sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
 
   const selCount = visibleRows.filter(r => selected?.has(r.mov_key)).length;
   const allKeys = visibleRows.map(r => r.mov_key);
