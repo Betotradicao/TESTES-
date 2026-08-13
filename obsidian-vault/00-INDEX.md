@@ -63,6 +63,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ## 🐛 Bugs Resolvidos / Features Recentes
 
 ### Agosto 2026
+- [[bugs-resolvidos/2026-08-13-auditoria-presa-contador-so-da-sessao|🌟 Auditoria não fechava: o contador olhava a SESSÃO, não o banco (Etiquetas + Rupturas)]]
 - [[bugs-resolvidos/2026-08-05-conciliacao-rate-limit-engoliu-classificacoes|🌟🚨 O rate limit engolia classificações em silêncio (+ tela branca por hook fora de ordem)]]
 
 ### Julho 2026

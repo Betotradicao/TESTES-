@@ -1,5 +1,21 @@
 # 🚧 Trabalho em Andamento
 
+## 🔧 Auditorias travadas (Etiquetas + Rupturas) — corrigido LOCAL, **falta deploy**
+
+Auditoria com 24/24 verificados não fechava: o botão ENVIAR olhava a lista da **sessão do
+navegador**, não o status do **banco**. Um F5 já bastava pra travar de vez.
+Confirmado no banco: auditorias **83** (24 itens) e **82** (94 itens) estão `em_andamento`
+com **zero pendentes**.
+
+**Feito** (`EtiquetaVerificacao.jsx` + `RupturaVerificacao.jsx`): pendente passa a sair do
+status do banco; botão aparece quando não há pendente; aviso amarelo virou **lista clicável
+dos itens que faltam** (clicar leva direto ao item); removido bloco de DEBUG que expunha IDs
+em produção. Ambos compilam.
+
+Causa-raiz: [[bugs-resolvidos/2026-08-13-auditoria-presa-contador-so-da-sessao]]
+
+⏭️ **Falta deploy no Tradição.** Depois, as auditorias 82 e 83 podem ser finalizadas na tela.
+
 ## 🔧 Conciliação: 2 bugs corrigidos (05/08) — código LOCAL, **falta deploy**
 
 **Não era bug de tela: o backend recusava as gravações e ninguém avisava.** O front mandava
@@ -17,8 +33,13 @@ manda 1 requisição só, desfaz o verde no erro e mostra quantas salvaram de ve
 Causa-raiz + queries de conferência:
 [[bugs-resolvidos/2026-08-05-conciliacao-rate-limit-engoliu-classificacoes]]
 
-⏭️ **Falta deploy no Tradição.** Depois dele, Roberto precisa **reclassificar as 288 linhas**
-(agora vai numa tacada só).
+✅ **DEPLOYADO NO TRADIÇÃO (05/08)** — commits `6160708` + `d14aae1`, push TESTE `d14aae1`.
+Build `--no-cache` + `up -d --no-deps`. Backend e frontend `healthy`, ERP OK, health 200 em
+0,03s. Rotas novas confirmadas no ar (`/amarracoes/lote` e `/movimento/unica/lote` → 401,
+ou seja existem). Watchdog religado (3 backends).
+
+⏭️ **Roberto:** `Ctrl+Shift+R` na página e **reclassificar as 288 linhas** — agora numa
+tacada só. Depois conferir se o Demonstrativo bate com a Conciliação.
 
 ## ✅ SuperVital "CONEXÃO = OFF" (03/08) — RESOLVIDO + blindado
 
