@@ -69,6 +69,31 @@ O aviso amarelo virou botão: abre a lista dos itens que faltam (descrição, c�
 `RupturaVerificacao.jsx` tinha um **bloco de DEBUG visível em produção**
 (`🔍 DEBUG - Produtos Selecionados: N` + IDs internos). Removido, virou a lista de pendentes.
 
+## 📈 O irmão do mesmo bug: relatório mostrando **123% auditado**
+
+Mesma raiz — contar pela sessão. `loadProgressFromLocalStorage` restaurava a lista salva
+**às cegas**:
+```js
+setProdutosSelecionados(progress.produtosSelecionados || []);   // ❌ sem validar
+```
+Se a pesquisa mudou de itens (ou entrou repetido), a lista salva ficava **maior que o total**
+e `produtosSelecionados.length / items.length` passava de 100%.
+
+> 🔎 **A pista estava no próprio código:** havia um guard com alerta
+> *"⚠️ Você já verificou todos os N produtos! Não é possível adicionar mais"* e um
+> `console.error('Tentativa de ultrapassar o limite')`. **Alguém tratou o sintoma sem achar
+> a causa** — e esse guard ainda travava o usuário em itens legitimamente pendentes.
+
+**Corrigido em 2 camadas:**
+1. **Frontend** — na restauração, só entram itens que ainda pertencem à pesquisa, sem
+   repetidos (`idsValidos` + dedup por id), e avisa no console quantos foram descartados.
+2. **Backend** — `RuptureSurvey.progresso_percentual` ganhou `Math.min(100, …)`.
+   `total_itens` é coluna gravada e `itens_verificados` é recontado dos itens; se saírem de
+   sincronia (item removido depois de verificado) a conta estourava.
+
+> ✅ Dados do Tradição conferidos em 13/08: **nenhuma pesquisa gravada está inconsistente**
+> hoje (`itens_verificados <= total_itens` em todas). O 123% vinha do cálculo da tela.
+
 ## 🔎 Padrão pra procurar no resto do projeto
 Contador de progresso alimentado por state de sessão em vez do status persistido.
 Sintoma típico: **funciona numa tacada só, quebra depois de F5**.
