@@ -118,7 +118,22 @@ export default function EtiquetaVerificacao() {
           return;
         }
 
-        setProdutosSelecionados(progress.produtosSelecionados || []);
+        // Só restaura itens que AINDA pertencem a esta auditoria, e sem repetidos.
+        // Sem esse filtro a lista salva podia ficar MAIOR que o total e o progresso
+        // passava de 100% (visto 123% em Rupturas, mesmo código).
+        const idsValidos = new Set(items.map(i => i.id));
+        const salvos = Array.isArray(progress.produtosSelecionados) ? progress.produtosSelecionados : [];
+        const vistos = new Set();
+        const restaurados = salvos.filter(p => {
+          if (!idsValidos.has(p.id) || vistos.has(p.id)) return false;
+          vistos.add(p.id);
+          return true;
+        });
+        if (restaurados.length !== salvos.length) {
+          console.warn(`⚠️ Progresso salvo tinha ${salvos.length} itens; ${salvos.length - restaurados.length} descartado(s) por não pertencerem a esta auditoria ou estarem repetidos.`);
+        }
+
+        setProdutosSelecionados(restaurados);
         setVerificadoPor(progress.verificadoPor || '');
         setCurrentIndex(safeIndex);
 
@@ -455,6 +470,14 @@ export default function EtiquetaVerificacao() {
   const verificados = items.length - itensPendentes.length;
   const progress = items.length > 0 ? (verificados / items.length) * 100 : 0;
 
+  // Status efetivo de cada item: o que foi marcado NESTA sessão vence o que veio do banco
+  // (o da sessão é mais recente). Os cards de contagem usavam só a sessão e por isso
+  // zeravam depois de um F5, mesmo com tudo salvo.
+  const statusDaSessao = new Map(produtosSelecionados.map(p => [p.id, p.status]));
+  const statusEfetivo = (it) => statusDaSessao.get(it.id) || it.status_verificacao;
+  const totalCorretos = items.filter(it => statusEfetivo(it) === 'preco_correto').length;
+  const totalDivergentes = items.filter(it => statusEfetivo(it) === 'preco_divergente').length;
+
   return (
     <Layout>
       {/* Modal para pedir nome */}
@@ -641,24 +664,67 @@ export default function EtiquetaVerificacao() {
         {/* Quick Stats */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="bg-green-100 p-4 rounded-lg">
-            <p className="text-2xl font-bold text-green-700">
-              {produtosSelecionados.filter(p => p.status === 'preco_correto').length}
-            </p>
+            <p className="text-2xl font-bold text-green-700">{totalCorretos}</p>
             <p className="text-xs text-green-600">Encontrados</p>
           </div>
           <div className="bg-red-100 p-4 rounded-lg">
-            <p className="text-2xl font-bold text-red-700">
-              {produtosSelecionados.filter(p => p.status === 'preco_divergente' || p.status === 'preco_divergente').length}
-            </p>
+            <p className="text-2xl font-bold text-red-700">{totalDivergentes}</p>
             <p className="text-xs text-red-600">Etiquetas</p>
           </div>
-          <div className="bg-gray-100 p-4 rounded-lg">
-            <p className="text-2xl font-bold text-gray-700">
-              {items.length - produtosSelecionados.length}
+          {/* Pendentes é CLICÁVEL: abre a lista de quais itens faltam */}
+          <button
+            type="button"
+            onClick={() => itensPendentes.length > 0 && setShowPendentes(v => !v)}
+            disabled={itensPendentes.length === 0}
+            title={itensPendentes.length > 0 ? 'Clique para ver quais faltam' : 'Nenhum item pendente'}
+            className={`p-4 rounded-lg text-center transition-all ${
+              itensPendentes.length > 0
+                ? 'bg-gray-100 hover:bg-yellow-100 hover:ring-2 hover:ring-yellow-400 cursor-pointer'
+                : 'bg-gray-100 cursor-default'
+            }`}
+          >
+            <p className="text-2xl font-bold text-gray-700">{itensPendentes.length}</p>
+            <p className="text-xs text-gray-600">
+              Pendentes{itensPendentes.length > 0 && <span className="block underline mt-0.5">👆 ver quais</span>}
             </p>
-            <p className="text-xs text-gray-600">Pendentes</p>
-          </div>
+          </button>
         </div>
+
+        {/* Lista dos pendentes — aparece logo abaixo do card, que é onde o usuário procura */}
+        {showPendentes && itensPendentes.length > 0 && (
+          <div id="lista-pendentes" className="mt-3 bg-white border-2 border-yellow-300 rounded-lg overflow-hidden">
+            <div className="bg-yellow-50 px-4 py-2 flex items-center justify-between">
+              <span className="text-sm font-bold text-yellow-800">
+                ⚠️ {itensPendentes.length} item(ns) ainda sem verificação
+              </span>
+              <button type="button" onClick={() => setShowPendentes(false)} className="text-yellow-700 text-sm hover:underline">
+                fechar ✕
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+              {itensPendentes.map((it) => {
+                const idx = items.findIndex(x => x.id === it.id);
+                return (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => { setCurrentIndex(idx); setShowPendentes(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors flex items-center gap-3"
+                  >
+                    <span className="text-xs font-bold text-gray-400 w-10 shrink-0">#{idx + 1}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-gray-800 truncate">{it.descricao}</span>
+                      <span className="block text-xs text-gray-500">
+                        {it.codigo_barras || 'sem código'}{it.secao ? ` · ${it.secao}` : ''}
+                      </span>
+                    </span>
+                    <span className="text-orange-600 text-sm font-bold shrink-0">ir →</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Tabela de Produtos Selecionados */}
         {produtosSelecionados.length > 0 && (
@@ -724,50 +790,27 @@ export default function EtiquetaVerificacao() {
           </div>
         )}
 
-        {/* Pendentes: clicável, abre a lista de QUAIS itens faltam */}
+        {/* Aviso de pendentes no rodapé — a lista mora lá em cima, junto do card
+            "Pendentes"; aqui só leva até ela (evita duas listas iguais na mesma tela). */}
         {itensPendentes.length > 0 && (
-          <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowPendentes(v => !v)}
-              className="w-full p-4 text-center hover:bg-yellow-100 transition-colors"
-            >
-              <p className="text-yellow-800 font-semibold">
-                ⚠️ {itensPendentes.length === 1
-                  ? 'Falta 1 item para verificar'
-                  : `Faltam ${itensPendentes.length} itens para verificar`}
-              </p>
-              <p className="text-sm text-yellow-700 mt-1 underline">
-                {showPendentes ? 'Ocultar lista' : '👆 Toque para ver quais são'}
-              </p>
-            </button>
-
-            {showPendentes && (
-              <div className="border-t-2 border-yellow-300 bg-white max-h-72 overflow-y-auto divide-y divide-gray-100">
-                {itensPendentes.map((it) => {
-                  // Índice do item na lista original: leva direto pra ele ao clicar
-                  const idx = items.findIndex(x => x.id === it.id);
-                  return (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={() => { setCurrentIndex(idx); setShowPendentes(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                      className="w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-xs font-bold text-gray-400 w-10 shrink-0">#{idx + 1}</span>
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-semibold text-gray-800 truncate">{it.descricao}</span>
-                        <span className="block text-xs text-gray-500">
-                          {it.codigo_barras || 'sem código'}{it.secao ? ` · ${it.secao}` : ''}
-                        </span>
-                      </span>
-                      <span className="text-orange-600 text-sm font-bold shrink-0">ir →</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowPendentes(true);
+              // requestAnimationFrame: a lista só existe no DOM depois do re-render
+              requestAnimationFrame(() =>
+                document.getElementById('lista-pendentes')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              );
+            }}
+            className="mt-6 w-full bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center hover:bg-yellow-100 transition-colors"
+          >
+            <p className="text-yellow-800 font-semibold">
+              ⚠️ {itensPendentes.length === 1
+                ? 'Falta 1 item para verificar'
+                : `Faltam ${itensPendentes.length} itens para verificar`}
+            </p>
+            <p className="text-sm text-yellow-700 mt-1 underline">👆 Toque para ver quais são</p>
+          </button>
         )}
       </div>
     </Layout>

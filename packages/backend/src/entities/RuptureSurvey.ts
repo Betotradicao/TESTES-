@@ -64,7 +64,11 @@ export class RuptureSurvey {
   }
 
   get progresso_percentual(): number {
-    if (this.total_itens === 0) return 0;
-    return (this.itens_verificados / this.total_itens) * 100;
+    if (!this.total_itens || this.total_itens <= 0) return 0;
+    // Teto de 100%: `total_itens` é uma coluna gravada e `itens_verificados` é recontado
+    // dos itens. Se os dois saem de sincronia (item removido da pesquisa depois de
+    // verificado, por exemplo), a conta passava de 100% e o relatório mostrava coisas
+    // como "123% auditado" — impossível e assustador pra quem lê.
+    return Math.min(100, (this.itens_verificados / this.total_itens) * 100);
   }
 }
