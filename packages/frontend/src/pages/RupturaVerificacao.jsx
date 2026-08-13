@@ -18,6 +18,8 @@ export default function RupturaVerificacao() {
   const [employees, setEmployees] = useState([]);
   const [finalizing, setFinalizing] = useState(false);
   const [produtosSelecionados, setProdutosSelecionados] = useState([]);
+  // Lista de pendentes aberta pelo clique no aviso amarelo
+  const [showPendentes, setShowPendentes] = useState(false);
   const [produtosSemExposicao, setProdutosSemExposicao] = useState([]);
   const [produtosSimilares, setProdutosSimilares] = useState([]);
   const [loadingSimilares, setLoadingSimilares] = useState(false);
@@ -343,8 +345,15 @@ export default function RupturaVerificacao() {
     console.log('🔵 [FINALIZE] handleFinalizeSurvey chamado');
     console.log('📦 [FINALIZE] Produtos selecionados:', produtosSelecionados.length);
 
-    if (produtosSelecionados.length === 0) {
-      alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
+    // Considera o que está verificado NO BANCO também, não só o que foi marcado nesta
+    // sessão — senão reabrir uma auditoria já verificada travava aqui.
+    const idsSessaoAtual = new Set(produtosSelecionados.map(p => p.id));
+    const totalVerificado = items.filter(
+      it => it.status_verificacao !== 'pendente' || idsSessaoAtual.has(it.id)
+    ).length;
+
+    if (totalVerificado === 0) {
+      alert('⚠️ Verifique pelo menos um produto antes de enviar a auditoria.');
       return;
     }
 
@@ -355,7 +364,7 @@ export default function RupturaVerificacao() {
 
     const confirmacao = window.confirm(
       `📊 Deseja FINALIZAR e ENVIAR esta auditoria?\n\n` +
-      `${produtosSelecionados.length} produtos já foram salvos.\n\n` +
+      `${totalVerificado} de ${items.length} produtos já foram salvos.\n\n` +
       'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
       'Esta ação não pode ser desfeita.'
     );
@@ -436,8 +445,16 @@ export default function RupturaVerificacao() {
   }
 
   const currentItem = items[currentIndex];
-  const progress = (produtosSelecionados.length / items.length) * 100;
-  const verificados = produtosSelecionados.length;
+  // Mesma correção da auditoria de Etiquetas (13/08/2026): item verificado = o que JÁ VEIO
+  // verificado do banco + o que foi marcado nesta sessão. Contar só a sessão travava a
+  // auditoria depois de um F5 / troca de aparelho / verificação em duas etapas: o banco
+  // tinha tudo verificado e a tela insistia que faltavam itens.
+  const idsDaSessao = new Set(produtosSelecionados.map(p => p.id));
+  const itensPendentes = items.filter(
+    it => it.status_verificacao === 'pendente' && !idsDaSessao.has(it.id)
+  );
+  const verificados = items.length - itensPendentes.length;
+  const progress = items.length > 0 ? (verificados / items.length) * 100 : 0;
 
   return (
     <Layout>
@@ -764,17 +781,53 @@ export default function RupturaVerificacao() {
           </div>
         )}
 
-        {/* DEBUG: Status dos produtos */}
-        <div className="mt-4 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm font-bold text-blue-900">🔍 DEBUG - Produtos Selecionados: {produtosSelecionados.length}</p>
-          <p className="text-xs text-blue-700 mt-1">
-            {produtosSelecionados.length > 0
-              ? `IDs: ${produtosSelecionados.map(p => p.id).join(', ')}`
-              : 'Nenhum produto selecionado ainda'}
-          </p>
-        </div>
+        {/* Pendentes: clicável, abre a lista de QUAIS itens faltam.
+            (Substituiu um bloco de DEBUG que expunha IDs internos em produção.) */}
+        {itensPendentes.length > 0 && (
+          <div className="mt-4 mb-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPendentes(v => !v)}
+              className="w-full p-4 text-center hover:bg-yellow-100 transition-colors"
+            >
+              <p className="text-yellow-800 font-semibold">
+                ⚠️ {itensPendentes.length === 1
+                  ? 'Falta 1 item para verificar'
+                  : `Faltam ${itensPendentes.length} itens para verificar`}
+              </p>
+              <p className="text-sm text-yellow-700 mt-1 underline">
+                {showPendentes ? 'Ocultar lista' : '👆 Toque para ver quais são'}
+              </p>
+            </button>
 
-        {/* Botão de Enviar Auditoria - SEMPRE VISÍVEL PARA DEBUG */}
+            {showPendentes && (
+              <div className="border-t-2 border-yellow-300 bg-white max-h-72 overflow-y-auto divide-y divide-gray-100">
+                {itensPendentes.map((it) => {
+                  const idx = items.findIndex(x => x.id === it.id);
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => { setCurrentIndex(idx); setShowPendentes(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-xs font-bold text-gray-400 w-10 shrink-0">#{idx + 1}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-gray-800 truncate">{it.descricao}</span>
+                        <span className="block text-xs text-gray-500">
+                          {it.codigo_barras || 'sem código'}{it.secao ? ` · ${it.secao}` : ''}
+                        </span>
+                      </span>
+                      <span className="text-orange-600 text-sm font-bold shrink-0">ir →</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Botão de Enviar Auditoria */}
         <div className="mt-6 mb-8">
           <button
             type="button"
@@ -792,9 +845,9 @@ export default function RupturaVerificacao() {
               console.log('📦 [TOUCH] Produtos:', produtosSelecionados);
               handleFinalizeSurvey();
             }}
-            disabled={finalizing || produtosSelecionados.length === 0}
+            disabled={finalizing || verificados === 0}
             className={`w-full py-4 rounded-lg transition-all text-lg font-bold shadow-lg ${
-              produtosSelecionados.length === 0
+              verificados === 0
                 ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-orange-600 text-white hover:bg-orange-700 active:bg-orange-800'
             } ${finalizing ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -807,9 +860,9 @@ export default function RupturaVerificacao() {
           >
             {finalizing
               ? '⏳ Enviando...'
-              : produtosSelecionados.length === 0
+              : verificados === 0
                 ? `❌ Sem produtos (0/${items.length})`
-                : `✅ ENVIAR AUDITORIA (${produtosSelecionados.length}/${items.length})`
+                : `✅ ENVIAR AUDITORIA (${verificados}/${items.length})`
             }
           </button>
         </div>

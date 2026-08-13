@@ -54,6 +54,8 @@ export default function EtiquetaVerificacao() {
   const [employees, setEmployees] = useState([]);
   const [finalizing, setFinalizing] = useState(false);
   const [produtosSelecionados, setProdutosSelecionados] = useState([]);
+  // Lista de pendentes aberta pelo clique no aviso amarelo
+  const [showPendentes, setShowPendentes] = useState(false);
 
   useEffect(() => {
     loadSurvey();
@@ -273,8 +275,15 @@ export default function EtiquetaVerificacao() {
     console.log('🔵 [ETIQUETAS-FINALIZE] handleFinalizeSurvey chamado');
     console.log('📦 [ETIQUETAS-FINALIZE] Produtos selecionados:', produtosSelecionados.length);
 
-    if (produtosSelecionados.length === 0) {
-      alert('⚠️ Adicione pelo menos um produto antes de enviar a auditoria.');
+    // Conta o que está verificado NO BANCO também — não só o que foi marcado nesta
+    // sessão. Senão, reabrir uma auditoria já verificada (F5/outro aparelho) travava aqui.
+    const idsSessaoAtual = new Set(produtosSelecionados.map(p => p.id));
+    const totalVerificado = items.filter(
+      it => it.status_verificacao !== 'pendente' || idsSessaoAtual.has(it.id)
+    ).length;
+
+    if (totalVerificado === 0) {
+      alert('⚠️ Verifique pelo menos um produto antes de enviar a auditoria.');
       return;
     }
 
@@ -285,7 +294,7 @@ export default function EtiquetaVerificacao() {
 
     const confirmacao = window.confirm(
       `📊 Deseja FINALIZAR e ENVIAR esta auditoria?\n\n` +
-      `${produtosSelecionados.length} produtos já foram salvos.\n\n` +
+      `${totalVerificado} de ${items.length} produtos já foram salvos.\n\n` +
       'Será gerado um PDF com o relatório completo e enviado automaticamente para o WhatsApp.\n\n' +
       'Esta ação não pode ser desfeita.'
     );
@@ -432,8 +441,19 @@ export default function EtiquetaVerificacao() {
       </Layout>
     );
   }
-  const progress = (produtosSelecionados.length / items.length) * 100;
-  const verificados = produtosSelecionados.length;
+  // Item verificado = o que JÁ VEIO verificado do banco  +  o que foi marcado nesta sessão.
+  //
+  // Antes o botão de enviar olhava só `produtosSelecionados` (a lista da sessão do
+  // navegador). Auditoria feita em duas etapas, depois de um F5, ou em outro aparelho,
+  // ficava presa pra sempre: o banco tinha os 24 itens verificados e o botão nunca
+  // aparecia. Medido em 13/08/2026 na auditoria 83 (18 corretos + 6 divergentes = 24,
+  // zero pendentes no banco, e a tela pedindo "falta 1"). O banco é a fonte de verdade.
+  const idsDaSessao = new Set(produtosSelecionados.map(p => p.id));
+  const itensPendentes = items.filter(
+    it => it.status_verificacao === 'pendente' && !idsDaSessao.has(it.id)
+  );
+  const verificados = items.length - itensPendentes.length;
+  const progress = items.length > 0 ? (verificados / items.length) * 100 : 0;
 
   return (
     <Layout>
@@ -690,8 +710,9 @@ export default function EtiquetaVerificacao() {
           </div>
         )}
 
-        {/* Botão de Enviar Auditoria - só aparece quando TODOS os itens foram verificados */}
-        {produtosSelecionados.length === items.length && produtosSelecionados.length > 0 && (
+        {/* Botão de Enviar Auditoria — aparece quando NÃO HÁ MAIS PENDENTES.
+            Usa o status do banco (+ a sessão), não a lista da sessão sozinha. */}
+        {itensPendentes.length === 0 && items.length > 0 && (
           <div className="mt-6">
             <button
               onClick={handleFinalizeSurvey}
@@ -703,15 +724,49 @@ export default function EtiquetaVerificacao() {
           </div>
         )}
 
-        {/* Mensagem quando ainda há itens pendentes */}
-        {produtosSelecionados.length > 0 && produtosSelecionados.length < items.length && (
-          <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
-            <p className="text-yellow-800 font-semibold">
-              ⚠️ Faltam {items.length - produtosSelecionados.length} itens para verificar
-            </p>
-            <p className="text-sm text-yellow-700 mt-1">
-              O botão de enviar aparecerá quando todos os itens forem verificados
-            </p>
+        {/* Pendentes: clicável, abre a lista de QUAIS itens faltam */}
+        {itensPendentes.length > 0 && (
+          <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPendentes(v => !v)}
+              className="w-full p-4 text-center hover:bg-yellow-100 transition-colors"
+            >
+              <p className="text-yellow-800 font-semibold">
+                ⚠️ {itensPendentes.length === 1
+                  ? 'Falta 1 item para verificar'
+                  : `Faltam ${itensPendentes.length} itens para verificar`}
+              </p>
+              <p className="text-sm text-yellow-700 mt-1 underline">
+                {showPendentes ? 'Ocultar lista' : '👆 Toque para ver quais são'}
+              </p>
+            </button>
+
+            {showPendentes && (
+              <div className="border-t-2 border-yellow-300 bg-white max-h-72 overflow-y-auto divide-y divide-gray-100">
+                {itensPendentes.map((it) => {
+                  // Índice do item na lista original: leva direto pra ele ao clicar
+                  const idx = items.findIndex(x => x.id === it.id);
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => { setCurrentIndex(idx); setShowPendentes(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-xs font-bold text-gray-400 w-10 shrink-0">#{idx + 1}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-gray-800 truncate">{it.descricao}</span>
+                        <span className="block text-xs text-gray-500">
+                          {it.codigo_barras || 'sem código'}{it.secao ? ` · ${it.secao}` : ''}
+                        </span>
+                      </span>
+                      <span className="text-orange-600 text-sm font-bold shrink-0">ir →</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
