@@ -1,5 +1,23 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Bipagem com desconto no caixa (20/08) — RESOLVIDO E NO AR
+
+**Todo desconto virava falso alarme de furto.** A bipagem grava o valor da ETIQUETA; com
+desconto, `VAL_TOTAL_PRODUTO` vem menor e o matcher (tolerância R$ 0,03) nunca casava —
+o item ficava "Pendente" parecendo que saiu sem passar no caixa.
+
+**Deployado no Tradição** (commit `fa71408`). Validado em produção: a bipagem do
+PEITO DE FRANGO (id 56416) virou `verified` sozinha no 1º ciclo do SellsSync —
+cupom 647185, R$ 101,64 + R$ 11,30 de desconto, margem 31,63%.
+
+Novas colunas **Desconto** e **Margem** na tela e na impressão.
+Causa-raiz: [[bugs-resolvidos/2026-08-20-bipagem-com-desconto-nunca-casava]]
+
+> 🔙 **Ponto de retorno seguro:** commit `0a91232` (estado anterior, açougue ao vivo).
+> A migration só ADICIONA colunas — voltar o código não quebra nada.
+
+---
+
 ## 🥩 Açougue/Desmembramento agora lê AO VIVO do ERP (19/08) — código local, **falta deploy**
 
 **Roberto alterou rendimentos no Intersolid e a tela não mudou.** Causa: os templates
