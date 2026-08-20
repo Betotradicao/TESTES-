@@ -1,5 +1,27 @@
 # 🚧 Trabalho em Andamento
 
+## 🥩 Açougue/Desmembramento agora lê AO VIVO do ERP (19/08) — código local, **falta deploy**
+
+**Roberto alterou rendimentos no Intersolid e a tela não mudou.** Causa: os templates
+nunca vieram do ERP — eram cópia local congelada desde 04/2026. O preço de venda idem.
+
+**Feito:** `listarTemplates` / `getTemplate` / `calcularDesmembramento` agora consultam o
+Oracle a cada chamada (`TAB_PRODUTO_DECOMPOSICAO` p/ % e `TAB_PRODUTO_LOJA` p/ preço).
+Filtro com 2 travas (prefixo `AC MATRIZ` configurável + soma 99–101%) — validado: 8
+matrizes, zero combos. Migration `1785400500000` (template_id → VARCHAR, sem FK).
+`tsc` e JSX limpos; queries testadas contra o ERP real.
+
+⚠️ **Os números da tela VÃO MUDAR** (250kg × R$22,50): margem 31,34% → **28,52%**,
+lucro R$ 2.567,81 → **R$ 2.244,59**. O novo é o correto — o antigo prometia R$ 323 a
+mais por carcaça.
+
+📌 `AcougueCadastroRendimento.jsx` + tabelas `acougue_rendimento_*` ficaram **órfãs**.
+Decidir com o Roberto se remove ou reaproveita.
+
+Detalhes: [[modulos/acougue-desmembramento]]
+
+---
+
 ## 🔧 Auditorias travadas (Etiquetas + Rupturas) — corrigido LOCAL, **falta deploy**
 
 Auditoria com 24/24 verificados não fechava: o botão ENVIAR olhava a lista da **sessão do
@@ -14,7 +36,36 @@ em produção. Ambos compilam.
 
 Causa-raiz: [[bugs-resolvidos/2026-08-13-auditoria-presa-contador-so-da-sessao]]
 
-⏭️ **Falta deploy no Tradição.** Depois, as auditorias 82 e 83 podem ser finalizadas na tela.
+✅ **DEPLOYADO NO TRADIÇÃO (14/08)** — commits `1664ce6`, `7a3c6a9` + vault. Backend e
+frontend `healthy`, API 200, Oracle OK (1149 vendas). Verificado dentro das imagens:
+lista de pendentes no card ✅ e teto de 100% no backend ✅. Watchdog religado (3 backends).
+
+> ⚠️ **Lição de operação:** o deploy de 13/08 ficou pela metade (build rodou, `up -d` nunca
+> executou) e **o watchdog ficou PAUSADO por ~1 dia** sem ninguém notar. Conferir sempre
+> `systemctl is-active radar-watchdog.timer` no fim de um deploy — e desconfiar quando o
+> `docker ps` mostrar o backend com uptime velho demais pro deploy que se acabou de fazer.
+
+⏭️ **Roberto:** `Ctrl+Shift+R` e testar. Auditorias 82 e 83 devem poder ser finalizadas.
+
+---
+
+## 💬 Chatbot: manter a conversa como "não lida" (14/08) — PROPOSTO, aguardando OK
+
+Roberto: o robô responde e a conversa perde a bolinha verde, então ninguém percebe que
+teve atendimento.
+
+**Não é config nossa:** a instância TRADICAO está com `readMessages:false` e
+`readStatus:false` — o robô **não** manda recibo de leitura. O que zera o contador é o
+próprio WhatsApp: **enviar mensagem pela conta marca aquela conversa como atendida em
+todos os aparelhos**.
+
+✅ **Solução confirmada na instância:** Evolution **v2.3.7** tem `POST /chat/markChatUnread/
+{instance}` (sondado: devolve `400 requires property "lastMessage"` = rota existe).
+Precisa de `lastMessage.key` — e o `handleWebhook` do chatbot já tem `data.key`
+(`remoteJid`/`id`), então é só chamar **depois** de responder.
+
+⚠️ Ordem importa (marcar antes, o envio apaga) · abrir a conversa limpa a marcação (normal).
+⏭️ Sugerido implementar com **liga/desliga na tela**, pra testar sem depender de deploy.
 
 ## 🔧 Conciliação: 2 bugs corrigidos (05/08) — código LOCAL, **falta deploy**
 
