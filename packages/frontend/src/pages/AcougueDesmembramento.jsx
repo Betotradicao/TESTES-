@@ -96,7 +96,7 @@ export default function AcougueDesmembramento() {
     setCalculating(true);
     try {
       const res = await api.post('/acougue/desmembramento/calcular', {
-        template_id: parseInt(templateId),
+        template_id: String(templateId),
         peso_total: parseFloat(pesoTotal),
         custo_kg: parseFloat(custoKg),
       });
@@ -113,7 +113,7 @@ export default function AcougueDesmembramento() {
     setSaving(true);
     try {
       await api.post('/acougue/desmembramento/salvar', {
-        template_id: parseInt(templateId),
+        template_id: String(templateId),
         template_nome: resultado.template_nome,
         peso_total: resultado.peso_total,
         custo_kg: resultado.custo_kg,

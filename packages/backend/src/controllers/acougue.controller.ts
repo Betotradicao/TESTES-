@@ -6,6 +6,82 @@ import { MappingService } from '../services/mapping.service';
 
 export class AcougueController {
 
+  /**
+   * ===================================================================
+   * FONTE DE VERDADE = ERP (Intersolid). Nada de copia local.
+   * ===================================================================
+   * Os templates de rendimento ficavam gravados em `acougue_rendimento_templates`
+   * e NUNCA sincronizavam com o ERP. Os do Tradicao foram cadastrados em 04/2026 e
+   * ficaram congelados: quando o Roberto mexeu na (De)Composicao do Intersolid em
+   * 19/08/2026, a tela continuou com os numeros velhos — e o preco de venda idem.
+   *
+   * Impacto medido: OSSO/SEBO 25,53% no ERP contra 20,44% aqui, e 8 de 15 precos
+   * defasados (FILE MIGNON R$ 65,99 aqui / R$ 69,99 no ERP). Osso subestimado
+   * inflava o lucro; precos velhos deprimiam a receita. Numero errado dos dois lados.
+   *
+   * Agora o rendimento vem de TAB_PRODUTO_DECOMPOSICAO e o preco de TAB_PRODUTO_LOJA,
+   * lidos a cada consulta. Mexeu no ERP, refletiu aqui.
+   */
+
+  /** Prefixo que identifica as matrizes de carne. Configuravel: a tabela do ERP mistura
+   *  carne com COMBO de mercearia (COMBO PIZZA, COMBO BALA...), e filtrar so por
+   *  "soma = 100%" nao basta porque alguns combos tambem somam 100. */
+  private static async getPrefixoMatriz(): Promise<string> {
+    const { ConfigurationService } = await import('../services/configuration.service');
+    const v = await ConfigurationService.get('acougue_prefixo_matriz', 'AC MATRIZ');
+    return (v || 'AC MATRIZ').toUpperCase();
+  }
+
+  /** Nomes reais de tabela/coluna via mapeamento (nunca hardcode). */
+  private static async mapa() {
+    const schema = await MappingService.getSchema();
+    const [tDecomp, tProd, tProdLoja] = await Promise.all([
+      MappingService.getRealTableName('TAB_PRODUTO_DECOMPOSICAO'),
+      MappingService.getRealTableName('TAB_PRODUTO'),
+      MappingService.getRealTableName('TAB_PRODUTO_LOJA'),
+    ]);
+    const [dCod, dCodDecom, dQtd, pCod, pDes, plCod, plLoja, plVenda] = await Promise.all([
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'codigo_produto_decom'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_DECOMPOSICAO', 'quantidade_decomp'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO', 'descricao'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_produto'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'codigo_loja'),
+      MappingService.getColumnFromTable('TAB_PRODUTO_LOJA', 'preco_venda'),
+    ]);
+    return { schema, tDecomp, tProd, tProdLoja, dCod, dCodDecom, dQtd, pCod, pDes, plCod, plLoja, plVenda };
+  }
+
+  /** Cortes de uma matriz, com % e preco de venda ATUAIS do ERP. */
+  private static async itensDoERP(codMatriz: string, codLoja: number) {
+    const m = await AcougueController.mapa();
+    const rows = await OracleService.query(
+      `SELECT d.${m.dCodDecom} AS COD, p.${m.pDes} AS NOME, d.${m.dQtd} AS PCT,
+              NVL(pl.${m.plVenda}, 0) AS VENDA
+         FROM ${m.schema}.${m.tDecomp} d
+         LEFT JOIN ${m.schema}.${m.tProd} p ON p.${m.pCod} = d.${m.dCodDecom}
+         LEFT JOIN ${m.schema}.${m.tProdLoja} pl
+                ON pl.${m.plCod} = d.${m.dCodDecom} AND pl.${m.plLoja} = :loja
+        WHERE LPAD(TRIM(d.${m.dCod}), 20, '0') = LPAD(TRIM(:cod), 20, '0')
+        ORDER BY d.${m.dQtd} DESC`,
+      { cod: String(codMatriz), loja: codLoja },
+    );
+    return rows.map((r: any, i: number) => {
+      const preco = parseFloat(r.VENDA) || 0;
+      return {
+        ordem: i,
+        codigo_produto: String(r.COD || '').trim(),
+        nome_corte: String(r.NOME || '').trim(),
+        percentual: parseFloat(r.PCT) || 0,
+        preco_venda: preco,
+        // Osso/sebo e afins nao geram receita: no ERP ficam com preco 0 (ou centavos).
+        vende: preco > 0.01,
+      };
+    });
+  }
+
+
   // Busca rapida de produtos no Oracle por codigo ou nome
   static async buscarProdutos(req: AuthRequest, res: Response) {
     try {
@@ -64,39 +140,66 @@ export class AcougueController {
   }
   // === TEMPLATES DE RENDIMENTO ===
 
+  /** Lista as matrizes de rendimento direto do ERP (nao ha mais copia local). */
   static async listarTemplates(req: AuthRequest, res: Response) {
     try {
-      const templates = await AppDataSource.query(
-        `SELECT t.*,
-          (SELECT COUNT(*) FROM acougue_rendimento_itens WHERE template_id = t.id) as total_cortes,
-          (SELECT SUM(percentual) FROM acougue_rendimento_itens WHERE template_id = t.id) as total_percentual
-         FROM acougue_rendimento_templates t
-         WHERE t.ativo = true
-         ORDER BY t.nome ASC`
+      const m = await AcougueController.mapa();
+      const prefixo = await AcougueController.getPrefixoMatriz();
+
+      // Duas travas juntas, porque nenhuma sozinha separa carne de combo:
+      //  - prefixo do nome (as matrizes do ERP se chamam "AC MATRIZ CARNE ...")
+      //  - soma dos percentuais ~100% (uma matriz de rendimento sempre fecha 100)
+      const rows = await OracleService.query(
+        `SELECT d.${m.dCod} AS COD, p.${m.pDes} AS NOME,
+                COUNT(*) AS CORTES, SUM(d.${m.dQtd}) AS SOMA
+           FROM ${m.schema}.${m.tDecomp} d
+           JOIN ${m.schema}.${m.tProd} p ON p.${m.pCod} = d.${m.dCod}
+          WHERE UPPER(p.${m.pDes}) LIKE :prefixo
+          GROUP BY d.${m.dCod}, p.${m.pDes}
+         HAVING SUM(d.${m.dQtd}) BETWEEN 99 AND 101
+          ORDER BY p.${m.pDes}`,
+        { prefixo: `${prefixo}%` },
       );
-      res.json(templates);
-    } catch (error) {
-      console.error('List templates error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+
+      res.json(rows.map((r: any) => ({
+        id: String(r.COD || '').trim(),
+        nome: String(r.NOME || '').trim(),
+        ativo: true,
+        origem: 'erp',
+        total_cortes: Number(r.CORTES) || 0,
+        total_percentual: Math.round((parseFloat(r.SOMA) || 0) * 100) / 100,
+      })));
+    } catch (error: any) {
+      console.error('List templates error:', error?.message || error);
+      res.status(500).json({ error: 'Nao foi possivel ler os rendimentos do ERP: ' + (error?.message || 'erro desconhecido') });
     }
   }
 
+  /** Detalhe da matriz + cortes, com % e preco ATUAIS do ERP. */
   static async getTemplate(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const template = await AppDataSource.query(
-        'SELECT * FROM acougue_rendimento_templates WHERE id = $1', [id]
-      );
-      if (template.length === 0) return res.status(404).json({ error: 'Template nao encontrado' });
+      const codLoja = Number(req.query.codLoja) || 1;
+      const m = await AcougueController.mapa();
 
-      const itens = await AppDataSource.query(
-        'SELECT * FROM acougue_rendimento_itens WHERE template_id = $1 ORDER BY ordem ASC, nome_corte ASC', [id]
+      const cab = await OracleService.query(
+        `SELECT p.${m.pDes} AS NOME FROM ${m.schema}.${m.tProd} p
+          WHERE LPAD(TRIM(p.${m.pCod}), 20, '0') = LPAD(TRIM(:cod), 20, '0')`,
+        { cod: String(id) },
       );
+      if (!cab.length) return res.status(404).json({ error: 'Rendimento nao encontrado no ERP' });
 
-      res.json({ ...template[0], itens });
-    } catch (error) {
-      console.error('Get template error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      const itens = await AcougueController.itensDoERP(String(id), codLoja);
+      res.json({
+        id: String(id),
+        nome: String(cab[0].NOME || '').trim(),
+        ativo: true,
+        origem: 'erp',
+        itens,
+      });
+    } catch (error: any) {
+      console.error('Get template error:', error?.message || error);
+      res.status(500).json({ error: 'Nao foi possivel ler o rendimento do ERP: ' + (error?.message || 'erro desconhecido') });
     }
   }
 
@@ -191,14 +294,19 @@ export class AcougueController {
         return res.status(400).json({ error: 'Template, peso e custo sao obrigatorios' });
       }
 
-      const template = await AppDataSource.query(
-        'SELECT * FROM acougue_rendimento_templates WHERE id = $1', [template_id]
+      // Rendimento E preco vem do ERP na hora do calculo — nada de copia local.
+      const codLojaCalc = Number(req.body?.cod_loja) || 1;
+      const m0 = await AcougueController.mapa();
+      const cabRows = await OracleService.query(
+        `SELECT p.${m0.pDes} AS NOME FROM ${m0.schema}.${m0.tProd} p
+          WHERE LPAD(TRIM(p.${m0.pCod}), 20, '0') = LPAD(TRIM(:cod), 20, '0')`,
+        { cod: String(template_id) },
       );
-      if (template.length === 0) return res.status(404).json({ error: 'Template nao encontrado' });
+      if (!cabRows.length) return res.status(404).json({ error: 'Rendimento nao encontrado no ERP' });
+      const template = [{ nome: String(cabRows[0].NOME || '').trim() }];
 
-      const itens = await AppDataSource.query(
-        'SELECT * FROM acougue_rendimento_itens WHERE template_id = $1 ORDER BY ordem ASC', [template_id]
-      );
+      const itens = await AcougueController.itensDoERP(String(template_id), codLojaCalc);
+      if (!itens.length) return res.status(404).json({ error: 'Rendimento sem cortes cadastrados no ERP' });
 
       // Buscar dados extras do Oracle (preco concorrente, meta margem)
       let oracleData: Map<string, any> = new Map();
