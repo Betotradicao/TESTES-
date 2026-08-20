@@ -102,3 +102,6 @@ APONTAMENTOS*.xlsx
 *.xlsm
 exportacao_folha_*.TXT
 exportacao_folha_*.txt
+
+# Trava de execucao do Claude Code — estado de runtime, nao versionar
+.claude/scheduled_tasks.lock
