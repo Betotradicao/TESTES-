@@ -840,6 +840,8 @@ export default function Bipagens() {
               <th>Data/Hora</th>
               <th>Preço</th>
               <th>Peso</th>
+              <th>Desconto</th>
+              <th>Margem</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -852,6 +854,8 @@ export default function Bipagens() {
                 <td>${formatDateTime(bip.event_date)}</td>
                 <td style="font-weight: 600;">${formatPrice(bip.bip_price_cents)}</td>
                 <td>${formatWeight(bip.bip_weight)}</td>
+                <td>${bip.venda_desconto_cents > 0 ? formatPrice(bip.venda_desconto_cents) : '-'}</td>
+                <td>${bip.venda_margem_pct !== null && bip.venda_margem_pct !== undefined ? Number(bip.venda_margem_pct).toFixed(2) + '%' : '-'}</td>
                 <td><span class="status status-${bip.status}">${getStatusText(bip.status)}</span></td>
               </tr>
             `).join('')}
@@ -1185,6 +1189,14 @@ export default function Bipagens() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Peso
                     </th>
+                    {/* Desconto dado no caixa — e o que fazia a bipagem nao casar */}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Desconto
+                    </th>
+                    {/* Margem real do item vendido (ja com o desconto do caixa descontado) */}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Margem
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
@@ -1280,6 +1292,45 @@ export default function Bipagens() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatWeight(bip.bip_weight)}
+                      </td>
+                      {/* Desconto dado no caixa. Mostra o valor e quanto representa do
+                          bruto — util pra flagrar desconto fora do padrao. */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {bip.venda_desconto_cents > 0 ? (
+                          <div className="flex flex-col leading-tight">
+                            <span className="font-bold text-orange-600">
+                              🏷️ {formatPrice(bip.venda_desconto_cents)}
+                            </span>
+                            {bip.venda_valor_cents > 0 && (
+                              <span className="text-[11px] text-gray-500">
+                                {((bip.venda_desconto_cents /
+                                   (bip.venda_valor_cents + bip.venda_desconto_cents)) * 100).toFixed(1)}% do valor
+                              </span>
+                            )}
+                          </div>
+                        ) : bip.venda_valor_cents !== null && bip.venda_valor_cents !== undefined ? (
+                          <span className="text-gray-400">sem desconto</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Margem do item efetivamente vendido. Só existe depois que a
+                          bipagem casa com a venda — pendente ainda não tem venda. */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {bip.venda_margem_pct !== null && bip.venda_margem_pct !== undefined ? (
+                          <span className={
+                            Number(bip.venda_margem_pct) < 0 ? 'font-bold text-red-600'
+                            : Number(bip.venda_margem_pct) < 10 ? 'font-bold text-orange-600'
+                            : 'font-bold text-green-700'
+                          }
+                          title={bip.venda_desconto_cents > 0
+                            ? 'Margem sobre o valor realmente cobrado — o desconto já saiu daqui'
+                            : 'Margem sobre o valor cobrado'}>
+                            {Number(bip.venda_margem_pct).toFixed(2)}%
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(bip.status)}`}>

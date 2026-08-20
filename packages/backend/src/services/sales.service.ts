@@ -44,6 +44,7 @@ interface SalesMappings {
   colValTotalProduto: string;
   colQtdTotalProduto: string;
   colValCustoRep: string;
+  colValDesconto: string;
   colDtaSaida: string;
   colTimHora: string;
   colNumPdv: string;
@@ -85,6 +86,8 @@ export class SalesService {
     const colValTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_total');
     const colQtdTotalProduto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'quantidade');
     const colValCustoRep = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_custo_reposicao');
+    // Desconto dado no caixa: sem ele, venda com desconto nunca casa com a bipagem
+    const colValDesconto = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'valor_desconto');
     const colDtaSaida = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'data_venda');
     const colTimHora = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'hora_venda');
     const colNumPdv = await MappingService.getColumnFromTable('TAB_PRODUTO_PDV', 'numero_pdv');
@@ -119,6 +122,7 @@ export class SalesService {
       colValTotalProduto,
       colQtdTotalProduto,
       colValCustoRep,
+      colValDesconto,
       colDtaSaida,
       colTimHora,
       colNumPdv,
@@ -212,6 +216,7 @@ export class SalesService {
           pv.${m.colValTotalProduto} as VAL_TOTAL_PRODUTO,
           pv.${m.colQtdTotalProduto} as QTD_TOTAL_PRODUTO,
           pv.${m.colValCustoRep} as VAL_CUSTO_REP,
+          NVL(pv.${m.colValDesconto}, 0) as VAL_DESCONTO,
           pv.${m.colDtaSaida} as DTA_SAIDA,
           pv.${m.colTimHora} as TIM_HORA,
           pv.${m.colNumPdv} as NUM_PDV,
@@ -277,7 +282,8 @@ export class SalesService {
           qtdTotalProduto: row.QTD_TOTAL_PRODUTO || 0,
           valTotalProduto: row.VAL_TOTAL_PRODUTO || 0,
           totalCusto: row.VAL_CUSTO_REP || 0,
-          descontoAplicado: undefined,
+          descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
+          valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
           dataHoraVenda,
           // Campos extras do Oracle
           numSeqItem: row.NUM_SEQ_ITEM,
@@ -324,6 +330,7 @@ export class SalesService {
           pv.${m.colValTotalProduto} as VAL_TOTAL_PRODUTO,
           pv.${m.colQtdTotalProduto} as QTD_TOTAL_PRODUTO,
           pv.${m.colValCustoRep} as VAL_CUSTO_REP,
+          NVL(pv.${m.colValDesconto}, 0) as VAL_DESCONTO,
           pv.${m.colDtaSaida} as DTA_SAIDA,
           pv.${m.colTimHora} as TIM_HORA,
           pv.${m.colNumPdv} as NUM_PDV,
@@ -382,7 +389,8 @@ export class SalesService {
           qtdTotalProduto: row.QTD_TOTAL_PRODUTO || 0,
           valTotalProduto: row.VAL_TOTAL_PRODUTO || 0,
           totalCusto: row.VAL_CUSTO_REP || 0,
-          descontoAplicado: undefined,
+          descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
+          valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
           dataHoraVenda,
           numSeqItem: row.NUM_SEQ_ITEM,
           codOperador: row.COD_OPERADOR,
@@ -526,7 +534,8 @@ export class SalesService {
           qtdTotalProduto: parseFloat(row.qtd_total_produto) || 0,
           valTotalProduto: parseFloat(row.val_total_produto) || 0,
           totalCusto: parseFloat(row.val_custo_rep) || 0,
-          descontoAplicado: undefined,
+          descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
+          valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
           dataHoraVenda,
           numSeqItem: parseInt(String(row.num_seq_item || '0'), 10) || undefined,
           codOperador: row.cod_operador ? parseInt(String(row.cod_operador), 10) : undefined,

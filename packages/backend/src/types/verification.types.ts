@@ -7,7 +7,10 @@ export interface SaleData {
   qtdTotalProduto: number;
   dataHoraVenda?: string;
   numCupomFiscal?: number;
+  /** Desconto dado no caixa (VAL_DESCONTO). Sem ele, venda com desconto nunca casava. */
   descontoAplicado?: number;
+  /** Custo de reposicao unitario (VAL_CUSTO_REP) — usado pra calcular a margem. */
+  valCustoRep?: number;
   codCaixa?: number;
   codOperador?: number;
   desOperador?: string;

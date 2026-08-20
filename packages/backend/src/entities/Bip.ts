@@ -112,4 +112,21 @@ export class Bip {
 
   @Column({ type: 'timestamp', nullable: true })
   clip_generated_at: Date | null;
+
+  // Dados da venda que casou com esta bipagem (preenchidos na verificacao).
+  // Em centavos pra nao acumular erro de ponto flutuante em dinheiro.
+  @Column({ type: 'int', nullable: true })
+  venda_valor_cents: number | null;
+
+  /** Desconto dado no caixa. A bipagem guarda o valor da etiqueta; com desconto,
+   *  a venda vem menor e o item ficava "Pendente" achando que nao passou no caixa. */
+  @Column({ type: 'int', nullable: true })
+  venda_desconto_cents: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  venda_custo_cents: number | null;
+
+  /** Margem sobre o valor REALMENTE cobrado (ja com o desconto descontado). */
+  @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true })
+  venda_margem_pct: number | null;
 }
