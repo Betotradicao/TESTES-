@@ -1308,9 +1308,9 @@ export default function Bipagens() {
                               </span>
                             )}
                           </div>
-                        ) : bip.venda_valor_cents !== null && bip.venda_valor_cents !== undefined ? (
-                          <span className="text-gray-400">sem desconto</span>
                         ) : (
+                          // Sem desconto fica so o traco: escrever "sem desconto" em toda
+                          // linha polui a tabela e o que interessa e enxergar quem TEVE.
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
