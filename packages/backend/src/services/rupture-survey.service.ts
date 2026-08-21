@@ -6,6 +6,7 @@ import * as path from 'path';
 import Papa from 'papaparse';
 import PDFDocument from 'pdfkit';
 import { WhatsAppService } from './whatsapp.service';
+import { ReportExcelService, ExcelSheet } from './report-excel.service';
 import { OracleService } from './oracle.service';
 import { MappingService } from './mapping.service';
 
@@ -1302,6 +1303,22 @@ export class RuptureSurveyService {
       // Gerar PDF
       const pdfPath = await this.generateRupturePDF(survey, itensRuptura);
 
+      // Gerar planilha com as MESMAS colunas do PDF.
+      // Se a planilha falhar, o PDF vai sozinho — nao pode travar a auditoria.
+      let excel: { buffer: Buffer; fileName: string } | undefined;
+      try {
+        excel = await this.generateRuptureExcel(
+          survey,
+          itensRuptura,
+          naoEncontrado,
+          emEstoque,
+          perdaVenda,
+          perdaLucro
+        );
+      } catch (err) {
+        console.error('⚠️  Falha ao gerar a planilha (segue so o PDF):', err);
+      }
+
       // Enviar para WhatsApp
       const whatsappSuccess = await WhatsAppService.sendRuptureReport(
         pdfPath,
@@ -1310,7 +1327,8 @@ export class RuptureSurveyService {
         naoEncontrado,
         emEstoque,
         perdaVenda,
-        perdaLucro
+        perdaLucro,
+        excel
       );
 
       // Remover PDF temporário após envio
@@ -1336,6 +1354,107 @@ export class RuptureSurveyService {
       console.error('❌ Erro ao finalizar auditoria e enviar relatório:', error);
       throw error;
     }
+  }
+
+  /**
+   * Gera a planilha (.xlsx) do relatorio de ruptura.
+   *
+   * Espelha as 13 colunas do PDF + STATUS. O STATUS existe porque o PDF separa
+   * em duas tabelas ("Nao Encontrado" e "Em Estoque") — numa planilha unica
+   * essa informacao se perderia, e uma aba por status impediria filtrar tudo
+   * junto. Coluna com filtro resolve os dois casos.
+   *
+   * Diferenca proposital do PDF: aqui os textos NAO sao truncados. O PDF corta
+   * descricao em 35 e fornecedor em 10 caracteres por falta de espaco; a
+   * planilha nao tem essa limitacao e cortar atrapalharia procv/filtro.
+   */
+  private static async generateRuptureExcel(
+    survey: any,
+    itensRuptura: RuptureSurveyItem[],
+    naoEncontrado: number,
+    emEstoque: number,
+    perdaVenda: number,
+    perdaLucro: number
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const linhas = itensRuptura.map((item, idx) => {
+      const estoque = parseFloat(item.estoque_atual as any) || 0;
+      const vendaMedia = parseFloat(item.venda_media_dia as any) || 0;
+      const valorVenda = parseFloat(item.valor_venda as any) || 0;
+      const margem = parseFloat(item.margem_lucro as any) || 0;
+      const pVenda = valorVenda * vendaMedia;
+      const pLucro = pVenda * (margem / 100);
+
+      return {
+        num: idx + 1,
+        status: item.status_verificacao === 'nao_encontrado' ? 'Nao Encontrado' : 'Em Estoque',
+        codigo_barras: item.codigo_barras || '-',
+        produto: item.descricao || '',
+        pedido: item.tem_pedido || '-',
+        fornecedor: item.fornecedor || '-',
+        secao: item.secao || '-',
+        curva: item.curva || '-',
+        estoque,
+        venda_media: vendaMedia,
+        valor_venda: valorVenda,
+        margem,
+        perda_venda: pVenda,
+        perda_lucro: pLucro,
+      };
+    });
+
+    const sheet: ExcelSheet = {
+      nome: 'Rupturas',
+      columns: [
+        { header: '#',            key: 'num',           width: 6,  tipo: 'inteiro' },
+        { header: 'STATUS',       key: 'status',        width: 16 },
+        { header: 'COD.BARRAS',   key: 'codigo_barras', width: 16 },
+        { header: 'PRODUTO',      key: 'produto',       width: 42 },
+        { header: 'PEDIDO',       key: 'pedido',        width: 12 },
+        { header: 'FORNECEDOR',   key: 'fornecedor',    width: 24 },
+        { header: 'SEÇÃO',        key: 'secao',         width: 16 },
+        { header: 'CURVA',        key: 'curva',         width: 9 },
+        { header: 'ESTOQUE',      key: 'estoque',       width: 11, tipo: 'decimal' },
+        { header: 'V.MÉD/DIA',    key: 'venda_media',   width: 12, tipo: 'decimal' },
+        { header: 'VL.VENDA',     key: 'valor_venda',   width: 13, tipo: 'dinheiro' },
+        { header: 'MARGEM',       key: 'margem',        width: 11, tipo: 'percentual' },
+        { header: 'P.VENDA',      key: 'perda_venda',   width: 14, tipo: 'dinheiro', somar: true },
+        { header: 'P.LUCRO',      key: 'perda_lucro',   width: 14, tipo: 'dinheiro', somar: true },
+      ],
+      rows: linhas,
+    };
+
+    const taxaRuptura = survey.itens_verificados > 0
+      ? (itensRuptura.length / survey.itens_verificados) * 100
+      : 0;
+
+    const brazilDate = new Date().toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const buffer = await ReportExcelService.gerar([sheet], {
+      titulo: 'RELATORIO DE AUDITORIA DE RUPTURAS',
+      linhas: [
+        { campo: 'Auditoria',                 valor: survey.nome_pesquisa || '-' },
+        { campo: 'Auditor',                   valor: itensRuptura[0]?.verificado_por || 'N/A' },
+        { campo: 'Data',                      valor: brazilDate },
+        { campo: 'Total de Itens Verificados', valor: survey.itens_verificados ?? 0 },
+        { campo: 'Itens Encontrados',         valor: (survey.itens_verificados ?? 0) - itensRuptura.length },
+        { campo: 'Total de Rupturas',         valor: itensRuptura.length },
+        { campo: '   Nao Encontrado',         valor: naoEncontrado },
+        { campo: '   Em Estoque',             valor: emEstoque },
+        { campo: 'Taxa de Ruptura',           valor: `${taxaRuptura.toFixed(1)}%` },
+        { campo: 'Perda de Venda/Dia',        valor: `R$ ${perdaVenda.toFixed(2)}` },
+        { campo: 'Perda de Lucro/Dia',        valor: `R$ ${perdaLucro.toFixed(2)}` },
+      ],
+    });
+
+    // Nome do arquivo entra na conversa do grupo — precisa se explicar sozinho
+    const dataArq = brazilDate.substring(0, 10).replace(/\//g, '-');
+    const fileName = `ruptura-${survey.id}-${dataArq}.xlsx`;
+
+    return { buffer, fileName };
   }
 
   /**

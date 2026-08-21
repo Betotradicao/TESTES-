@@ -317,19 +317,24 @@ export class WhatsAppService {
     groupId: string,
     buffer: Buffer,
     fileName: string,
-    caption?: string
+    caption?: string,
+    mimetype?: string
   ): Promise<boolean> {
     try {
       const { apiToken, apiUrl, instance } = await this.validateEnvironment();
       const base64 = buffer.toString('base64');
       const url = `${apiUrl}/message/sendMedia/${encodeURIComponent(instance)}`;
-      const payload = {
+      const payload: Record<string, any> = {
         number: groupId,
         mediatype: 'document',
         media: base64,
         fileName,
         caption: caption || '',
       };
+      // Sem mimetype explicito a Evolution chuta pelo conteudo e o .xlsx chega
+      // como arquivo generico — o celular nao oferece "abrir no Excel/Sheets".
+      // Pro PDF nunca fez falta porque o chute acerta; pro xlsx, nao.
+      if (mimetype) payload.mimetype = mimetype;
       console.log(`📄 Enviando ${fileName} (${Math.round(base64.length / 1024)}kb b64) para ${groupId}...`);
       const response = await fetch(url, {
         method: 'POST',
@@ -680,7 +685,8 @@ export class WhatsAppService {
     naoEncontrado: number,
     emEstoque: number,
     perdaVenda: number = 0,
-    perdaLucro: number = 0
+    perdaLucro: number = 0,
+    excel?: { buffer: Buffer; fileName: string }
   ): Promise<boolean> {
     try {
       // Buscar grupo do WhatsApp específico para Ruptura (com fallback para o grupo padrão)
@@ -702,7 +708,9 @@ export class WhatsAppService {
                      `🟠 Em Estoque: ${emEstoque}\n\n` +
                      `💰 Perda de Venda: R$ ${perdaVenda.toFixed(2)}\n` +
                      `📉 Perda de Lucro: R$ ${perdaLucro.toFixed(2)}\n\n` +
-                     `📄 Confira o relatório detalhado em PDF anexo.`;
+                     (excel
+                        ? `📄 Segue o relatório em *PDF* (pra ler) e em *Excel* (pra filtrar e somar).`
+                        : `📄 Confira o relatório detalhado em PDF anexo.`);
 
       const success = await this.sendDocument(groupId, filePath, caption);
 
@@ -710,6 +718,25 @@ export class WhatsAppService {
         console.log(`✅ Relatório de ruptura enviado para grupo ${groupId}`);
       } else {
         console.error(`❌ Falha ao enviar relatório de ruptura`);
+      }
+
+      // Planilha vai como segundo anexo, SEM legenda (a do PDF ja explicou) e
+      // so depois do PDF, pra chegar na ordem certa no grupo.
+      if (excel) {
+        const okXls = await this.sendDocumentBuffer(
+          groupId,
+          excel.buffer,
+          excel.fileName,
+          '',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        if (okXls) {
+          console.log(`✅ Planilha de ruptura enviada para grupo ${groupId}`);
+        } else {
+          // Nao derruba o retorno: o PDF ja foi, que e o essencial. A auditoria
+          // nao pode "falhar" porque o anexo extra nao subiu.
+          console.error(`⚠️  Falha ao enviar a planilha (o PDF foi enviado)`);
+        }
       }
 
       return success;

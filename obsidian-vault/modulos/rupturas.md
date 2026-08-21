@@ -18,5 +18,31 @@ Controla produtos em ruptura (falta de estoque), verificações de gôndola e au
 3. Gera auditoria e aponta responsáveis
 4. Módulo **Ruptura Indústria** rastreia culpa do fornecedor
 
+## 📊 Relatório final: PDF **e** Excel no WhatsApp (20/08/2026)
+
+Ao finalizar a auditoria, o grupo recebe **dois anexos**: o PDF (ler no celular) e um
+`.xlsx` (filtrar, ordenar, somar). O PDF sozinho não deixava trabalhar os números —
+que é o que se faz com uma auditoria de ruptura.
+
+- Gerador reutilizável: `services/report-excel.service.ts` — recebe colunas/linhas e
+  devolve **Buffer** (não escreve em disco; o PDF usa `/uploads/temp` e já sobrou lixo lá).
+- `exceljs` **já estava** no `package.json`. Não precisou instalar nada.
+- A planilha traz as **13 colunas do PDF + STATUS**. O STATUS existe porque o PDF separa
+  em duas tabelas (Não Encontrado / Em Estoque) e numa planilha única isso se perderia.
+- **Textos não truncados** de propósito: o PDF corta descrição em 35 e fornecedor em 10
+  caracteres por falta de espaço; truncar na planilha quebraria PROCV e filtro.
+- Cabeçalho congelado, autofiltro e linha de **TOTAL** somando P.VENDA e P.LUCRO.
+
+> ⚠️ **`mimetype` é obrigatório pro .xlsx.** A Evolution nunca recebia esse campo — pro PDF
+> ela acerta no chute, pro xlsx não: o anexo chega genérico e o celular não oferece
+> "abrir no Excel". `sendDocumentBuffer` passou a aceitar mimetype.
+
+> 🛡️ **Planilha nunca derruba a auditoria:** se a geração ou o envio do xlsx falhar, o PDF
+> segue sozinho e a finalização retorna sucesso. Anexo extra não pode virar bloqueio.
+
+📌 Existem **7 relatórios** no mesmo formato (perdas, ruptura, produção, abastecimento,
+prazo fornecedores, cortes, atrasos). Só **ruptura** foi feito — decisão do Roberto em
+20/08. Os outros são baratos de ligar: reusar `ReportExcelService.gerar`.
+
 ## 🏷️ Tags
 #modulo #prevencao #rupturas
