@@ -49,5 +49,36 @@ uma busca e a tela recarregaria no meio da digitação. Por isso existe o
 estado `margemDraft` — o valor só entra em `filters` no botão **Filtrar**
 (ou Enter). O select **Tipo Venda** não precisa disso: muda de uma vez só.
 
+## 🏷️ Coluna OFERTA (21/08)
+
+`bips.venda_flg_oferta` (boolean, nullable) ← `TAB_PRODUTO_PDV.FLG_OFERTA` do
+Intersolid, gravada na verificação junto com desconto/custo/margem.
+Migration `1785400700000`. Na tela: badge amarelo **SIM**; fora de oferta fica
+**em branco** de propósito (escrever "NÃO" em toda linha vira ruído).
+
+### ⚠️ O flag é por LINHA DE VENDA, não por produto
+Medido no Tradição (20-21/08): AC LINGUICA TOSCANA (cod 6668) saiu `'S'` em 3
+cupons e `'N'` em outros 4 **no mesmo dia**. Por isso a flag mora em `bips`,
+junto do resto dos dados da venda — não dá pra derivar de tabela de produto
+nem de `TAB_PROGRAMACAO`.
+
+### 🎯 Por que a coluna existe
+Margem baixa nem sempre é problema. Caso que motivou (21/08):
+
+| Produto | Margem | Oferta |
+|---|---|---|
+| AC BOV C1 ALCATRA COM MAMINHA | 9,16% | **SIM** |
+| AC LINGUICA TOSCANA AURORA | 12,63% | **SIM** |
+| AC BOV C2 (PRD) OSSOBUCO | 8,26% | **não** ← esse investiga |
+
+Sem a coluna as três linhas ficam iguais e o Roberto perde tempo conferindo
+promoção que ele mesmo montou.
+
+### 🔁 Convenção do FLG_OFERTA
+`'S'` = oferta, `'N'` = normal. Todo o resto do código usa
+`NVL(pv.FLG_OFERTA, 'N') = 'S'` — seguir esse padrão.
+No ERP Postgres (RP INFO / [[../clientes/nunes|Nunes]]) a coluna é numérica e
+a query já normaliza com `CASE WHEN ... > 0 THEN 'S' ELSE 'N' END`.
+
 ## 🏷️ Tags
 #modulo #prevencao #bipagens

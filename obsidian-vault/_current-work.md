@@ -1,5 +1,43 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Bipagens: coluna OFERTA (21/08) — DEPLOYADO NO TRADIÇÃO + backfill feito
+
+Badge amarelo **SIM** pra item vendido em oferta; fora de oferta fica em branco.
+Commit `12e76ec`. Migration `1785400700000` (só ADICIONA coluna nullable).
+
+**Backfill rodado** nas 91 bipagens que já estavam verificadas: 6 em oferta,
+85 fora, **0 sem venda correspondente** no Oracle. Sem isso a coluna ficaria
+vazia pra sempre nas antigas — o SellsSync só processa bipagem `pending`,
+verificada nunca mais é revisitada.
+
+Detalhes + tabela do caso real: [[modulos/bipagens]]
+
+---
+
+## ✅ Bipagens: filtro Tipo Venda + faixa de Margem (21/08) — DEPLOYADO NO TRADIÇÃO
+
+- **Tipo Venda:** `Todas` (padrão) / `Com desconto`
+- **Margem abaixo de (%)** / **acima de (%)** + botões **Filtrar** e **Limpar filtros**
+
+Commit `7e49488`. Margem só é gravada desde 20/08 — filtro em data anterior vem
+vazio, é esperado.
+
+⏭️ **Roberto:** `Ctrl+Shift+R` e testar as duas coisas.
+
+---
+
+## 🐛 Achado colateral — margem/desconto zerados no ERP Postgres (Nunes)
+
+Em `sales.service.ts`, o bloco do PostgreSQL ERP lê `row.VAL_DESCONTO` e
+`row.VAL_CUSTO_REP` em MAIÚSCULO, mas os alias da query são minúsculos
+(`val_custo_rep`) — e desconto nem é selecionado. Resultado: no
+[[clientes/nunes|Nunes]] o custo sempre vem 0 e a margem sairia 100%.
+
+**Não mexi** — Nunes não estava no escopo e não dá pra validar daqui.
+Decidir com o Roberto se corrige.
+
+---
+
 ## ✅ Bipagens: filtro Tipo Venda + faixa de Margem (21/08) — DEPLOYADO NO TRADIÇÃO
 
 Roberto pediu dois filtros novos na tela de Bipagens:
