@@ -1,5 +1,27 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Bipagens: filtro Tipo Venda + faixa de Margem (21/08) — DEPLOYADO NO TRADIÇÃO
+
+Roberto pediu dois filtros novos na tela de Bipagens:
+- **Tipo Venda:** `Todas` (padrão) / `Com desconto`
+- **Margem abaixo de (%)** e **Margem acima de (%)** + botões **Filtrar** e **Limpar filtros**
+
+Commit `7e49488`, push TESTE, build `--no-cache` + `up -d --no-deps`.
+Backend e frontend `healthy`, watchdog `active`. Código novo confirmado dentro
+da imagem (`com_desconto` e `margem_abaixo` no `dist`).
+
+Detalhes técnicos: [[modulos/bipagens]]
+
+⚠️ **Aviso pro Roberto:** margem só é gravada desde 20/08. No Tradição, das 778
+bipagens dos últimos 7 dias só **83 têm margem** (todas de 20-21/08). Filtro de
+margem em data anterior a 20/08 vem vazio — é esperado, não é bug.
+
+⏭️ **Roberto:** `Ctrl+Shift+R` e testar. Sugestão de teste com dados reais de hoje:
+margem **acima de 30%** → deve trazer ~62 itens; **abaixo de 10%** → 1 item;
+**Com desconto** → 1 item (o PEITO DE FRANGO, cupom 647185).
+
+---
+
 ## ✅ Bipagem com desconto no caixa (20/08) — RESOLVIDO E NO AR
 
 **Todo desconto virava falso alarme de furto.** A bipagem grava o valor da ETIQUETA; com
