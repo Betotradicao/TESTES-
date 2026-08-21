@@ -129,4 +129,9 @@ export class Bip {
   /** Margem sobre o valor REALMENTE cobrado (ja com o desconto descontado). */
   @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true })
   venda_margem_pct: number | null;
+
+  /** Item saiu em oferta (FLG_OFERTA = 'S'). Explica margem baixa que NAO e problema.
+   *  null = bipagem ainda nao casada com venda. */
+  @Column({ type: 'boolean', nullable: true })
+  venda_flg_oferta: boolean | null;
 }

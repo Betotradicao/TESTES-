@@ -11,6 +11,8 @@ export interface SaleData {
   descontoAplicado?: number;
   /** Custo de reposicao unitario (VAL_CUSTO_REP) — usado pra calcular a margem. */
   valCustoRep?: number;
+  /** FLG_OFERTA da linha de venda: 'S' = saiu em oferta. Explica margem baixa. */
+  flgOferta?: string;
   codCaixa?: number;
   codOperador?: number;
   desOperador?: string;

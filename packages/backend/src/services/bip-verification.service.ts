@@ -112,9 +112,13 @@ export class BipVerificationService {
           venda_margem_pct: margemPct !== null && custoTotal > 0
             ? Math.round(margemPct * 100) / 100
             : null,
+          // Margem baixa em item de oferta e esperado — sem isso o Roberto perde
+          // tempo investigando promocao que ele mesmo montou.
+          venda_flg_oferta: venda.flgOferta ? venda.flgOferta === 'S' : null,
         } as any);
 
-        const aviso = desconto > 0 ? ` (desconto de R$ ${desconto.toFixed(2)} no caixa)` : '';
+        const emOferta = venda.flgOferta === 'S' ? ' [OFERTA]' : '';
+        const aviso = (desconto > 0 ? ` (desconto de R$ ${desconto.toFixed(2)} no caixa)` : '') + emOferta;
         console.log(`✅ Bipagem ${bip.id} verificada com cupom ${venda.numCupomFiscal || 'N/A'}${aviso}`);
       } catch (error) {
         console.error(`❌ Erro ao verificar bipagem ${bip.id}:`, error);

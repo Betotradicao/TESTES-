@@ -822,6 +822,16 @@ export default function Bipagens() {
             color: #991b1b;
           }
 
+          /* Bolinha amarela de oferta — mesma leitura da tela no papel */
+          .oferta {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            background: #fde047;
+            color: #713f12;
+          }
+
           .footer {
             margin-top: 20px;
             text-align: center;
@@ -883,6 +893,7 @@ export default function Bipagens() {
               <th>Peso</th>
               <th>Desconto</th>
               <th>Margem</th>
+              <th>Oferta</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -897,6 +908,7 @@ export default function Bipagens() {
                 <td>${formatWeight(bip.bip_weight)}</td>
                 <td>${bip.venda_desconto_cents > 0 ? formatPrice(bip.venda_desconto_cents) : '-'}</td>
                 <td>${bip.venda_margem_pct !== null && bip.venda_margem_pct !== undefined ? Number(bip.venda_margem_pct).toFixed(2) + '%' : '-'}</td>
+                <td>${bip.venda_flg_oferta === true ? '<span class="oferta">SIM</span>' : ''}</td>
                 <td><span class="status status-${bip.status}">${getStatusText(bip.status)}</span></td>
               </tr>
             `).join('')}
@@ -1317,6 +1329,10 @@ export default function Bipagens() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Margem
                     </th>
+                    {/* Item que saiu em oferta — explica margem baixa que nao e problema */}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Oferta
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
@@ -1451,6 +1467,19 @@ export default function Bipagens() {
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
+                      </td>
+                      {/* Oferta: so marca quem SAIU em oferta. Quem nao saiu fica em
+                          branco de proposito — "NAO" em toda linha vira ruido e o
+                          objetivo aqui e o olho bater direto nas poucas que sao. */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {bip.venda_flg_oferta === true ? (
+                          <span
+                            className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold rounded-full bg-yellow-300 text-yellow-900"
+                            title="Item vendido em oferta — margem menor aqui é esperado"
+                          >
+                            SIM
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(bip.status)}`}>
@@ -1587,9 +1616,16 @@ export default function Bipagens() {
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="font-medium text-gray-900">{formatPrice(bip.bip_price_cents)}</span>
-                    <span className="text-gray-600">{formatWeight(bip.bip_weight)}</span>
+                    <div className="flex items-center gap-2">
+                      {bip.venda_flg_oferta === true && (
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-full bg-yellow-300 text-yellow-900">
+                          OFERTA
+                        </span>
+                      )}
+                      <span className="text-gray-600">{formatWeight(bip.bip_weight)}</span>
+                    </div>
                   </div>
                   {bip.status === 'pending' && (
                     <div className="text-sm text-yellow-600 font-medium mt-2">

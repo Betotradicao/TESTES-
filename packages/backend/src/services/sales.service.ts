@@ -17,6 +17,9 @@ export interface Sale {
   valTotalProduto: number;
   totalCusto: number;
   descontoAplicado?: number;
+  /** FLG_OFERTA da linha de venda ('S'/'N'). E por linha, nao por produto:
+   *  o mesmo codigo sai 'S' num cupom e 'N' em outro no mesmo dia. */
+  flgOferta?: string;
   dataHoraVenda?: string;
   motivoCancelamento?: string;
   funcionarioCancelamento?: string;
@@ -284,6 +287,7 @@ export class SalesService {
           totalCusto: row.VAL_CUSTO_REP || 0,
           descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
           valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
+          flgOferta: row.FLG_OFERTA || null,
           dataHoraVenda,
           // Campos extras do Oracle
           numSeqItem: row.NUM_SEQ_ITEM,
@@ -391,6 +395,7 @@ export class SalesService {
           totalCusto: row.VAL_CUSTO_REP || 0,
           descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
           valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
+          flgOferta: row.FLG_OFERTA || null,
           dataHoraVenda,
           numSeqItem: row.NUM_SEQ_ITEM,
           codOperador: row.COD_OPERADOR,
@@ -536,6 +541,7 @@ export class SalesService {
           totalCusto: parseFloat(row.val_custo_rep) || 0,
           descontoAplicado: parseFloat(row.VAL_DESCONTO) || 0,
           valCustoRep: parseFloat(row.VAL_CUSTO_REP) || 0,
+          flgOferta: row.flg_oferta || null,
           dataHoraVenda,
           numSeqItem: parseInt(String(row.num_seq_item || '0'), 10) || undefined,
           codOperador: row.cod_operador ? parseInt(String(row.cod_operador), 10) : undefined,
