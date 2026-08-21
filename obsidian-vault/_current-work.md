@@ -26,18 +26,6 @@ vazio, é esperado.
 
 ---
 
-## 🐛 Achado colateral — margem/desconto zerados no ERP Postgres (Nunes)
-
-Em `sales.service.ts`, o bloco do PostgreSQL ERP lê `row.VAL_DESCONTO` e
-`row.VAL_CUSTO_REP` em MAIÚSCULO, mas os alias da query são minúsculos
-(`val_custo_rep`) — e desconto nem é selecionado. Resultado: no
-[[clientes/nunes|Nunes]] o custo sempre vem 0 e a margem sairia 100%.
-
-**Não mexi** — Nunes não estava no escopo e não dá pra validar daqui.
-Decidir com o Roberto se corrige.
-
----
-
 ## ✅ Bipagens: filtro Tipo Venda + faixa de Margem (21/08) — DEPLOYADO NO TRADIÇÃO
 
 Roberto pediu dois filtros novos na tela de Bipagens:

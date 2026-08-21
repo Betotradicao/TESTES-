@@ -153,3 +153,13 @@ Ver fluxo técnico completo em [[../modulos/dvr-cameras|DVR e Câmeras]].
 
 ## 🏷️ Tags
 #cliente #postgres #rp-info #bifurcacao-especial #dvr #h265
+
+## 🐛 Margem/custo saem zerados nas vendas (achado em 21/08, NÃO corrigido)
+
+Em `packages/backend/src/services/sales.service.ts`, o bloco do ERP Postgres lê
+`row.VAL_CUSTO_REP` e `row.VAL_DESCONTO` em MAIÚSCULO, mas os alias da query são
+minúsculos (`val_custo_rep`) — e desconto nem chega a ser selecionado.
+Resultado: `valCustoRep` sempre 0 → margem sairia **100%** em tudo.
+
+Só afeta quem usa margem/desconto da venda (bipagens). Roberto optou por não
+mexer agora — foco no Tradição. Ver [[../modulos/bipagens]].
