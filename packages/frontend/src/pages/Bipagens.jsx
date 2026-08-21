@@ -215,8 +215,15 @@ export default function Bipagens() {
     notified_filter: 'all', // 'all' ou 'notified_only'
     search: '',
     sector_id: '',
-    employee_id: ''
+    employee_id: '',
+    tipo_venda: 'all', // 'all' | 'com_desconto'
+    margem_abaixo: '', // so aplica quando o usuario clica em Filtrar
+    margem_acima: ''
   });
+
+  // Rascunho dos campos de margem: so vira filtro de verdade no botao Filtrar,
+  // senao o auto-refresh de 3s dispararia busca a cada tecla digitada.
+  const [margemDraft, setMargemDraft] = useState({ abaixo: '', acima: '' });
 
   // Ref para controle do interval de auto-refresh
   const intervalRef = useRef(null);
@@ -285,6 +292,9 @@ export default function Bipagens() {
       if (newFilters.search && newFilters.search.length >= 2) params.search = newFilters.search;
       if (newFilters.sector_id) params.sector_id = newFilters.sector_id;
       if (newFilters.employee_id) params.employee_id = newFilters.employee_id;
+      if (newFilters.tipo_venda && newFilters.tipo_venda !== 'all') params.tipo_venda = newFilters.tipo_venda;
+      if (newFilters.margem_abaixo !== '') params.margem_abaixo = newFilters.margem_abaixo;
+      if (newFilters.margem_acima !== '') params.margem_acima = newFilters.margem_acima;
       // Filtro por loja (multi-loja)
       if (lojaSelecionada) params.codLoja = lojaSelecionada;
 
@@ -485,6 +495,37 @@ export default function Bipagens() {
     if (newFilters.search.length === 0 || newFilters.search.length >= 2) {
       fetchBipages(1, newFilters);
     }
+  };
+
+  // Aplica a faixa de margem digitada (botao Filtrar)
+  const handleAplicarMargem = () => {
+    const novos = {
+      ...filters,
+      margem_abaixo: margemDraft.abaixo,
+      margem_acima: margemDraft.acima
+    };
+    setFilters(novos);
+    fetchBipages(1, novos);
+  };
+
+  // Volta tudo pro padrao: hoje, sem status, sem margem, sem tipo de venda
+  const handleLimparFiltros = () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    const padrao = {
+      date_from: hoje,
+      date_to: hoje,
+      status: '',
+      notified_filter: 'all',
+      search: '',
+      sector_id: '',
+      employee_id: '',
+      tipo_venda: 'all',
+      margem_abaixo: '',
+      margem_acima: ''
+    };
+    setMargemDraft({ abaixo: '', acima: '' });
+    setFilters(padrao);
+    fetchBipages(1, padrao);
   };
 
   // Submissão do código do teclado numérico
@@ -1058,6 +1099,21 @@ export default function Bipagens() {
             </select>
           </div>
 
+          {/* Tipo de Venda — separa o que saiu com desconto no caixa */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo Venda
+            </label>
+            <select
+              value={filters.tipo_venda}
+              onChange={(e) => handleFilterChange({ ...filters, tipo_venda: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="all">Todas</option>
+              <option value="com_desconto">Com desconto</option>
+            </select>
+          </div>
+
           {/* Filtro de Busca de Produto */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1113,6 +1169,70 @@ export default function Bipagens() {
               placeholder="Todos os vendedores"
             />
           </div>
+        </div>
+
+        {/* Faixa de margem — so busca no clique, pra nao brigar com o auto-refresh */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Margem abaixo de (%)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={margemDraft.abaixo}
+                onChange={(e) => setMargemDraft({ ...margemDraft, abaixo: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && handleAplicarMargem()}
+                placeholder="Ex: 10"
+                className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Margem acima de (%)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={margemDraft.acima}
+                onChange={(e) => setMargemDraft({ ...margemDraft, acima: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && handleAplicarMargem()}
+                placeholder="Ex: 30"
+                className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+              />
+            </div>
+
+            <button
+              onClick={handleAplicarMargem}
+              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-4 py-2 rounded-md shadow-md transition font-medium"
+            >
+              Filtrar
+            </button>
+
+            <button
+              onClick={handleLimparFiltros}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md border border-gray-300 transition font-medium"
+            >
+              Limpar filtros
+            </button>
+
+            <span className="text-xs text-gray-500 pb-2">
+              Preencha um dos dois — ou os dois, pra pegar a faixa entre eles.
+              Só entram bipagens já casadas com a venda (as pendentes não têm margem).
+            </span>
+          </div>
+
+          {/* Aviso de filtro de margem ativo */}
+          {(filters.margem_abaixo !== '' || filters.margem_acima !== '' || filters.tipo_venda !== 'all') && (
+            <div className="mt-3 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-3 py-2">
+              Filtro ativo:
+              {filters.tipo_venda === 'com_desconto' && <strong> só vendas com desconto</strong>}
+              {filters.margem_abaixo !== '' && <strong> margem abaixo de {filters.margem_abaixo}%</strong>}
+              {filters.margem_acima !== '' && <strong> margem acima de {filters.margem_acima}%</strong>}
+            </div>
+          )}
         </div>
       </div>
 

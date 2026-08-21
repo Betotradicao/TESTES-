@@ -22,7 +22,10 @@ export class BipsController {
         search,
         sector_id,
         employee_id,
-        codLoja
+        codLoja,
+        tipo_venda,
+        margem_abaixo,
+        margem_acima
       } = req.query;
 
       // LOG: Debug dos parâmetros recebidos
@@ -38,7 +41,10 @@ export class BipsController {
         product_description,
         search,
         sector_id,
-        employee_id
+        employee_id,
+        tipo_venda,
+        margem_abaixo,
+        margem_acima
       });
 
       // Parse pagination
@@ -203,6 +209,34 @@ export class BipsController {
         query = query.andWhere('bip.cod_loja = :codLoja', { codLoja: parseInt(codLoja as string, 10) });
       }
 
+      // Tipo de venda: 'com_desconto' traz so o que saiu com desconto no caixa.
+      // Qualquer outro valor (inclusive 'all') nao filtra nada.
+      if (tipo_venda === 'com_desconto') {
+        query = query.andWhere('bip.venda_desconto_cents > 0');
+      }
+
+      // Faixa de margem. So considera bipagem que ja casou com venda (margem != null),
+      // senao as pendentes (sem margem) entrariam como se fossem margem zero.
+      if (margem_abaixo !== undefined && margem_abaixo !== '') {
+        const limite = parseFloat(margem_abaixo as string);
+        if (isNaN(limite)) {
+          return res.status(400).json({ error: 'Margem "abaixo de" invalida.' });
+        }
+        query = query
+          .andWhere('bip.venda_margem_pct IS NOT NULL')
+          .andWhere('bip.venda_margem_pct < :margem_abaixo', { margem_abaixo: limite });
+      }
+
+      if (margem_acima !== undefined && margem_acima !== '') {
+        const limite = parseFloat(margem_acima as string);
+        if (isNaN(limite)) {
+          return res.status(400).json({ error: 'Margem "acima de" invalida.' });
+        }
+        query = query
+          .andWhere('bip.venda_margem_pct IS NOT NULL')
+          .andWhere('bip.venda_margem_pct > :margem_acima', { margem_acima: limite });
+      }
+
       // Get total count
       const total = await query.getCount();
 
@@ -309,7 +343,10 @@ export class BipsController {
           search: search || null,
           sector_id: sector_id || null,
           employee_id: employee_id || null,
-          codLoja: codLoja || null
+          codLoja: codLoja || null,
+          tipo_venda: tipo_venda || 'all',
+          margem_abaixo: margem_abaixo || null,
+          margem_acima: margem_acima || null
         }
       });
 
