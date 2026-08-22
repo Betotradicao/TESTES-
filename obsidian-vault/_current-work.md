@@ -1,5 +1,24 @@
 # 🚧 Trabalho em Andamento
 
+## 🔴 Tradição ficou 11h manco hoje (22/08) — RESTART resolveu, causa EM ABERTO
+
+Roberto reclamou que a pesquisa de ruptura "carrega e dá erro no final" no celular.
+Era sintoma de um problema muito maior: o backend **parou de abrir conexões novas**
+às 13:00 UTC e ficou assim 11h. **2.428 falhas de cron** — nenhum relatório saiu
+o dia todo. Conexões já abertas continuaram servindo, por isso a tela meio funcionava.
+
+`docker compose restart backend` resolveu (0 falhas depois).
+
+⚠️ **O container ficou `healthy` as 11 horas inteiras** — o watchdog não pega esse
+caso. Ver [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve]].
+
+⏭️ **Pendente:** achar a causa da degradação (hipótese: threadpool do libuv esgotado).
+Se repetir, coletar estado das threads ANTES de reiniciar.
+
+⏭️ **Roberto:** testar a pesquisa de ruptura no celular.
+
+---
+
 ## ✅ Bipagens: coluna OFERTA (21/08) — DEPLOYADO NO TRADIÇÃO + backfill feito
 
 Badge amarelo **SIM** pra item vendido em oferta; fora de oferta fica em branco.
