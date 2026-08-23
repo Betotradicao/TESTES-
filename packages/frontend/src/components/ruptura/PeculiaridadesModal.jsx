@@ -139,13 +139,17 @@ export default function PeculiaridadesModal({ onClose }) {
   };
 
   const handleSave = async () => {
-    // Build list of products with changes
+    // Build list of products with changes.
+    // Manda description/section_name junto: boa parte destes produtos so existe no
+    // Oracle e o backend precisa desses campos pra criar a linha no Postgres.
     const changedProducts = Object.entries(changes).map(([erp_product_id, data]) => {
-      const product = products.find(p => p.erp_product_id === erp_product_id);
+      const product = products.find(p => String(p.erp_product_id) === String(erp_product_id));
       return {
         erp_product_id,
         sem_exposicao: data.sem_exposicao !== undefined ? data.sem_exposicao : product?.sem_exposicao,
-        grupo_similar: data.grupo_similar !== undefined ? data.grupo_similar : product?.grupo_similar
+        grupo_similar: data.grupo_similar !== undefined ? data.grupo_similar : product?.grupo_similar,
+        description: product?.description || null,
+        section_name: product?.section_name || null
       };
     });
 
@@ -157,9 +161,20 @@ export default function PeculiaridadesModal({ onClose }) {
     setSaving(true);
     setError(null);
     try {
-      await api.put('/products/peculiaridades', {
+      const resp = await api.put('/products/peculiaridades', {
         products: changedProducts
       });
+
+      // Nao fecha no escuro: se o backend gravou menos do que foi mandado, avisa.
+      // Antes o modal fechava sempre e dava impressao de que tinha salvo.
+      const salvos = resp?.data?.total ?? resp?.data?.updated ?? 0;
+      if (salvos < changedProducts.length) {
+        setError(
+          `Só ${salvos} de ${changedProducts.length} foram salvos. ` +
+          (resp?.data?.errors?.[0] || 'Nenhuma alteração foi perdida na tela — tente salvar de novo.')
+        );
+        return;
+      }
       onClose();
     } catch (err) {
       console.error('Erro ao salvar:', err);

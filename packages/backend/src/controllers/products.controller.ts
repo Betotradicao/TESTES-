@@ -1657,15 +1657,20 @@ export class ProductsController {
 
       console.log(`✅ ${items.length} produtos encontrados`);
 
+      // Tira quem tem substituto com estoque na gondola (grupo de similares)
+      const { GrupoSimilarService } = await import('../services/grupo-similar.service');
+      const filtrado = await GrupoSimilarService.filtrar(items, loja, (i: any) => i.erp_product_id);
+
       res.json({
-        total: items.length,
+        total: filtrado.items.length,
+        removidos_grupo_similar: filtrado.removidos,
         filtros: {
           diasSemVenda: diasSemVenda || null,
           curvas: curvas || 'TODOS',
           secoes: secoes || null,
           codLoja: loja
         },
-        items
+        items: filtrado.items
       });
 
     } catch (error: any) {
@@ -2569,35 +2574,63 @@ export class ProductsController {
       const productRepository = AppDataSource.getRepository(Product);
 
       let updated = 0;
+      let created = 0;
       let errors: string[] = [];
 
       for (const item of products) {
         try {
-          const { erp_product_id, sem_exposicao, grupo_similar } = item;
+          const { erp_product_id, sem_exposicao, grupo_similar, description, section_name } = item;
 
           if (!erp_product_id) continue;
 
-          const product = await productRepository.findOne({
+          // Aceita null, '' e 0 como "sem grupo". Number(null) da 0, e 0 gravado
+          // aqui vira grupo fantasma que nao aparece na tela (o input trata 0 como
+          // vazio) mas continua no banco.
+          const grupo =
+            grupo_similar === undefined || grupo_similar === null || grupo_similar === ''
+              ? null
+              : Number(grupo_similar);
+          const grupoFinal = grupo !== null && Number.isFinite(grupo) && grupo > 0 ? grupo : null;
+
+          let product = await productRepository.findOne({
             where: { erp_product_id: String(erp_product_id) }
           });
 
           if (product) {
             product.sem_exposicao = Boolean(sem_exposicao);
-            // grupo_similar pode ser null para remover o grupo
-            product.grupo_similar = grupo_similar !== undefined && grupo_similar !== ''
-              ? Number(grupo_similar)
-              : null;
+            product.grupo_similar = grupoFinal;
             await productRepository.save(product);
             updated++;
+          } else {
+            // A tela lista produtos do ORACLE, mas so uma parte deles tem linha aqui
+            // no Postgres. Sem este insert, configurar um produto que nunca passou
+            // por bipagem/cadastro era engolido em silencio — o usuario digitava o
+            // grupo, salvava, e nada acontecia.
+            product = productRepository.create({
+              erp_product_id: String(erp_product_id),
+              description: String(description || `Produto ${erp_product_id}`).slice(0, 255),
+              section_name: section_name ? String(section_name).slice(0, 100) : null,
+              sem_exposicao: Boolean(sem_exposicao),
+              grupo_similar: grupoFinal,
+            });
+            await productRepository.save(product);
+            created++;
           }
         } catch (err: any) {
           errors.push(`Erro no produto ${item.erp_product_id}: ${err.message}`);
         }
       }
 
+      // Grupo mudou -> a proxima pesquisa de ruptura tem que ver a mudanca na hora
+      const { GrupoSimilarService } = await import('../services/grupo-similar.service');
+      GrupoSimilarService.invalidarCache();
+
+      const total = updated + created;
       res.json({
-        message: `${updated} produtos atualizados`,
+        message: `${total} produtos salvos (${updated} atualizados, ${created} criados)`,
         updated,
+        created,
+        total,
         errors: errors.length > 0 ? errors : undefined
       });
 

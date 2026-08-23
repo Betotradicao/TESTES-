@@ -1157,6 +1157,19 @@ export class RuptureSurveyService {
     // Ordenar por maior perda
     itensRuptura.sort((a, b) => b.perda_total - a.perda_total);
 
+    // Tira quem tem substituto com estoque na gondola (grupo de similares).
+    // Roda ANTES dos rankings e das estatisticas, senao os numeros contariam
+    // ruptura que a tela nao mostra.
+    {
+      const { GrupoSimilarService } = await import('./grupo-similar.service');
+      const lojaFiltro = codLoja ? parseInt(String(codLoja), 10) : 1;
+      const r = await GrupoSimilarService.filtrar(itensRuptura, lojaFiltro, (i: any) => i.codigo);
+      if (r.removidos > 0) {
+        itensRuptura.length = 0;
+        itensRuptura.push(...(r.items as any[]));
+      }
+    }
+
     // --- Enriquecer com dados de pedido (reutilizar metodo existente) ---
     try {
       const codigosProdutos = itensRuptura
