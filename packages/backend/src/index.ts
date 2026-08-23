@@ -1849,19 +1849,22 @@ const startServer = async () => {
         const pdvToCam = new Map<number, { channel: number; antes?: number; depois?: number }>();
         for (const c of camerasPdv) pdvToCam.set(Number(c.pdv), c);
 
-        // Busca os 3 tipos de cancelamento (genérico) + desconto
+        // Filtros que ganham clipe baixado automaticamente.
+        // 'funcionario' e finalizadora (cod 4 no Intersolid) e vem com tipo
+        // FINALIZADORA — o enrichWithPreClips ja reconhece esse tipo, entao o
+        // botao Play sai verde sem mexer no front. Volume medido no Tradicao
+        // (22/08): 4 eventos em 48h contra 73 cancelamentos, nao disputa espaco.
+        const FILTROS_PRE_CLIPE = ['cancelado', 'desconto', 'funcionario'];
+
         const eventos: any[] = [];
-        try {
-          const r1 = await DVRCFTVService.searchOracleAllPdvs(startStr, endStr, 'cancelado', undefined, undefined, codLoja);
-          if (r1?.items) eventos.push(...r1.items);
-        } catch (e: any) {
-          console.error(`🎬 [Pre-clipe-PDV] Falha busca cancelados loja ${codLoja}: ${e?.message || e}`);
-        }
-        try {
-          const r2 = await DVRCFTVService.searchOracleAllPdvs(startStr, endStr, 'desconto', undefined, undefined, codLoja);
-          if (r2?.items) eventos.push(...r2.items);
-        } catch (e: any) {
-          console.error(`🎬 [Pre-clipe-PDV] Falha busca descontos loja ${codLoja}: ${e?.message || e}`);
+        for (const filtro of FILTROS_PRE_CLIPE) {
+          try {
+            const r = await DVRCFTVService.searchOracleAllPdvs(startStr, endStr, filtro, undefined, undefined, codLoja);
+            if (r?.items) eventos.push(...r.items);
+          } catch (e: any) {
+            // Um filtro que falha nao pode derrubar os outros
+            console.error(`🎬 [Pre-clipe-PDV] Falha busca ${filtro} loja ${codLoja}: ${e?.message || e}`);
+          }
         }
 
         if (eventos.length === 0) continue;
@@ -1945,7 +1948,7 @@ const startServer = async () => {
       preClipePdvRodando = false;
     }
   });
-  console.log('🎬 Pre-geracao clipes PDV (Vision Palavra-Chave) cron job started (every 30min, max 10/exec, jitter 0-3min)');
+  console.log('🎬 Pre-geracao clipes PDV (cancelamentos + descontos + funcionario) cron job started (every 30min, max 10/exec, jitter 0-3min)');
 
   // ==========================================
   // CRON: Limpeza de clipes do PDV (Vision Palavra-Chave) com mais de 2 dias

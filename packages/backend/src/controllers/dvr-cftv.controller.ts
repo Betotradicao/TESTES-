@@ -358,8 +358,9 @@ export class DVRCFTVController {
       const repo = AppDataSource.getRepository(DvrPosEventClip);
 
       // Tipos que podem ter clipe pre-gerado.
-      // FINALIZADORA nao e coberto pelo cron (que so varre cancelado/desconto), mas clipes
-      // gerados sob demanda ficam em dvr_pos_event_clips e devem ser reaproveitados.
+      // FINALIZADORA cobre o filtro Funcionario, que o cron passou a varrer em 22/08.
+      // As demais finalizadoras (PIX, Dinheiro, ...) nao sao pre-baixadas, mas o clipe
+      // gerado sob demanda fica em dvr_pos_event_clips e e reaproveitado aqui.
       const TIPOS_PRE = new Set(['CANC. ITEM', 'CANC. CUPOM', 'CANC. VENDA', 'DESCONTO', 'FINALIZADORA']);
 
       // Constroi event_keys apenas dos items elegiveis
