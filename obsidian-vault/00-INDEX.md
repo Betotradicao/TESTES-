@@ -14,6 +14,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 ## 🏗️ Arquitetura
 - [[arquitetura/deploy|Deploy Multi-Tenant]]
 - [[arquitetura/oracle-intersolid|Oracle Intersolid]]
+- [[arquitetura/trava-peso-pdv-liberacao-fiscal|⚖️ Trava de peso no PDV — a liberação da fiscal NÃO chega na retaguarda]]
 - [[arquitetura/mapeamento-tabelas|Mapeamento de Tabelas (v1/v2)]]
 - [[arquitetura/estrutura-vps|Estrutura da VPS 46]]
 - [[arquitetura/radar-watchdog|🐕 Radar Watchdog — reinicia container congelado (com disjuntor)]]
