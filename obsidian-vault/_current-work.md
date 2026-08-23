@@ -1,5 +1,21 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Filtro Funcionario no pré-download de clipes (22/08) — NO AR
+
+O cron só varria cancelamentos e descontos. Roberto pediu o Funcionário junto.
+Commit `ab26d73`. Uma linha na prática: `funcionario` resolve como FINALIZADORA
+(cod 4) e o `enrichWithPreClips` já aceitava esse tipo.
+
+Volume medido antes de ligar: 4 eventos em 48h contra 73 cancelamentos — não
+disputa o teto de 10 clipes por ciclo.
+
+⏭️ **Roberto:** o próximo ciclo roda em até 30 min. Depois disso, os eventos de
+Funcionário do dia devem sair com o Play verde.
+
+Detalhes: [[modulos/dvr-cameras]]
+
+---
+
 ## ✅ Grupo de similares na ruptura (22/08) — NO AR E VALIDADO
 
 Roberto: "coloquei 5 nos leites integrais, não salva e não funciona".

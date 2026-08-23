@@ -272,3 +272,41 @@ saem curtos (5MB/35s quando se pede 130s): pegam pedaços perto do buraco.
 
 ## 🏷️ Tags
 #modulo #dvr #cameras #streaming #rtsp #ffmpeg
+
+## 🎬 Pré-download automático de clipes do PDV
+
+Cron a cada 30 min (`index.ts`, "Pre-geracao clipes PDV"), janela de 48h, teto de
+**10 clipes por ciclo**. Deixa o botão Play verde na tela sem esperar o download.
+
+**Filtros varridos** — `FILTROS_PRE_CLIPE` no cron:
+`cancelado` · `desconto` · `funcionario` *(incluído em 22/08 a pedido do Roberto)*
+
+### 🔑 Como adicionar outro filtro
+`funcionario` **não** é palavra-chave especial: cai em `findFinalizadoraCod()` e
+vira `fin_<cod>` (é a finalizadora **4** no Intersolid do Tradição). Os eventos
+voltam com `tipo = 'FINALIZADORA'`.
+
+`enrichWithPreClips` (dvr-cftv.controller) já aceita `FINALIZADORA` no `TIPOS_PRE`
+e monta a `event_key` no mesmo formato do cron:
+`{loja}|{pdv}|{cupom}|{tipoKey}|{time}`
+
+> ⚠️ **Se as duas pontas montarem a chave diferente, o clipe é gerado mas nunca
+> encontrado** — o cron enche o disco e o Play continua cinza. Ao mexer em uma,
+> conferir a outra.
+
+Para ligar outra finalizadora (PIX, Dinheiro...), basta acrescentar o termo em
+`FILTROS_PRE_CLIPE`. **Antes disso, medir o volume** — o teto de 10/ciclo é
+compartilhado e um filtro barulhento faria os cancelamentos passarem fome.
+Medido em 22/08 (48h, loja 1): funcionario 4 · cancelado 73 · desconto 7.
+
+### 📉 "failed" acumulado é normal
+O DVR guarda ~2-3 dias. Clipe de evento mais antigo que isso falha para sempre —
+por isso a tabela tem milhares de `failed` históricos. O que importa é a taxa dos
+**últimos 2 dias**, que fica em 100%:
+
+```sql
+SELECT date_trunc('day', event_time)::date, clip_status, count(*)
+  FROM dvr_pos_event_clips
+ WHERE event_time >= now() - interval '5 days'
+ GROUP BY 1,2 ORDER BY 1 DESC;
+```
