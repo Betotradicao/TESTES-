@@ -30,6 +30,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[modulos/acougue-desmembramento|🥩 Açougue — Desmembramento (⚠️ rendimentos NÃO sincronizam com o ERP)]]
 - [[modulos/dvr-cameras|DVR e Câmeras]]
 - [[modulos/rupturas|Rupturas]]
+  - [[bugs-resolvidos/2026-08-22-grupo-similar-nunca-funcionou|🔗 Grupo de similares — `products` é cache PARCIAL do ERP, não espelho]]
 - [[modulos/etiquetas|Etiquetas]]
 - [[modulos/perdas-quebras|Perdas e Quebras]]
 - [[modulos/hortfruti|HortFruti]]

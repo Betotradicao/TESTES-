@@ -44,5 +44,20 @@ que é o que se faz com uma auditoria de ruptura.
 prazo fornecedores, cortes, atrasos). Só **ruptura** foi feito — decisão do Roberto em
 20/08. Os outros são baratos de ligar: reusar `ReportExcelService.gerar`.
 
+## 🔗 Grupo de Similares (22/08/2026)
+
+Produtos com o mesmo número em **Configurar Peculiaridades** são substitutos.
+Se **qualquer um** do grupo tem estoque, nenhum deles entra na pesquisa de ruptura.
+
+`services/grupo-similar.service.ts` · configurado em `products.grupo_similar`.
+
+> ⚠️ A tela existia desde 04/2026 mas **a regra nunca tinha sido implementada** —
+> e a gravação também estava quebrada. Ver
+> [[../bugs-resolvidos/2026-08-22-grupo-similar-nunca-funcionou]].
+
+> 🔑 O serviço consulta o estoque do **grupo inteiro** no Oracle, não só dos itens
+> candidatos: o produto com estoque não está na lista de ruptura, justamente por
+> ter estoque.
+
 ## 🏷️ Tags
 #modulo #prevencao #rupturas

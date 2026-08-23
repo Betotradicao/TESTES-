@@ -1,21 +1,38 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Grupo de similares na ruptura (22/08) — NO AR E VALIDADO
+
+Roberto: "coloquei 5 nos leites integrais, não salva e não funciona".
+Eram **3 defeitos**: não fazia upsert (produto do Oracle sem linha no Postgres era
+pulado em silêncio), limpar gravava 0 em vez de NULL, e **ninguém lia o grupo** —
+a regra nunca tinha sido implementada.
+
+Commit `768792a`. Novo `grupo-similar.service.ts` ligado nos 2 endpoints de ruptura.
+
+**Validado em produção:** Roberto configurou 12 produtos em 3 grupos (7 leites
+integrais, 3 farinhas, 2 leites condensados). Mandando os 12 como ruptura →
+12 removidos.
+
+⏭️ **Roberto:** conferir se **ITALAC** (estoque 2.085) ficou de fora do grupo 1 por
+esquecimento — o Ninho de fora faz sentido, o Italac não. Hoje não quebra nada
+(Líder cobre com 1.527), mas se um dia o Italac for o único com estoque, os outros
+6 aparecem como ruptura à toa.
+
+Detalhes: [[bugs-resolvidos/2026-08-22-grupo-similar-nunca-funcionou]]
+
+---
+
 ## 🔴 Tradição ficou 11h manco hoje (22/08) — RESTART resolveu, causa EM ABERTO
 
-Roberto reclamou que a pesquisa de ruptura "carrega e dá erro no final" no celular.
-Era sintoma de um problema muito maior: o backend **parou de abrir conexões novas**
-às 13:00 UTC e ficou assim 11h. **2.428 falhas de cron** — nenhum relatório saiu
-o dia todo. Conexões já abertas continuaram servindo, por isso a tela meio funcionava.
+Backend **parou de abrir conexões novas** às 13:00 UTC. 2.428 falhas de cron,
+nenhum relatório saiu. Conexões já abertas seguiram servindo — por isso a tela
+meio funcionava e foi assim que o Roberto notou (ruptura carregava e dava erro
+no final).
 
-`docker compose restart backend` resolveu (0 falhas depois).
+⚠️ **Container ficou `healthy` as 11 horas** — o watchdog não pega esse caso.
+Ver [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve]].
 
-⚠️ **O container ficou `healthy` as 11 horas inteiras** — o watchdog não pega esse
-caso. Ver [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve]].
-
-⏭️ **Pendente:** achar a causa da degradação (hipótese: threadpool do libuv esgotado).
-Se repetir, coletar estado das threads ANTES de reiniciar.
-
-⏭️ **Roberto:** testar a pesquisa de ruptura no celular.
+⏭️ **Pendente:** achar a causa. Se repetir, coletar threads ANTES de reiniciar.
 
 ---
 
