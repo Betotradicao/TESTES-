@@ -1,5 +1,17 @@
 # 🚧 Trabalho em Andamento
 
+## ⏸️ Repesagem liberada pela fiscal — PESQUISADO, PARADO por decisão do Roberto (22/08)
+
+A liberação **não chega na retaguarda** do Intersolid. A trava existe
+(`FLG_CONFERE_PESO_PDV`, 190 produtos), mas o evento fica no software do PDV.
+
+Levantei um caminho de detectar pelo peso da etiqueta que o Radar já guarda —
+**Roberto optou por deixar assim por enquanto.** Não retomar sem ele pedir.
+
+Varredura completa (pra não refazer): [[arquitetura/trava-peso-pdv-liberacao-fiscal]]
+
+---
+
 ## ✅ Filtro Funcionario no pré-download de clipes (22/08) — NO AR
 
 O cron só varria cancelamentos e descontos. Roberto pediu o Funcionário junto.
