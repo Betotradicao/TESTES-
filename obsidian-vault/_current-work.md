@@ -1,5 +1,22 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Vision Palavra-Chave: 2x fixo + período abrindo em ontem (24/08) — NO AR NO TRADIÇÃO
+
+`VisionPalavraChave2.jsx`: vídeo do DVR abre sempre em **2x** e o período já vem
+preenchido com **ontem** (início e fim).
+
+Detalhe que quase passou: `playbackRate` reseta a cada troca de `src`, então o 2x
+vai no `onLoadedMetadata` de cada player, não num efeito de mount.
+
+Commit `f2beb83`. Build só do frontend, `up -d --no-deps frontend` — backend/postgres
+intactos. Confirmado `playbackRate` dentro do bundle servido pelo container.
+
+⏭️ **Roberto:** `Ctrl+Shift+R` e conferir 23/08→23/08 + primeiro Play em 2x.
+
+Detalhes: [[modulos/vision-palavra-chave]]
+
+---
+
 ## ⏸️ Repesagem liberada pela fiscal — PESQUISADO, PARADO por decisão do Roberto (22/08)
 
 A liberação **não chega na retaguarda** do Intersolid. A trava existe
