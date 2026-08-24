@@ -17,6 +17,19 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+// Todo clipe abre em 2x (Roberto). Aplicado no loadedmetadata, que dispara a cada
+// troca de src — se so setasse uma vez, o proximo Play voltaria pra 1x.
+// Nao trava: se ele baixar pra 1x na mao, vale ate carregar o proximo clipe.
+function aplicar2x(e) {
+  e.currentTarget.playbackRate = 2;
+}
+
+function ontemStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return formatDate(d);
+}
+
 function getDateRange(periodo) {
   const hoje = new Date();
   const hojeStr = formatDate(hoje);
@@ -88,8 +101,8 @@ export default function VisionPalavraChave2() {
   const [sortCol, setSortCol] = useState(null);   // 'time' | 'operador' | 'pdv' | 'cupomNum' | 'tipo' | 'valor' | 'cedula'
   const [sortDir, setSortDir] = useState('asc');   // 'asc' | 'desc'
   const [periodo, setPeriodo] = useState('personalizado');
-  const [startDate, setStartDate] = useState(formatDate(new Date()));
-  const [endDate, setEndDate] = useState(formatDate(new Date()));
+  const [startDate, setStartDate] = useState(ontemStr());
+  const [endDate, setEndDate] = useState(ontemStr());
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -572,6 +585,7 @@ export default function VisionPalavraChave2() {
                   </div>
                 ) : videoUrl ? (
                   <video ref={videoRef} src={videoUrl} controls autoPlay
+                    onLoadedMetadata={aplicar2x}
                     style={{ width: '480px', height: '360px', objectFit: 'contain' }} />
                 ) : (
                   <div className="text-gray-500 text-sm flex flex-col items-center gap-2">
@@ -852,6 +866,7 @@ export default function VisionPalavraChave2() {
             {/* Player */}
             <div className="bg-black flex items-center justify-center" style={{ height: 'calc(95vh - 56px)' }}>
               <video src={videoUrl} controls autoPlay
+                onLoadedMetadata={aplicar2x}
                 className="w-full h-full"
                 style={{ objectFit: 'contain' }} />
             </div>

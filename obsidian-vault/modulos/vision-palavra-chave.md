@@ -25,6 +25,22 @@ Cron a cada 2h pre-gera os clipes dos 4 tipos visiveis na tela: **CANC. ITEM, CA
 - Cron limpeza: `5 3 * * *` (apaga MP4 + remove registro >2 dias)
 - Detalhes: [[../bugs-resolvidos/2026-05-pre-clipes-vision-palavra-chave|Pre-clipes Vision Palavra-Chave]]
 
+## 🎛️ Defaults da tela (pedido do Roberto, 24/08/2026)
+
+Dois padrões que ele usa **todo dia** e não quer reconfigurar:
+
+- **Período abre em ONTEM** (início e fim), não em hoje. Ele analisa o movimento
+  fechado do dia anterior; abrir em "hoje" trazia um dia pela metade.
+  Helper `ontemStr()` alimenta `startDate`/`endDate` iniciais.
+- **Clipe do DVR toca em 2x.** Ele estava trocando na mão no menu do player a cada
+  vídeo. Aplicado via `onLoadedMetadata={aplicar2x}` — **não** no mount: o
+  `playbackRate` volta pra 1 a cada troca de `src`, então tem que ser por clipe.
+  Vale nos dois players (inline e modal expandido).
+  **Não trava:** se ele baixar pra 1x pra examinar um trecho, a escolha dele
+  sobrevive até o próximo clipe carregar.
+
+---
+
 ## 🚨 CONSULTA DE PREÇO NÃO EXISTE NO ORACLE — PROVADO (18/07/2026)
 
 > Roberto pediu pra achar de vez onde a Intersolid grava a "consulta de preço" (a mesma que
