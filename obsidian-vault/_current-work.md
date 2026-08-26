@@ -1,5 +1,38 @@
 # 🚧 Trabalho em Andamento
 
+## ✅ Cron travado 10h + filtro de operador (25/08) — CORRIGIDO E VALIDADO
+
+Commit `7f2e89d`. A trava anti-empilhamento não tinha prazo: uma rodada pendurada
+prendeu o flag e 20 ciclos seguidos só imprimiram "pulando". Agora expira sozinha
+(20 min bipagens / 60 min PDV) e grita no log.
+
+Filtro de operador só valia sem palavra-chave — corrigido para todos os ramos.
+
+**Validado 26/08 02:34 UTC:** 2 clipes `ready` tipo FINALIZADORA (Funcionário),
+0 ciclos pulados.
+
+Detalhes: [[bugs-resolvidos/2026-08-25-trava-de-cron-sem-prazo-parou-10h]]
+
+---
+
+## 🎯 Roberto quer o produto "à prova de revenda" (25/08)
+
+Princípio dele: *"preciso criar algo que não caia em hipótese alguma"*. **Recusou
+alerta no WhatsApp** — quer que não quebre, não que avise depois. Auto-recuperação
+> monitoramento.
+
+**Risco maior que segue aberto:** o healthcheck responde `healthy` mesmo com o
+backend meio morto (ver [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve]]).
+Enquanto mentir, o watchdog nunca age e qualquer parte pode morrer sem ninguém ver.
+
+⏭️ Proposto (não autorizado): healthcheck forçar conexão NOVA em vez de reusar as
+abertas. Aí backend manco reprova e o watchdog reinicia sozinho.
+
+⏭️ Também aberto: causa da degradação de 22/08 (11h sem abrir conexão) segue
+desconhecida. Se repetir, coletar threads ANTES de reiniciar.
+
+---
+
 ## ✅ Vision Palavra-Chave: 2x fixo + período abrindo em ontem (24/08) — NO AR NO TRADIÇÃO
 
 `VisionPalavraChave2.jsx`: vídeo do DVR abre sempre em **2x** e o período já vem

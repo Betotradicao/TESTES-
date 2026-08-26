@@ -18,6 +18,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[arquitetura/mapeamento-tabelas|Mapeamento de Tabelas (v1/v2)]]
 - [[arquitetura/estrutura-vps|Estrutura da VPS 46]]
 - [[arquitetura/radar-watchdog|🐕 Radar Watchdog — reinicia container congelado (com disjuntor)]]
+- [[bugs-resolvidos/2026-08-25-trava-de-cron-sem-prazo-parou-10h|⏳ Trava de cron precisa EXPIRAR — booleano sozinho trava pra sempre]]
 - [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve|⚠️ `healthy` NÃO prova que o backend está vivo — o watchdog não pega backend manco]]
 - [[arquitetura/whitelabel|Whitelabel — Estado Atual + Plano de Mudança]] ← antes de mexer, ler
 
