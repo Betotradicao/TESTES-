@@ -1622,13 +1622,25 @@ const startServer = async () => {
   // 5 min, sem essa trava a rodada seguinte comeca por cima da anterior e os
   // ffmpeg se acumulam. A VPS tem 4 nucleos para 12 clientes — ffmpeg empilhado
   // ja travou a maquina antes.
+  //
+  // ⚠️ A trava precisa EXPIRAR. Em 25/08/2026 o cron do PDV ficou 10h parado porque
+  // uma rodada nunca terminou e o flag ficou preso em true — cada tick seguinte so
+  // imprimia "pulando" e nenhum clipe era gerado. Trava sem prazo de validade e
+  // ponto unico de falha silencioso: o container segue `healthy` e ninguem percebe.
   let preClipeRodando = false;
+  let preClipeInicio = 0;
+  const PRE_CLIPE_TETO_MS = 20 * 60 * 1000; // 4 ciclos de 5 min
   cron.schedule('*/5 * * * *', async () => {
     if (preClipeRodando) {
-      console.log('🎬 [Pre-clipe] Rodada anterior ainda em andamento, pulando...');
-      return;
+      const parado = Date.now() - preClipeInicio;
+      if (parado < PRE_CLIPE_TETO_MS) {
+        console.log('🎬 [Pre-clipe] Rodada anterior ainda em andamento, pulando...');
+        return;
+      }
+      console.error(`🚨 [Pre-clipe] Rodada travada ha ${Math.round(parado / 60000)} min — liberando a trava e seguindo`);
     }
     preClipeRodando = true;
+    preClipeInicio = Date.now();
     try {
       const { AppDataSource } = await import('./config/database');
       const { Bip } = await import('./entities/Bip');
@@ -1786,13 +1798,22 @@ const startServer = async () => {
   // ==========================================
   // Mesma trava anti-empilhamento do cron de bipagens: uma rodada varre 48h de
   // eventos e gera 1 clipe por camera, entao pode passar dos 30 min do intervalo.
+  // Mesma trava com prazo de validade do cron de bipagens — ver comentario la em cima.
+  // Foi exatamente aqui que travou em 25/08/2026: 20 ciclos seguidos so "pulando".
   let preClipePdvRodando = false;
+  let preClipePdvInicio = 0;
+  const PRE_CLIPE_PDV_TETO_MS = 60 * 60 * 1000; // 2 ciclos de 30 min
   cron.schedule('*/30 * * * *', async () => {
     if (preClipePdvRodando) {
-      console.log('🎬 [Pre-clipe-PDV] Rodada anterior ainda em andamento, pulando...');
-      return;
+      const parado = Date.now() - preClipePdvInicio;
+      if (parado < PRE_CLIPE_PDV_TETO_MS) {
+        console.log('🎬 [Pre-clipe-PDV] Rodada anterior ainda em andamento, pulando...');
+        return;
+      }
+      console.error(`🚨 [Pre-clipe-PDV] Rodada travada ha ${Math.round(parado / 60000)} min — liberando a trava e seguindo`);
     }
     preClipePdvRodando = true;
+    preClipePdvInicio = Date.now();
     try {
       // Jitter pra espalhar a carga entre lojas multi-tenant
       const jitterMs = Math.floor(Math.random() * 180_000);

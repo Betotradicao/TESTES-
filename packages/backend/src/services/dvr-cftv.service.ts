@@ -936,7 +936,59 @@ export class DVRCFTVService {
       .filter(o => o.nome && !isNaN(o.cod));
   }
 
+  /**
+   * Busca do Vision Palavra-Chave.
+   *
+   * O filtro de OPERADOR e aplicado aqui, por cima do resultado, e nao dentro de
+   * cada query. Motivo: com palavra-chave o fluxo se abre em varios ramos
+   * (cancelado_item / cupom / venda / desconto / finalizadora / produto), cada um
+   * com seu SQL e seu ponto de saida. Antes o operador so era considerado no ramo
+   * "sem palavra-chave" — combinar "canc. item" + operador ignorava o operador em
+   * silencio e devolvia a lista inteira (relatado pelo Roberto em 25/08/2026).
+   *
+   * Filtra pelo NOME que aparece na coluna Operador(a), que todos os ramos montam
+   * da mesma forma (primeira finalizadora do cupom). Assim o que se ve na tela e
+   * exatamente o que o filtro considera.
+   */
   static async searchOracleAllPdvs(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number, opts?: { codOperador?: number; valorMin?: number; valorMax?: number }): Promise<{ total: number; items: any[] }> {
+    const bruto = await this.searchOracleAllPdvsRaw(startDate, endDate, text, pdvFilter, barcode, codLoja, opts);
+
+    const codOp = opts?.codOperador;
+    // Sem palavra-chave o ramo de operador ja filtra no proprio SQL — nao refiltrar.
+    if (codOp == null || isNaN(Number(codOp)) || !text) return bruto;
+
+    const nome = await this.nomeDoOperador(Number(codOp));
+    if (!nome) {
+      console.warn(`[VISION-PC2] Operador ${codOp} sem nome no ERP — filtro de operador ignorado`);
+      return bruto;
+    }
+
+    const alvo = nome.trim().toUpperCase();
+    const items = bruto.items.filter((it: any) => String(it.operador || '').trim().toUpperCase() === alvo);
+    console.log(`[VISION-PC2] Filtro operador "${nome}": ${items.length} de ${bruto.items.length}`);
+    return { total: items.length, items };
+  }
+
+  /** Nome do operador pelo codigo. Cache simples: a lista quase nao muda. */
+  private static operadorNomeCache = new Map<number, string>();
+  private static async nomeDoOperador(cod: number): Promise<string | null> {
+    if (this.operadorNomeCache.has(cod)) return this.operadorNomeCache.get(cod)!;
+    try {
+      const n = await this.getOracleNames();
+      const rows = await OracleService.query(
+        `SELECT ${n.C_OP_NOME} AS NOME FROM ${n.schema}.${n.T_OPERADORES} WHERE ${n.C_OP_COD} = :cod`,
+        { cod }
+      );
+      const nome = rows?.[0]?.NOME ? String(rows[0].NOME).trim() : null;
+      if (nome) this.operadorNomeCache.set(cod, nome);
+      return nome;
+    } catch (e: any) {
+      console.error('[VISION-PC2] Erro ao resolver nome do operador:', e?.message || e);
+      return null;
+    }
+  }
+
+  private static async searchOracleAllPdvsRaw(startDate: string, endDate: string, text: string, pdvFilter?: number, barcode?: string, codLoja?: number, opts?: { codOperador?: number; valorMin?: number; valorMax?: number }): Promise<{ total: number; items: any[] }> {
     // Bifurcar Oracle/PG
     try {
       if (AppDataSource.isInitialized) {
