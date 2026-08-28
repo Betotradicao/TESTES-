@@ -26,6 +26,9 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 
 ### Prevenção no Radar
 - [[modulos/bipagens|Bipagens]]
+- [[modulos/leitor-codigo-barras|Leitor de codigo de barras (coletor da loja)]]
+- [[modulos/monitor-dvr-email|Monitor do DVR por e-mail (RADAR 360)]]
+- [[modulos/ativar-produtos|Ativar Produtos (RADAR 360)]]
 - [[modulos/vision-palavra-chave|Vision Palavra-Chave]]
 - [[modulos/vision-facial|Vision Facial / Reconhecimento Facial]]
 - [[modulos/vision-antifurto|🔮 Vision Antifurto — POC IA (planejamento)]]
@@ -115,6 +118,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[bugs-resolvidos/2026-03-saude-estoque-queda-vendas|Saúde do Estoque — Queda de Vendas]]
 - [[bugs-resolvidos/2026-03-cron-monitor-scanner|Cron Monitor / Scanner Service]]
 - [[bugs-resolvidos/2026-03-bipagens-offline-salvar|Bipagens salvas mesmo com Oracle offline]]
+- [[bugs-resolvidos/2026-08-feature-email-e-recuperacao-de-senha|RADAR 360: e-mail e recuperacao de senha]]
 
 ## 🎨 Padrões / Convenções
 - [[padroes/estilo-criacao|Estilo de Criação de Telas (Radar 360)]]

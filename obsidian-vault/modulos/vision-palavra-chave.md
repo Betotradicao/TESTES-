@@ -2,6 +2,171 @@
 
 Ferramenta de busca por palavra-chave em cupons fiscais e vendas, com foco em "achar agulha no palheiro" (cupom específico, transação suspeita, etc).
 
+## 🔁 Port para o RADAR 360 (27/08) — o que cada filtro consulta
+
+⚠️ **Cada atalho da tela é uma TABELA DIFERENTE do ERP**, não um `WHERE`
+variável sobre a mesma consulta. Quem tratar como filtro único quebra tudo.
+
+| Botão | Tabela | Regra |
+|---|---|---|
+| Dinheiro, PIX, Crédito… | `TAB_PRODUTO_PDV` | `EXISTS` em `TAB_CUPOM_FINALIZADORA` com o código |
+| **Canc. Item** | `TAB_PRODUTO_PDV_ESTORNO` | **COM** finalizadora — uma linha por produto |
+| **Canc. Venda** | `TAB_PRODUTO_PDV_ESTORNO` | **SEM** finalizadora — uma linha por cupom |
+| Canc. Cupom | `TAB_CUPOM_CANCELADO` | tabela própria |
+| Descontos | `TAB_PRODUTO_PDV` | `valor_desconto > 0`, e o valor exibido é o DESCONTO |
+| Palavra livre | `TAB_PRODUTO` | `LIKE` na descrição |
+
+### 🔴 A diferença entre Canc. Item e Canc. Venda
+
+As duas saem da **mesma tabela**. O que separa é existir finalizadora para o
+cupom:
+
+- **com** finalizadora → a venda foi paga, só o item saiu
+- **sem** finalizadora → a venda inteira foi abandonada antes de pagar
+
+Trocar os dois faz o operador que cancela **vendas inteiras** se esconder no
+meio dos cancelamentos de item, que são corriqueiros. É o oposto do que a tela
+existe para achar.
+
+### Faixa de valor é HAVING, não WHERE
+
+O filtro é sobre o **total do cupom**, não sobre o item. Filtrar por item traria
+cupom de R$ 500 porque um dos itens custou R$ 3.
+
+### Formas de pagamento vêm do ERP, não do código
+
+`TAB_ENTIDADE`. Cada cliente nomeia as suas ("FUNCIONARIO", "CONVENIO",
+"IFOOD") e cliente novo pode ter forma que não existe em nenhum outro. Lista
+fixa no código funcionaria só no Tradição.
+
+Casamento parcial ("CARTAO" → "CARTAO DEBITO") **só quando há uma candidata**.
+Com duas, escolher uma seria decidir pelo usuário e mostrar o conjunto errado
+sem avisar.
+
+---
+
+## 🏪 A tela EXIGE uma loja escolhida
+
+Não existe "todas as lojas" aqui: cupom, PDV e câmera são de **uma loja de cada
+vez**. Com "Todas" selecionado, a tela mostra um aviso pedindo para escolher —
+mesmo comportamento da aplicação que já roda.
+
+⚠️ **O backend também recusa, sem cair na primeira loja.** O fallback "usa a
+primeira" parece gentileza e é armadilha: a tela mostraria dados da Loja 1
+enquanto o seletor diz "Todas as lojas" — número certo de uma loja atribuído a
+outra, sem nada denunciando. Recusar e dizer o que falta é melhor.
+
+---
+
+## 📅 O período abre em ONTEM, nunca em hoje
+
+Vale para o Tradição e para o RADAR 360.
+
+Dois motivos:
+- **o dia corrente está incompleto** — quem abre às 9h vê meia manhã, não acha
+  cancelamento nenhum e conclui que o filtro quebrou;
+- o **DVR guarda ~2-3 dias**, então ontem é o dia mais recente com vídeo
+  completo para conferir.
+
+⚠️ Montar a data com campos **locais**, nunca `toISOString()`: o ISO converte
+para UTC e, no Brasil, a partir das 21h já devolve o dia seguinte.
+
+### Tabela vazia precisa dizer O QUE não achou
+
+"Nenhum resultado" e "ainda não busquei" são visualmente idênticos. Cancelamento
+é evento raro — num período de um dia, zero é o normal, e a tela muda diz
+"quebrado".
+
+A mensagem cita o filtro e o período: *"Nenhuma transação de 'canc. item' entre
+27/08 e 27/08. Tente ampliar o período."*
+
+### 🚫 Botões que ficaram DE FORA (27/08, decisão do Roberto)
+
+| Botão | Motivo |
+|---|---|
+| **iFood** | a rota que existe hoje está incorreta |
+| **Consulta Preço** | o ERP não grava consulta de preço |
+
+Botão que devolve resultado errado é pior que botão nenhum: quem investiga
+conclui a partir do que a tela mostra. Voltam quando a rota certa existir.
+
+---
+
+## 🔴 Sinônimo de coluna tem que ser POR TABELA (27/08)
+
+O mesmo nome de campo pode ser uma coluna diferente em cada tabela.
+
+No Intersolid o operador do caixa é:
+- `COD_VENDEDOR` em **TAB_PRODUTO_PDV**
+- `COD_OPERADOR` em **TAB_CUPOM_FINALIZADORA**
+
+⚠️ **As duas colunas existem nas duas tabelas** — não há como perceber pelo
+nome. A descoberta do RADAR 360 tinha um sinônimo só, global, com
+`COD_VENDEDOR` na frente. Resultado: a coluna Operador da tela ficava **inteira
+vazia**, sem erro nenhum, porque o `LEFT JOIN` simplesmente não achava.
+
+**Medido no ERP real:** em `TAB_CUPOM_FINALIZADORA`, `COD_OPERADOR` casa com a
+tabela de operadores em **3.000 de 3.000** linhas; `COD_VENDEDOR` casa em
+**zero**.
+
+Correção: `descoberta.service.ts` aceita chave `TABELA.campo`, que vence a
+genérica.
+
+```ts
+'TAB_CUPOM_FINALIZADORA.codigo_operador': ['COD_OPERADOR', 'COD_VENDEDOR'],
+```
+
+> Sintoma a reconhecer: coluna inteira vazia, sem erro. `LEFT JOIN` que não acha
+> não reclama — some em silêncio. Se uma coluna vier toda vazia, testar o
+> `COUNT` do join antes de procurar no código.
+
+---
+
+## 🔘 Atalhos de pagamento: lista FIXA, resolvida por sinônimo
+
+⚠️ Listar tudo que vem de `TAB_ENTIDADE` cospe dezenas de botões — boleto,
+cheque pré, contas do Santander, vale troca. A barra vira parede e os oito que
+importam se perdem.
+
+São os mesmos 8 do sistema de origem: Dinheiro, Crédito, Débito, Cartão POS,
+iFood, Cred. Parcelado, PIX, Funcionário.
+
+O texto do atalho vira o código da finalizadora **daquele cliente** por tabela
+de sinônimos (`dinheiro` → `ESPECIE`, `pix` → `PIX / CARTEIRA DIGITAL`). Fixo
+sem deixar de ser multi-cliente.
+
+Casamento parcial **só com UMA candidata** — num ERP real "CARTAO" casa com uma
+dúzia de contas de banco.
+
+---
+
+## 💵 Coluna "Cédula" — quase sempre vazia, e está certo
+
+É o valor que o cliente ENTREGOU. No Intersolid **não serve**: `VAL_RECEBIDO`
+espelha o líquido e `VAL_TROCO` vem sempre zero — o PDV não captura. Verificado
+em 1,3 milhão de transações (2023-2026) no sistema de origem.
+
+No RADAR 360 a coluna é **opcional no mapeamento**: onde o ERP capturar de
+verdade, preenche; onde não, mostra traço em vez de repetir o total e parecer
+que capturou.
+
+---
+
+## 🧾 A notinha muda conforme o filtro
+
+O cupom não vem pronto: vem em partes (`itens`, `com_desconto`, `cancelados`,
+`pagamentos`) e a tela monta conforme o que trouxe a transação.
+
+Quem buscou **Descontos** quer ver QUAL item recebeu o desconto — mostrar só o
+total obrigaria a conferir item por item na mão. Mesma coisa em Canc. Item.
+
+⚠️ `preco_unitario` é **opcional**: sem ela o unitário sai de `total / qtd` —
+certo na maioria, errado quando o item tem desconto.
+
+⚠️ Falha ao buscar as formas de pagamento **não derruba a nota**: sem a linha de
+pagamento a nota ainda serve; sem os itens, não serve para nada.
+
+
 ## 📂 Arquivos
 - **Frontend:** `packages/frontend/src/pages/VisionPalavraChave.jsx`, `VisionPalavraChave2.jsx`
 - **Backend:** controllers/services relacionados a busca de cupons
