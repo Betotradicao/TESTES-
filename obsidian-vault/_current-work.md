@@ -22,6 +22,19 @@ Lições registradas em
 Só cria leitor novo se a leitura for **etiqueta de balança ou crachá cadastrado**.
 Digitação em teclado não cria mais equipamento.
 
+### Cadastro por link + várias lojas + master de fábrica — commit `40e6649`
+Tela de Usuários agora **gera um link** em vez de criar a pessoa: define papel,
+lojas (caixas selecionáveis) e telas, e o cliente preenche nome, usuário, e-mail
+e senha na ponta — com as regras de senha ficando verdes conforme digita e um
+olhinho para conferir.
+
+`usuarios.cod_loja` virou `cod_lojas` (lista). O filtro de loja saiu de 15 rotas
+e virou um só, dentro do `autenticar`.
+
+Cliente novo já sobe com o master do fornecedor, vindo do `.env`.
+
+Lições em [[bugs-resolvidos/2026-08-cadastro-por-link-e-varias-lojas]].
+
 ### Clipes de ontem
 Lote concluído: **19 gerados, 5 já existiam, 0 falharam**.
 

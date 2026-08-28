@@ -119,6 +119,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[bugs-resolvidos/2026-03-cron-monitor-scanner|Cron Monitor / Scanner Service]]
 - [[bugs-resolvidos/2026-03-bipagens-offline-salvar|Bipagens salvas mesmo com Oracle offline]]
 - [[bugs-resolvidos/2026-08-feature-email-e-recuperacao-de-senha|RADAR 360: e-mail e recuperacao de senha]]
+- [[bugs-resolvidos/2026-08-cadastro-por-link-e-varias-lojas|RADAR 360: cadastro por link e varias lojas por pessoa]]
 
 ## 🎨 Padrões / Convenções
 - [[padroes/estilo-criacao|Estilo de Criação de Telas (Radar 360)]]
