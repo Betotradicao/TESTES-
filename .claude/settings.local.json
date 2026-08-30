@@ -880,7 +880,9 @@
       "Bash(git commit *)",
       "PowerShell(ssh vps2-hostinger \"ss -ltn | grep -E '28100|28101'\")",
       "Bash(openssl version *)",
-      "Bash(openssl pkcs12 *)"
+      "Bash(openssl pkcs12 *)",
+      "PowerShell(Restart-Service postgresql-x64-15 -Force)",
+      "PowerShell(Get-Service postgresql-x64-15)"
     ],
     "deny": [],
     "ask": []
