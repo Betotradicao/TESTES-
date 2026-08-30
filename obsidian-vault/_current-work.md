@@ -1,70 +1,57 @@
-# 🚧 Trabalho em Andamento
+# Onde paramos — 30/08/2026
 
-> **Projeto ativo: RADAR 360**, em `D:\radar360`.
-> Produção: `https://tradicaosjc.prevencaonoradar.com.br` (VPS `vps-prevencao`, 31.97.82.235).
-> Repositório: `Betotradicao/RADAR360-INTERSOLID`, branch **`RADAR360`**.
-> Regras de commit e deploy: `D:\radar360\CLAUDE.md`.
-> ⚠️ O Prevenção no Radar (Tradição, VPS 46.202.150.64) é **referência só de leitura**.
+## No ar em produção (RADAR 360)
 
----
+Radar Facial completo, deployado e conferido em `tradicaosjc.prevencaonoradar.com.br`:
 
-## ✅ Feito hoje (28/08) e no ar
+- **Detecção Facial** — rosto + atributos de quem passa, importação automática a
+  cada 2 min nas duas câmeras faciais, expurgo de 30 dias
+- **Ocorrências Faciais** — banco de rostos do DVR espelhado, criar/excluir
+  grupo, cadastrar pessoa a partir de uma detecção, vídeos do furto
+- **Identificados em Loja** — comparação rosto cadastrado × cena da câmera
+- **WhatsApp** — cena, rosto e vídeos do furto (vídeos: 1× por dia por pessoa)
+- **Permissões** — operador faz tudo no Radar; Configuração é do admin
 
-### EMAIL RADAR 360 + recuperação de senha — commits `9d2d38d` e `c70a7a2`
-Tela em **Implantação › EMAIL RADAR 360** (remetente, senha de app do Gmail,
-Testar Conexão, textos editáveis) e **"Esqueci minha senha"** no login, no lugar
-do link de demonstração.
+Detalhes técnicos em `d:/radar360/MAPEAMENTO-DVR-FACIAL.md`.
 
-Lições registradas em
-[[bugs-resolvidos/2026-08-feature-email-e-recuperacao-de-senha]].
+## ⏸️ Pendente — legenda no vídeo (POS)
 
-### Leitor fantasma — commit `710cfa7` (deployado hoje)
-Só cria leitor novo se a leitura for **etiqueta de balança ou crachá cadastrado**.
-Digitação em teclado não cria mais equipamento.
+Mapeado e **testado com bipagens reais** na câmera 15 (BALANÇA AÇOUGUE). Falta
+só o encanamento.
 
-### Cadastro por link + várias lojas + master de fábrica — commit `40e6649`
-Tela de Usuários agora **gera um link** em vez de criar a pessoa: define papel,
-lojas (caixas selecionáveis) e telas, e o cliente preenche nome, usuário, e-mail
-e senha na ponta — com as regras de senha ficando verdes conforme digita e um
-olhinho para conferir.
+**Esperando:** a informática da loja liberar no roteador a porta **38800/TCP**
+para `10.6.1.110`, **restrita à origem `31.97.82.235`** (a VPS). O texto pronto
+para eles foi passado ao Roberto no chat.
 
-`usuarios.cod_loja` virou `cod_lojas` (lista). O filtro de loja saiu de 15 rotas
-e virou um só, dentro do `autenticar`.
+⚠️ A restrição de origem é obrigatória: o protocolo POS **não tem autenticação
+nenhuma** — aberto para a internet, qualquer um escreve na câmera do cliente e
+fica gravado.
 
-Cliente novo já sobe com o master do fornecedor, vindo do `.env`.
+**Quando liberarem:** testar da VPS e montar o envio automático — bipagem do
+açougue aparecendo na câmera 15 em tempo real. Não há código de POS no sistema
+ainda; hoje só sai com envio manual da máquina `10.6.1.171`.
 
-Lições em [[bugs-resolvidos/2026-08-cadastro-por-link-e-varias-lojas]].
+Como funciona: `d:/radar360/MAPEAMENTO-DVR-POS.md`. As duas armadilhas que
+custaram caro: `SrcIP` **e** `DstIP` apontando para quem manda, e a conexão TCP
+**mantida aberta** (abrindo/fechando por linha o DVR descarta em silêncio).
 
-### Clipes de ontem
-Lote concluído: **19 gerados, 5 já existiam, 0 falharam**.
+## 💬 Em discussão — IA de furto nas câmeras
 
----
+Conversa iniciada, **nada decidido**. O que ficou levantado:
 
-## ⏳ Próximo passo
+- O DVR só tem `FaceAnalysis`/`FaceAttribute` — **não** faz detecção de objeto,
+  então não ajuda; precisaria de GPU própria na loja (~R$ 3–5 mil, uma vez).
+- O ativo raro do Roberto é **rótulo automático**: bipagem com timestamp +
+  legenda no vídeo dão dataset etiquetado de graça.
+- Recomendação: começar sem IA — cruzar **bipagem × peso × cupom** (o caso
+  "passou a caixa, registrou 1 lata" é peso, não visão). Isso dá valor em
+  semanas e constrói o dataset para um YOLO depois.
+- Próximo passo sugerido: **levantar quantas divergências peso × cupom existem
+  hoje no banco** — é consulta, não projeto, e diz se há material.
 
-**Roberto precisa preencher a tela de e-mail** — remetente + senha de app do
-Gmail — e clicar em *Testar conexão*. Nada sai por e-mail enquanto isso não for
-feito.
+## Outros pendentes
 
-A conta `beto` (master) tem e-mail `supermercadotradicao@yahoo.com.br`, então a
-recuperação funciona para ela assim que o remetente estiver configurado.
-
----
-
-## 📌 Pendências abertas
-
-| O quê | Estado |
-|---|---|
-| **Boas-vindas** — template pronto, ainda não dispara | Roberto: *"depois vemos em que momento"* |
-| **`SCANNER_03` fantasma** no banco (id 4) | Aguardando decisão do Roberto para apagar; ele registrou uso às 14:00 de hoje |
-| **Deploy Key no GitHub** para trocar scp por `git pull` na VPS | Falta Roberto cadastrar em Settings › Deploy keys (sem write): `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJGd4+J6QO9lC85afIBZMir9M1oSU7SPFpuEVECuiidb radar360-deploy-vps` |
-| **Overlay do PDV (Zanthus) no vídeo** | Em espera por decisão do Roberto |
-| **Rotacionar a senha do DVR** (`beto3107@`, exposta em chat) | Pendente |
-
----
-
-## 🔗 Relacionado
-
-- [[bugs-resolvidos/2026-08-feature-email-e-recuperacao-de-senha]]
-- [[padroes/estilo-criacao]]
-- [[padroes/regras-ssh-windows]]
+- **Alertas antigos estão com `cod_loja` nulo** (gravados antes do campo
+  existir). Corrigir só depois de o Roberto confirmar que todos são da Loja 1 —
+  não deduzir.
+- **Senha do DVR (`beto3107@`) apareceu no chat** — vale trocar.
