@@ -78,23 +78,48 @@ como saber na hora.
   confiança alta → é o relatório de divergência. O botão `Corrigir` da tela
   Fotos da Balança fecha o ciclo.
 
-### Caso real confirmado (31/08/2026)
+### ⚠️ A foto pode ser da bipagem VIZINHA (31/08/2026)
 
-Bipagem `AC BOV C2 (PRD) OSSOBUCO`, 1.472 kg, 18:24:43 — e na foto está **salsicha
-alaranjada**. O funcionário pesou salsicha e digitou o código do ossobuco. Achado pelo
-Roberto olhando a tela, antes de existir modelo nenhum.
+Parecia erro de operador: bipagem `AC BOV C2 (PRD) OSSOBUCO` com **salsicha
+alaranjada** na foto. Registrei como erro de digitação. **Estava errado.**
 
-**Por que este caso importa:** ossobuco é `PROTEINA BOVINA`, salsicha é `EMBUTIDOS` —
-**grupos diferentes**. Então o primeiro modelo, que só sabe grupo, já pega este erro.
-E é onde dói: o preço por quilo dos dois não é o mesmo.
+Os horários explicam:
 
-**O limite, no mesmo fôlego:** pesar patinho e digitar acém não atravessa grupo (os dois
-são `PROTEINA BOVINA`) — o modelo de grupo passa batido. Esse tipo só no segundo treino,
-e o par acém-moído / patinho-moído provavelmente nunca.
+| bipagem | bipou | fotos |
+|---|---|---|
+| 1673 `OSSOBUCO` | 18:24:53 | 18:24:**37** e 18:24:**43** |
+| 1674 `SALSICHA DE FRANGO` | 18:25:04 | 18:24:**48** e 18:24:**54** |
 
-⚠️ Em foto com rótulo errado o certo é **`Corrigir`**, não `Descartar`: corrigir devolve a
-foto ao grupo certo e ela ainda treina; descartar joga fora foto boa. Mesmo clique, dobro
-do resultado.
+Onze segundos entre as duas, e a coleta pega de 16s a 2s **antes** do evento —
+as janelas se encostam. Às 18:24:43 o funcionário já estava mexendo na salsicha
+da bipagem seguinte. Não foi o operador que errou: foi a coleta pendurando a
+foto na bipagem errada.
+
+⚠️ **Não dá para saber por qual balança passou.** `bipagens.equipamento_id` é o
+leitor de código de barras (valor 2 nas duas), não a balança. Dois funcionários
+trabalham nas duas balanças ao mesmo tempo.
+
+**Regra que sai disso:** foto cuja bipagem tem outra a menos de 20 segundos
+**não entra no treino**. Medido em 31/08/2026 sobre 479 fotos:
+
+| situação | fotos |
+|---|---|
+| sem bipagem vizinha em 60s | 164 |
+| vizinha a mais de 40s | 127 |
+| vizinha entre 20 e 40s | 90 |
+| **vizinha a menos de 20s — descartar** | **98** |
+
+Custa 20% do material e compra rótulo confiável. É automático, ninguém clica.
+
+**Lição maior:** ver produto errado na foto **não prova** erro de operador. Antes
+de acusar alguém, conferir se existe bipagem vizinha. Isto vale para o relatório
+de divergência que a IA vai gerar — divergência em foto com vizinha próxima é
+suspeita da ferramenta, não da pessoa.
+
+⚠️ Em foto com rótulo errado o certo é **`Corrigir`**, não `Descartar`: corrigir
+devolve a foto ao grupo certo e ela ainda treina. E `Corrigir` **escolhe do
+cadastro** — texto livre gravava só a descrição, sem `cod_produto`, e sem código
+não há grupo: a foto corrigida com esmero era justamente a que se perdia.
 
 ## Ordem do trabalho (por que nesta ordem)
 
