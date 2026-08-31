@@ -105,3 +105,6 @@ exportacao_folha_*.txt
 
 # Trava de execucao do Claude Code — estado de runtime, nao versionar
 .claude/scheduled_tasks.lock
+
+# Conjuntos de imagens de treino — nunca versionar (dezenas de GB)
+datasets/

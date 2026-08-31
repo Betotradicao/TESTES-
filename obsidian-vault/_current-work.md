@@ -155,6 +155,70 @@ Cada uma escondia a seguinte, e todas valem para qualquer `<video>` novo:
 3. Tabela rolando para o lado **esconde informação sem avisar** no celular —
    Bipagens e Palavra-Chave viram cartões empilhados abaixo de 768px.
 
+## 🧠 IA nas câmeras — duas frentes, ambas começadas em 31/08
+
+### Frente 1 — Balança: o que é o produto (a mais promissora)
+
+⚠️ **O rótulo vem DE GRAÇA.** O açougueiro pesa e digita o código; a bipagem diz
+qual produto é aquela imagem. Marcar imagem à mão custa ~4h por 300; aqui chega
+pronto ~50 vezes por dia. **449 fotos no primeiro dia.**
+
+Coleta em `BalancaService`, tarefa `fotos-balanca` a cada 10 min, **fora do
+caminho da bipagem** (decisão do Roberto: o que funciona não pode ser tocado por
+experimento).
+
+⚠️ **As fotos vêm da GRAVAÇÃO, de 16s a 2s antes do evento.** A primeira versão
+tirava instantâneo na hora da bipagem e pegava a **bancada vazia** — quando a
+etiqueta imprime, a carne já foi ensacada. Rótulo errado é pior que não coletar.
+Três quadros, não um: não se sabe quanto dura cada pesagem.
+
+⚠️ **O produto vai para a balança DENTRO DO SAQUINHO** (observação do Roberto
+olhando a câmera). Foto de catálogo ensina o que a câmera nunca vai encontrar —
+plástico reflete, embaça e clareia. Por isso `embalagem` é eixo separado de
+`apresentacao`.
+
+⚠️ **São duas balanças no campo da câmera.** O visor mostra o peso, e ele bate
+com o da bipagem — é assim que se sabe qual das duas usar, sem comparar com
+bancada vazia.
+
+Telas em `Radar IA (teste)`: **Fotos da Balança** (revisar, confirmar com corte
+e embalagem → promove a referência) e **Cadastro de Imagens** (por produto).
+
+### Frente 2 — Caixa: se passou ou não passou
+
+SKU-110K, 11.743 fotos, 1,7 milhão de produtos, **categoria única**. Treinando
+na máquina da loja (i3, sem GPU): ~2h por época, 12 épocas. Salva a cada época.
+
+⚠️ **NÃO existem pesos prontos publicados** — conferido, nem a Ultralytics tem.
+⚠️ **Produto estrangeiro não é problema**: categoria única aprende FORMA, não
+marca. O risco real é o ÂNGULO (gôndola de frente × esteira de cima).
+
+### ⚠️ O que o modelo genérico faz — medido, não suposto
+
+COCO conhece 80 categorias e **nenhuma é produto de mercado**. Nas câmeras da
+loja: acha `person` bem, chama a balança de `laptop`, o teclado de `cell phone`,
+e chuta `traffic light` e `horse`. Baixar o corte de confiança não resolve —
+traz mais chute. **E de cima ele erra até o que conhece**: numa cena de caixa
+marcou 3 pessoas e deixou 2 de fora.
+
+### O caminho certo, que saiu da conversa
+
+**Não usar detecção.** A balança não sai do lugar: marcar a região (4 números em
+PORCENTAGEM) e recortar transforma o problema difícil (achar numa cena cheia) no
+fácil (classificar uma imagem pequena). Menos dados, menos erro, e o rótulo já
+existe.
+
+⚠️ **Bancada de teste em `D:\iaovivo` (porta 8000) é DESCARTÁVEL.** O produto
+final é o alerta dentro do RADAR 360, ao lado da bipagem — não um segundo
+sistema.
+
+### ⚠️ Erro caro que quase aconteceu
+
+O download de 11 GB caiu **dentro da pasta do repositório**, que não tinha
+`datasets/` no `.gitignore`; e o processo não morreu quando mandei parar —
+chegaram a rodar quatro ao mesmo tempo. Corrigido: `os.chdir` antes de baixar
+(a configuração da biblioteca sozinha não bastou) e `datasets/` ignorado.
+
 ## 💬 Em discussão — IA de furto nas câmeras
 
 Conversa iniciada, **nada decidido**. O que ficou levantado:
