@@ -32,6 +32,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[modulos/vision-palavra-chave|Vision Palavra-Chave]]
 - [[modulos/vision-facial|Vision Facial / Reconhecimento Facial]]
 - [[modulos/vision-antifurto|🔮 Vision Antifurto — POC IA (planejamento)]]
+- [[modulos/ia-reconhecimento-balanca|⚖️ IA — Reconhecimento de produto na balança]]
 - [[modulos/acougue-desmembramento|🥩 Açougue — Desmembramento (⚠️ rendimentos NÃO sincronizam com o ERP)]]
 - [[modulos/dvr-cameras|DVR e Câmeras]]
 - [[modulos/rupturas|Rupturas]]
