@@ -78,6 +78,24 @@ como saber na hora.
   confiança alta → é o relatório de divergência. O botão `Corrigir` da tela
   Fotos da Balança fecha o ciclo.
 
+### Caso real confirmado (31/08/2026)
+
+Bipagem `AC BOV C2 (PRD) OSSOBUCO`, 1.472 kg, 18:24:43 — e na foto está **salsicha
+alaranjada**. O funcionário pesou salsicha e digitou o código do ossobuco. Achado pelo
+Roberto olhando a tela, antes de existir modelo nenhum.
+
+**Por que este caso importa:** ossobuco é `PROTEINA BOVINA`, salsicha é `EMBUTIDOS` —
+**grupos diferentes**. Então o primeiro modelo, que só sabe grupo, já pega este erro.
+E é onde dói: o preço por quilo dos dois não é o mesmo.
+
+**O limite, no mesmo fôlego:** pesar patinho e digitar acém não atravessa grupo (os dois
+são `PROTEINA BOVINA`) — o modelo de grupo passa batido. Esse tipo só no segundo treino,
+e o par acém-moído / patinho-moído provavelmente nunca.
+
+⚠️ Em foto com rótulo errado o certo é **`Corrigir`**, não `Descartar`: corrigir devolve a
+foto ao grupo certo e ela ainda treina; descartar joga fora foto boa. Mesmo clique, dobro
+do resultado.
+
 ## Ordem do trabalho (por que nesta ordem)
 
 1. **Grupo primeiro** — sai de graça, zero clique do Roberto, porque a bipagem dá o
