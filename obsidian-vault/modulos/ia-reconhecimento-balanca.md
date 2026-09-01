@@ -134,6 +134,51 @@ O mesmo código pode ser as duas coisas: `00003773 AC BOV C2 ACEM` apareceu com
 17 fotos `moído` e 2 `fatiado`. É a razão de existir o eixo apresentação em
 [[cadastro-imagens-produto]].
 
+## Primeiro treino — 31/08/2026 — 61,7%
+
+`yolo11n-cls` (ImageNet) afinado em 250 recortes. 4 grupos; `ROTISSERIA` sem
+nenhuma pesagem coletada (só vende fim de semana) e `SALGADOS E DEFUMADOS`
+fora por ter 10 no treino e 0 na prova.
+
+Parou sozinha na época 33 (melhor foi a 14). Chute no maior grupo = 33,3%.
+
+| grupo | acerto |
+|---|---|
+| PROTEINA AVE | 67% |
+| PROTEINA SUINA | 61% |
+| PROTEINA BOVINA | 60% |
+| EMBUTIDOS | 57% |
+
+Nenhum grupo ficou para trás — a média não está escondendo um grupo morto.
+
+### ⚠️ O problema não é o acerto, é a CONFIANÇA
+
+**19 dos 23 erros foram cometidos com confiança acima de 70%**, vários com 100%
+(era AVE, disse BOVINA, 100%). A confiança média fica em 82-91% enquanto o
+acerto real é 61%.
+
+**Consequência prática:** a confiança **não serve de filtro**. O plano era
+"aponta só quando estiver certa" — e ela está sempre certa, inclusive quando
+erra. Modelo assim **não pode apontar pessoa**: acusar com 100% de convicção e
+estar errado queima a ferramenta de uma vez, e não tem alarme para "a IA ficou
+convincente demais".
+
+⚠️ Ao avaliar o próximo treino, olhar **confiança nos erros** antes de olhar
+acerto. Um modelo com 70% de acerto e dúvida honesta vale mais que um com 80% e
+convicção cega.
+
+### Erro espalhado, não concentrado
+
+Eu tinha combinado a leitura: erro concentrado (bovina × suína) seria falta de
+foto; espalhado seria caminho errado. **Ficou no meio** — espalhado por todos os
+pares, mas bem acima do chute. Não é motivo para trocar de rumo; é sintoma de
+250 imagens. A partir da época 6 o erro de treino caía e o de validação subia:
+decorou.
+
+**Decisão:** não mudar nada. A coleta segue automática; retreinar quando o
+material triplicar e comparar. Se subir para ~75% **e a confiança acompanhar o
+acerto**, o caminho estava certo.
+
 ## Teto conhecido
 
 Acém moído e `AC BOV C2 CARNE MOIDA BDJ` **são visualmente a mesma coisa**. Nenhum modelo
