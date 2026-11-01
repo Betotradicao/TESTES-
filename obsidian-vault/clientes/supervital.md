@@ -12,6 +12,14 @@
 ## 🔌 ERP
 - Usa [[../arquitetura/oracle-intersolid|Oracle Intersolid]]
 - Schema: `INTERSOLID`
+- ⚠️ **Sem túnel SSH** — vai **direto no IP público** da loja via DDNS do UTM:
+  `smvital.o3utm.com.br:1521` → `177.112.204.68` (campo *Host Nuvem*).
+  `TUNNEL_ORACLE_PORT` está **vazio** no backend — é assim mesmo, não é defeito.
+  → Por isso o botão **"Reconectar Túnel"** da sidebar **não serve** para este cliente.
+- Host Local (rede interna, só em dev): `10.6.1.100`
+- Se a loja ficar sem link, a VPS perde o Oracle e **não há o que fazer do nosso lado**:
+  checar ping + portas 1521/443/80/22 contra o IP público confirma em 10 segundos.
+  → [[../bugs-resolvidos/2026-09-21-teste-falho-desliga-a-integracao-inteira]]
 
 ## ⭐ Particularidades
 - **Multi-loja** (diferente de [[tradicao|Tradição]] que é loja única)
@@ -29,6 +37,8 @@ Cada cliente é configurado diferente: Tradição usa 5, SuperVital e Nunes usam
 ## 🐛 Bugs já resolvidos neste cliente
 - [[../bugs-resolvidos/2026-04-15-tiposSaida-gestao|NF Transferência contaminando valor na Gestão Inteligente]]
 - [[../bugs-resolvidos/2026-04-15-dif-anual-itens|Dif Anual em branco nos itens da Compra x Venda]]
+- [[../bugs-resolvidos/2026-09-21-teste-falho-desliga-a-integracao-inteira|🚨 Clicar em "Testar" com o link fora DESLIGA a integração e ela não volta sozinha]]
+- [[../bugs-resolvidos/2026-09-22-tela-zerada-era-o-erp-da-loja-parado|🔍 Tela zerada: o ERP da loja parou de gravar venda (22/09) — confirmar antes de caçar bug]]
 
 ## 🚀 Deploy
 

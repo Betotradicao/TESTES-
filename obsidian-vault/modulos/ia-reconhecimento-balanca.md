@@ -179,6 +179,193 @@ decorou.
 material triplicar e comparar. Se subir para ~75% **e a confiança acompanhar o
 acerto**, o caminho estava certo.
 
+## 02 e 03/09 — cinco treinos, e o numero so caiu
+
+| treino | recortes | grupos | acerto |
+|---|---|---|---|
+| 31/08 `balanca-grupo` | 250 | 4 | 61,7% |
+| `bons` / `bons2` | 1.085 | 5 | 55,2% |
+| `bons3` | 1.877 | 5 | 50,3% |
+| `bons4` | 1.229 | 5 | 48,2% |
+| `bons5` | 1.229 | 5 | 48,8% |
+
+⚠️ **Nao se comparam.** A regua mudou tres vezes no meio: 4 para 5 grupos,
+rotulo sujo para limpo, validacao sorteada para validacao por data. O que da
+para afirmar e so isto: com cinco vezes mais foto, nao subiu.
+
+E a licao maior: **cinco treinos seguidos sem mexer no rotulo.** O erro estava
+todo antes do treino, e nenhum ajuste de epoca, de tamanho ou de aumento de
+imagem ia achar.
+
+## 05/09/2026 — tres defeitos, todos no ROTULO, nenhum na IA
+
+Antes de treinar de novo, medi por que nao subia. Os tres achados sao de
+preparo de dado; o modelo nunca foi o problema.
+
+### 1. A regra de grupo tinha duas copias, e elas divergiram
+
+`backend/src/utils/grupo-produto.ts` classificava `EMBUTIDOS`.
+`baixar-fotos.py`, que rotula o treino, **nao tinha essa linha**.
+
+Resultado: **583 fotos** de linguica, salsicha, calabresa e bacon eram
+descartadas antes do treino. A IA nunca viu um embutido — e a tela de Palpites,
+que usa a regra completa, cobrava dela justamente esse grupo. Media no dia
+05/09: **acertava 3 de 101**.
+
+⚠️ Os dois arquivos ja traziam, em maiusculas, o aviso *"tem de ser IDENTICA"*.
+Ninguem errou nada: as copias foram editadas em dias diferentes, por motivos
+diferentes. **Escrever o aviso nao impediu.** Agora existe
+`ferramentas/conferir-regra-grupo.js`, que sai com erro se divergirem — e que
+foi testado quebrando de proposito, porque conferidor que so sabe dizer "ok"
+nao vale nada.
+
+Calabresa e bacon entram em `EMBUTIDOS` — decisao do Roberto em 05/09/2026.
+
+⚠️ `[SEM CADASTRO] PLU 03773` e o mesmo produto que `00003773 AC BOV C2 ACEM`:
+o PLU vem sem o preenchimento de zeros. Sem normalizar o codigo, 96 fotos boas
+viravam lixo por formatacao.
+
+### 2. A regra dos 20 segundos nunca foi escrita
+
+Decidida em 31/08 (a foto pode ser da bipagem vizinha), **nunca chegou ao
+codigo**. Os treinos de 02 e 03/09 rodaram todos com esse ruido dentro. Medido
+agora sobre 3.315 fotos: **928 (28%)** tem bipagem vizinha a menos de 20s.
+
+⚠️ Nao e o mesmo ruido do prato: o filtro de prato resolve duas pessoas em duas
+balancas (confusao no ESPACO), a regra dos 20s resolve duas bipagens seguidas na
+mesma balanca (confusao no TEMPO). Consertar um nao conserta o outro — e foi
+por isso que o `bons4` (com o filtro de prato) nao subiu.
+
+### 3. O filtro de prato vazio estava fora de calibre — o pior dos tres
+
+O metodo era "distancia da mediana", isto e, diferenca de COR. Duas falhas:
+
+**Media a borda junto.** O recorte pega o vao onde o operador passa o braco, e
+movimento ali levanta a diferenca sem ter nada no prato. Olhando folha de
+contato por faixa: pelo recorte inteiro **o prato ainda estava VAZIO ate
+distancia 26**, e o corte era **13**. Cerca de **1.600 recortes de inox limpo
+entraram no treino rotulados como carne** — exatamente o veneno que esta nota
+manda evitar, na dose maxima.
+
+**Corta produto PALIDO.** Passavam 38% das fotos de `PROTEINA AVE` contra 18%
+das de `EMBUTIDOS`: salsicha e linguica branca sao da cor do inox. O grupo que
+ja estava morto morria de novo, agora no filtro.
+
+**Agora o prato cheio se acha pela TEXTURA**, nao pela cor: prato vazio e chapa
+LISA; saco amassado, salsicha e carne tem dobra, borda e relevo. Nao tem
+preferencia por cor, e dispensa a mediana. Corte em **3.0**, escolhido OLHANDO a
+folha de contato.
+
+⚠️ Conferido que o filtro nao e injusto: dos recortes de `EMBUTIDOS` que ele
+rejeita, **24 de 24 conferidos eram prato realmente vazio**. O embutido aparece
+menos no prato mesmo — industrializado, o operador manuseia mais rapido.
+
+### O tamanho real do material
+
+Depois de tudo limpo, das **3.315 fotos** sobram **~810 recortes**. Em **78%
+delas o prato esta vazio no instante fotografado**. Nao e desperdicio do
+filtro: e o que existe.
+
+### ⚠️ A janela da coleta esta TARDE — e isso rende mais que treinar
+
+A coleta guarda quadros de 16s a 2s antes da bipagem. Medido em 05/09/2026, por
+posicao do quadro:
+
+| quadro | quando | com produto no prato |
+|---|---|---|
+| `-0` | ~16s antes | **35%** |
+| `-1` | ~10s antes | 28% |
+| `-2` | ~4s antes | **5%** |
+
+Cai sem parar conforme chega perto da bipagem. Quando a etiqueta e bipada a
+carne ja foi ensacada ha muito — **a janela precisa ir mais para tras**. Mexer
+em `INICIO_S` (`balanca.service.ts`) rende mais material que qualquer ajuste de
+treino, e nada no treino compensa foto de prato vazio.
+
+### A regua, agora travada
+
+Validacao = as fotos do **dia 05/09 (ids 4227 a 5468)**, dia que nenhum modelo
+treinou. Material novo entra so no treino, e a janela **nao se mexe** — sem isso
+dois treinos nao se comparam, que foi o que aconteceu em 03/09.
+
+Medido nessa regua, o modelo que esta em producao (`bons5`, de 03/09):
+
+| | acerto |
+|---|---|
+| geral | **39,3%** (chute no maior grupo = 29,3%) |
+| PROTEINA AVE | 109/152 — 72% |
+| PROTEINA BOVINA | 83/174 — 48% |
+| PROTEINA SUINA | 38/166 — 23% |
+| EMBUTIDOS | **3/101 — 3%** |
+
+⚠️ A confianca, que era a doenca de 31/08, **sarou**: os erros com mais de 70%
+de certeza cairam de 83% para 9%. Ela parou de errar convicta. Trocou um defeito
+grave (acusar com 100% e estar errada) por um defeito honesto (nao saber).
+
+### O caminho novo, sem senha
+
+`baixar-fotos.py` entrava pela API do RADAR com usuario e senha na linha de
+comando, e nao dava o leitor nem a vizinha. Agora:
+
+`exportar-fotos.sql` (postgres da VPS) -> `montar-indice.py` (o grupo) ->
+`preparar-balanca.py` -> `treinar-balanca.py` -> `conferir-confianca.py`.
+
+As imagens vem do MinIO por `mc`, com a credencial do proprio ambiente do
+container — nao passa por linha de comando nem por log.
+
+## Treino de 05/09/2026 — 62,7%, e o dilema
+
+562 recortes de treino, 249 de validacao (o dia 05/09), 4 grupos. Parou sozinha
+na epoca 46; a melhor foi a 26.
+
+| | modelo de 03/09 | modelo de 05/09 |
+|---|---|---|
+| **acerto** | 50,6% | **62,7%** |
+| PROTEINA AVE | — | 85% |
+| PROTEINA SUINA | — | 74% |
+| PROTEINA BOVINA | — | 28% |
+| **EMBUTIDOS** | **3%** | **28%** |
+| **separacao da confianca** | **68,2%** | 62,2% |
+
+Chute no maior grupo = 38,6%. O embutido saiu do zero.
+
+⚠️ **O acerto subiu e a confianca piorou.** Os erros com mais de 70% de certeza
+foram de 18% para **71%**; a confianca media e 86,7% acertando contra 79,5%
+errando. A doenca de 31/08 voltou — com menos imagem (562 contra 1.229), o
+modelo decora e responde com certeza tambem quando erra.
+
+### SEPARACAO — a medida que nao se engana com o nivel
+
+"Erros acima de 70%" e "confianca media" mudam de valor quando o treino baixa
+TODAS as confiancas de uma vez: o modelo parece mais humilde sem separar nada
+melhor. **Separacao** pergunta o que interessa: *pegando um acerto e um erro ao
+acaso, quantas vezes o acerto vem com mais confianca?* 50% = a confianca nao
+vale nada; 100% = da para cortar por ela.
+
+Testados tres sinais no modelo novo — todos empatam, entao nao ha ganho facil:
+
+| sinal | separacao |
+|---|---|
+| probabilidade do primeiro | 62,2% |
+| margem para o segundo | 61,9% |
+| entropia da resposta | 62,7% |
+
+Cortando nos 10% mais confiantes o acerto vai a 79,2%; nos 20%, 73,5%.
+
+⚠️ **Conclusao: ainda NAO pode apontar pessoa.** Serve para ordenar o que o
+Roberto olha primeiro, nao para acusar. Acusar com 79% de acerto queima a
+ferramenta na primeira vez que erra com um funcionario junto.
+
+### ⚠️ `label_smoothing` nao existe mais — e falha CALADO
+
+Era o caminho obvio contra a conviccao cega. Nesta versao do ultralytics esta
+descontinuado e e **ignorado em silencio**: o treino com 0.1 deu exatamente os
+mesmos numeros do treino sem ele nas quatro primeiras epocas, e so o aviso no
+log denunciou. Foi por comparar os numeros que se percebeu.
+
+**Licao:** parametro novo que nao muda o resultado nao "funcionou pouco" — ele
+provavelmente nao rodou. Conferir antes de concluir qualquer coisa.
+
 ## Teto conhecido
 
 Acém moído e `AC BOV C2 CARNE MOIDA BDJ` **são visualmente a mesma coisa**. Nenhum modelo

@@ -49,6 +49,7 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[modulos/gestao-inteligente|Gestão Inteligente]]
 - [[modulos/compra-venda|Compra x Venda]]
 - [[modulos/analise-preco|Análise de Preço / Margem / Estoque]]
+- [[modulos/oferta-combo-valor-fechado|🔟 Oferta de valor fechado (Quinta do 10) — a conta e as armadilhas]]
 - [[modulos/financeiro|Financeiro]]
 
 ### Marketing no Radar
@@ -70,6 +71,13 @@ Atalho: **Ctrl + G** ou clica no ícone de 3 bolinhas ligadas na barra lateral e
 - [[modulos/metas-rankings|Metas e Rankings]]
 
 ## 🐛 Bugs Resolvidos / Features Recentes
+
+### Setembro 2026
+- [[bugs-resolvidos/2026-09-22-sells-sync-so-olha-hoje-dia-perdido-nunca-volta|🕳️ Sells Sync só olha HOJE — dia que a frente de caixa atrasa fica vazio pra sempre (⛔ decidido 22/09: deixar como está)]]
+- [[bugs-resolvidos/2026-09-22-tela-zerada-era-o-erp-da-loja-parado|🔍 Tela zerada não é bug do Radar até perguntar ao Oracle qual foi a última venda]]
+- [[bugs-resolvidos/2026-09-21-teste-falho-desliga-a-integracao-inteira|🚨 Clicar em "Testar" com o link do cliente fora DESLIGA a integração inteira — e ela não volta sozinha]]
+- [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve|🚨 O backend para de abrir conexao NOVA — 4x (22/08, 07/09, 15/09). Perícia de 15/09 derrubou a hipótese do threadpool]]
+- [[bugs-resolvidos/2026-09-07-login-autofill-chrome-senha-vazia|🔐 Autofill do Chrome x input controlado — a senha pode ir VAZIA no login (latente, corrigido no codigo)]]
 
 ### Agosto 2026
 - [[bugs-resolvidos/2026-08-20-bipagem-com-desconto-nunca-casava|🌟🚨 Venda com desconto NUNCA casava — todo desconto virava falso alarme de furto]]
