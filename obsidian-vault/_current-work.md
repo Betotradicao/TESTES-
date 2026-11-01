@@ -1,56 +1,47 @@
 # Onde paramos
 
-## Feito hoje (31/08/2026)
-- **Primeiro treino da IA da balança: 61,7%** (chute = 33%). O defeito não é o
-  acerto, é a **confiança**: 19 dos 23 erros com >70% de certeza. Detalhes e
-  decisões em [[modulos/ia-reconhecimento-balanca]].
-- `Corrigir` da tela Fotos da Balança agora **escolhe do cadastro** (novo
-  componente `EscolherProduto`), gravando `cod_produto`. Antes era texto livre e
-  a foto corrigida se perdia para o treino.
-- Pastilha de produto passou a contar **dentro da situação aberta**, e a tela
-  solta o produto quando ele esgota.
-- Apagados os 542 quadros inteiros do disco local (apareciam funcionários).
-  Ficaram só os 310 recortes de prato. Original continua no MinIO.
+## 01/11/2026 — Tradição caído de novo (6ª vez) ✅ restart 21:37 UTC, 0 falhas
 
-## Rodando agora — RECUPERAÇÃO DAS FOTOS ANTIGAS
-Ideia do Roberto: as bipagens existem desde 27/08, a coleta só começou em 30/08,
-e o gravador tem imagem até 20/08. Logo, **1.424 bipagens sem foto são
-recuperáveis**.
+- ✅ Sensor "manco" do watchdog **montado e testado** (5 cenários ok) →
+  [[arquitetura/radar-watchdog]] · `InstaladorVPS/radar-watchdog/`
+- ✅ **Instalado** 01/11 18:58 BRT (backup `.bak-2026-11-01`), ciclo real rodou limpo
+- Próxima queda: conferir `/opt/radar-watchdog/watchdog.log` — deve ter `RESTART ... manco`
+- Não commitado (`InstaladorVPS/radar-watchdog/` + vault).
 
-⚠️ O cron nunca acharia: `balanca.service.ts` usa `order DESC, take: 200`, e com
-~500 bipagens/dia as 200 mais recentes são todas de hoje. O atraso é invisível
-para ele.
+## 09/10/2026 — Tradição caído (5ª vez do bug "não abre conexão nova") ✅ resolvido
 
-Rodando em `/root/backfill-balanca.sh` na VPS (manual, em lotes de 40, para
-sozinho ao acabar ou após 2 lotes vazios). Log em `/root/backfill-balanca.log`.
-Ritmo medido: **15,6s por bipagem**, ~6h no total.
+- Perícia + restart 15:34 UTC, 0 falhas depois →
+  [[bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve]]
+- Em aberto (decisão do Roberto): sensor de falha de cron no watchdog / `UV_THREADPOOL_SIZE=16`
 
-Confirmado que as fotos antigas servem: a câmera não saiu do lugar entre 27 e
-31/08 — os retângulos dos pratos caem certo em todos os dias.
+## 22/09/2026 — SuperVital: encerrado do nosso lado ✅
 
-## Próximo passo (meu, quando o backfill acabar)
-1. Retreinar com tudo (~1.200-1.500 recortes, contra 250)
-2. Comparar **lado a lado** com os 61,7%, olhando **confiança nos erros** primeiro
-3. Descartar os recortes de fotos com **os dois pratos cheios** (4% das fotos —
-   medido; um dos dois está errado e não dá para saber qual)
+**Conexão curada.** O *Testar* da tela resolveu: `status=active`, mapeamentos carregados,
+Gestão Inteligente rodando com as 2 lojas, `ORA-00904` sumiu.
 
-## Fila depois disso
-- **Tela de desenhar regiões** sobre um quadro da câmera. Serve para o prato da
-  balança (hoje chumbado no código, quebra em cliente novo) e para o mapa de
-  bandejas do balcão. Única coisa que não depende do treino.
-- Máquina de treino central + fila + botão "usar este modelo" — só se o próximo
-  número justificar. Treinar na VPS do cliente está **fora**: 2 núcleos.
-- Ideia do balcão (mão entra na bandeja X): mais fácil e mais confiável que
-  reconhecer corte. ⚠️ Precisa de câmera **de frente** — a do teto não vê os 3
-  andares, o de cima tapa os de baixo. Hoje só existem 2 câmeras no açougue
-  (`Canal 15 BALANCA`, `Canal 16 FACIAL`).
+**A tela zerada do dia NÃO era nossa:** o Oracle da loja não recebe venda desde 20/09 porque
+a **frente de caixa (sistema de terceiro) parou de enviar para o Intersolid**. Roberto já
+conhece o comportamento. Volta sozinho quando a loja religar o envio.
 
-## Pendências antigas
-- Trocar a senha do DVR (`beto3107@` foi exposta em chat)
-- Apagar o lixo dos meus testes no banco facial (`ZZ CONFERINDO FOTO` em
-  ASSALTOS, `uid 31` em FURTOS)
-- Habilitar gravação nos caixas; reinstalar o leitor na segunda máquina
-- C: com ~6 GB livres — treino roda em D:
+**Bug nosso encontrado no caminho, e parado por decisão:** o Sells Sync só sincroniza a data
+de HOJE, então o dia que a frente de caixa atrasa fica vazio na `sells` para sempre.
+⛔ **Roberto decidiu em 22/09: deixar como está.** Não re-oferecer.
 
-## Estado do código
-`radar360` em `f9bc92f`, produção com `index-CYMNdWDf.js`, containers saudáveis.
+Notas desta sequência:
+- [[bugs-resolvidos/2026-09-21-teste-falho-desliga-a-integracao-inteira]] — `status` travado (Salvar ≠ Testar)
+- [[bugs-resolvidos/2026-09-22-tela-zerada-era-o-erp-da-loja-parado]] — como provar em 1 consulta
+- [[bugs-resolvidos/2026-09-22-sells-sync-so-olha-hoje-dia-perdido-nunca-volta]] — ⛔ parado
+- Script novo: `scripts/ultima-venda-oracle.js`
+
+⚠️ **Não commitado** — nada foi enviado. Mudanças locais: as notas do vault + o script.
+
+## ⏳ Ainda aberto (de antes)
+
+- **Festival do Suíno (Tradição)** — pendente confirmar preço 9,99 + lista, zerar o PLU 6927
+  (OSSO/SEBO) no Intersolid e conferir o PLU 14427
+- **Quinta do 10** — conferir os itens em amarelo (desconto >40% = custo velho provável)
+- **`Login.jsx`** com a correção do autofill, não commitada — decidir se entra ou reverte
+  → [[bugs-resolvidos/2026-09-07-login-autofill-chrome-senha-vazia]]
+- **IA da balança** parada em 62,7%; próximo passo é alargar a janela (`INICIO_S` em
+  `balanca.service.ts`) → [[modulos/ia-reconhecimento-balanca]]
+- **Tradição / watchdog** — Roberto decidiu em 15/09: não mexer, restart manual

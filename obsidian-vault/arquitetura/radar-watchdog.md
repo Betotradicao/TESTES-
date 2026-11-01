@@ -104,6 +104,37 @@ Ver [[../bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle]].
 mas o nginx do container só escuta IPv4 e `localhost` resolve `::1`. Fix = `listen [::]:3004;`
 no `default.conf`. Só depois disso frontend pode entrar na lista.
 
+## 🦵 Sensor 2 — backend "manco" (✅ instalado 01/11/2026 18:58 BRT)
+
+Backup do script antigo: `/opt/radar-watchdog/watchdog.sh.bak-2026-11-01`.
+**Desligar só o sensor 2:** apagar/comentar `/opt/radar-watchdog/manco.list`.
+**Voltar tudo:** `cp watchdog.sh.bak-2026-11-01 watchdog.sh`.
+
+O sensor `unhealthy` é **cego por construção** ao bug do
+[[../bugs-resolvidos/2026-08-22-backend-nao-abre-conexao-nova-watchdog-nao-ve|backend que não abre conexão nova]]
+(6 quedas de 4h a 21h, container `healthy` o tempo todo). Segundo sensor, com lista
+branca **própria** (`manco.list`, só `prevencao-tradicao-backend`):
+
+| Regra | Valor | Por quê |
+|---|---|---|
+| Padrão no log | `Connection terminated due to connection timeout` | é do `pg` (Postgres) — queda de Oracle/IMAP **não** conta |
+| Limite | **30+ em 10 min** **e** **5+ nos últimos 3 min** | saudável = 0, manco ≈ 70/10min; o 2º corte exige que *ainda* esteja falhando |
+| Janela começa no **boot** | `max(agora-600, StartedAt)` | sem isso, logo após o restart o log antigo re-acusaria |
+| `--since` em **epoch** | não ISO | VPS em UTC-3: ISO sem `Z` = futuro = 0 falso |
+| Postgres do cliente doente | **SKIP** | se o banco caiu, reiniciar backend não cura |
+| Confirmação / cooldown / **disjuntor** / 1 por ciclo | os mesmos | histórico `.hist` **compartilhado** entre os 2 sensores |
+
+Tempo até agir num episódio real: ~5 min pra bater 30 + 1 ciclo de confirmação ≈ **7–9 min**.
+Custo medido: **0,58 s de CPU/ciclo** (era 0,11) — ainda com `Nice=15`/idle.
+
+Código: `InstaladorVPS/radar-watchdog/watchdog.sh` (agora versionado — antes só existia
+na VPS) + `teste-manco.sh` (5 cenários com containers `wdtest-*` descartáveis: AGUARDA →
+RESTART → COOLDOWN, SKIP com Postgres ruim, saudável ignorado, disjuntor, prod em DRY_RUN
+sem ação). Todos passaram em 01/11.
+
+**Instalar** = copiar o script por cima de `/opt/radar-watchdog/watchdog.sh` + criar
+`/opt/radar-watchdog/manco.list`. Sem `manco.list` o sensor 2 simplesmente não roda.
+
 ## 🔗 Relacionados
 - [[../bugs-resolvidos/2026-07-25-backend-tradicao-congelou-queda-oracle|O incidente que motivou]]
 - [[estrutura-vps|Estrutura da VPS 46]]

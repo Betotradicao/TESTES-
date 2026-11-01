@@ -1,0 +1,40 @@
+﻿=== DATA: Tue Sep 15 14:37:56 UTC 2026
+
+=== PID do node (namespace interno)
+pid=7
+
+=== THREADS do processo (ps -T)
+
+=== WCHAN de cada thread  (ep_poll=saudavel | futex_wait_queue=bloqueada)
+  tid=10  nome=node  wchan=futex_wait_queue
+  tid=11  nome=node  wchan=futex_wait_queue
+  tid=12  nome=node  wchan=futex_wait_queue
+  tid=13  nome=node  wchan=futex_wait_queue
+  tid=14  nome=node  wchan=futex_wait_queue
+  tid=15  nome=node  wchan=futex_wait_queue
+  tid=16  nome=node  wchan=futex_wait_queue
+  tid=17  nome=node  wchan=futex_wait_queue
+  tid=18  nome=node  wchan=futex_wait_queue
+  tid=36  nome=node  wchan=futex_wait_queue
+  tid=7  nome=node  wchan=ep_poll
+  tid=9  nome=node  wchan=ep_poll
+
+=== CONTAGEM de threads
+12
+
+=== DESCRITORES DE ARQUIVO abertos (limite x uso)
+usados: 27
+Max open files            524288               524288               files     
+
+=== SOCKETS por estado
+      6 06
+      5 01
+      2 0A
+      1 st
+
+=== UV_THREADPOOL_SIZE
+  (nao definido -> padrao 4)
+
+=== TESTE: processo NOVO consegue resolver DNS e conectar no Postgres?
+  dns postgres: 172.20.0.3 20ms
+  tcp 5432: OK 6ms
